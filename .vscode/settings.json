@@ -1,0 +1,15 @@
+{
+    "typescript.validate.enable": true,
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "files.exclude": {
+        "**/node_modules/**": true
+    },
+    "search.exclude": {
+        "**/node_modules": true
+    },
+    "typescript.disableAutomaticTypeAcquisition": false,
+    "javascript.validate.enable": true,
+    "typescript.tsserver.maxTsServerMemory": 4096,
+    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+    "javascript.preferences.importModuleSpecifierEnding": "minimal"
+}
