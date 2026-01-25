@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { View, ActivityIndicator } from "react-native";
+import { isLoggedIn } from "./src/services/authService";
 
 // Import Auth screens
 import LoginScreen from "./src/screens/auth/LoginScreen";
@@ -42,11 +44,37 @@ import MainTabNavigator from "./src/navigation/MainTabNavigator";
 const Stack = createStackNavigator();
 
 export default function App() {
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [userLoggedIn, setUserLoggedIn] = useState(false);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const loggedIn = await isLoggedIn();
+      setUserLoggedIn(loggedIn);
+    } catch (error) {
+      console.error("Auth check error:", error);
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
+  if (isCheckingAuth) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#2E86AB" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
         <Stack.Navigator
-          initialRouteName="Login"
+          initialRouteName={userLoggedIn ? "MainApp" : "Login"}
           screenOptions={{
             headerShown: false,
           }}

@@ -7,18 +7,53 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { login } from "../../services/authService";
 
 export default function LoginScreen({ navigation }) {
-  const [emailOrPhone, setEmailOrPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    // Mock login - navigate to main app
-    navigation.replace("MainApp");
+  const handleLogin = async () => {
+    // Validation
+    if (!email || !password) {
+      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ email và mật khẩu");
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Lỗi", "Email không hợp lệ");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await login({ email, password });
+
+      if (result.success) {
+        Alert.alert("Thành công", "Đăng nhập thành công!", [
+          {
+            text: "OK",
+            onPress: () => navigation.replace("MainApp"),
+          },
+        ]);
+      } else {
+        Alert.alert("Đăng nhập thất bại", result.message);
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,17 +85,18 @@ export default function LoginScreen({ navigation }) {
             Đăng Nhập
           </Text>
 
-          {/* Email/Phone Input */}
+          {/* Email Input */}
           <View className="flex-row items-center border border-border rounded-xl px-4 py-3 mb-4 bg-background">
             <Ionicons name="mail-outline" size={20} color="#999999" />
             <TextInput
               className="flex-1 ml-3 text-base text-text"
-              placeholder="Email hoặc số điện thoại"
-              value={emailOrPhone}
-              onChangeText={setEmailOrPhone}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               placeholderTextColor="#999999"
+              editable={!loading}
             />
           </View>
 
@@ -74,6 +110,7 @@ export default function LoginScreen({ navigation }) {
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               placeholderTextColor="#999999"
+              editable={!loading}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
@@ -98,8 +135,14 @@ export default function LoginScreen({ navigation }) {
           <TouchableOpacity
             className="bg-primary rounded-xl py-4 items-center shadow-lg"
             onPress={handleLogin}
+            disabled={loading}
+            style={{ opacity: loading ? 0.7 : 1 }}
           >
-            <Text className="text-white text-base font-bold">Đăng Nhập</Text>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text className="text-white text-base font-bold">Đăng Nhập</Text>
+            )}
           </TouchableOpacity>
 
           {/* Divider */}

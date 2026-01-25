@@ -7,24 +7,95 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { register } from "../../services/authService";
 
 export default function RegisterScreen({ navigation }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
-    // Mock registration
-    alert("Đăng ký thành công!");
-    navigation.navigate("Login");
+  const handleRegister = async () => {
+    // Validation
+    if (
+      !fullName ||
+      !email ||
+      !phone ||
+      !password ||
+      !confirmPassword ||
+      !address
+    ) {
+      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin");
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Lỗi", "Email không hợp lệ");
+      return;
+    }
+
+    // Phone validation (Vietnamese phone number)
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(phone)) {
+      Alert.alert("Lỗi", "Số điện thoại phải có 10 chữ số");
+      return;
+    }
+
+    // Password validation
+    if (password.length < 8) {
+      Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 8 ký tự");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Lỗi", "Mật khẩu xác nhận không khớp");
+      return;
+    }
+
+    if (!agreeTerms) {
+      Alert.alert("Lỗi", "Vui lòng đồng ý với điều khoản sử dụng");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await register({
+        fullName,
+        email,
+        phone,
+        password,
+        address,
+      });
+
+      if (result.success) {
+        Alert.alert("Thành công", "Đăng ký tài khoản thành công!", [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("Login"),
+          },
+        ]);
+      } else {
+        Alert.alert("Đăng ký thất bại", result.message);
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,6 +136,7 @@ export default function RegisterScreen({ navigation }) {
               value={fullName}
               onChangeText={setFullName}
               autoCapitalize="words"
+              editable={!loading}
             />
           </View>
 
@@ -79,6 +151,7 @@ export default function RegisterScreen({ navigation }) {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={!loading}
             />
           </View>
 
@@ -87,11 +160,26 @@ export default function RegisterScreen({ navigation }) {
             <Ionicons name="call-outline" size={20} color="#999999" />
             <TextInput
               className="flex-1 ml-3 text-base text-text"
-              placeholder="Số điện thoại"
+              placeholder="Số điện thoại (10 chữ số)"
               placeholderTextColor="#999999"
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
+              maxLength={10}
+              editable={!loading}
+            />
+          </View>
+
+          {/* Address Input */}
+          <View className="flex-row items-center border border-border rounded-xl px-4 py-3 mb-4 bg-background">
+            <Ionicons name="location-outline" size={20} color="#999999" />
+            <TextInput
+              className="flex-1 ml-3 text-base text-text"
+              placeholder="Địa chỉ"
+              placeholderTextColor="#999999"
+              value={address}
+              onChangeText={setAddress}
+              editable={!loading}
             />
           </View>
 
@@ -100,11 +188,12 @@ export default function RegisterScreen({ navigation }) {
             <Ionicons name="lock-closed-outline" size={20} color="#999999" />
             <TextInput
               className="flex-1 ml-3 text-base text-text"
-              placeholder="Mật khẩu"
+              placeholder="Mật khẩu (tối thiểu 8 ký tự)"
               placeholderTextColor="#999999"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              editable={!loading}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
@@ -125,6 +214,7 @@ export default function RegisterScreen({ navigation }) {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
+              editable={!loading}
             />
             <TouchableOpacity
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -166,12 +256,16 @@ export default function RegisterScreen({ navigation }) {
           {/* Register Button */}
           <TouchableOpacity
             className={`rounded-xl py-4 items-center shadow-lg ${
-              agreeTerms ? "bg-primary" : "bg-textGray opacity-50"
+              agreeTerms && !loading ? "bg-primary" : "bg-textGray opacity-50"
             }`}
             onPress={handleRegister}
-            disabled={!agreeTerms}
+            disabled={!agreeTerms || loading}
           >
-            <Text className="text-white text-base font-bold">Đăng Ký</Text>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text className="text-white text-base font-bold">Đăng Ký</Text>
+            )}
           </TouchableOpacity>
 
           {/* Divider */}

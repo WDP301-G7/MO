@@ -1,7 +1,15 @@
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Alert,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { logout } from "../../services/authService";
 
 export default function ProfileScreen({ navigation }) {
   const user = {
@@ -139,11 +147,24 @@ export default function ProfileScreen({ navigation }) {
     },
   ];
 
-  const handleLogout = () => {
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "Login" }],
-    });
+  const handleLogout = async () => {
+    Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
+      {
+        text: "Hủy",
+        style: "cancel",
+      },
+      {
+        text: "Đăng xuất",
+        style: "destructive",
+        onPress: async () => {
+          await logout();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Login" }],
+          });
+        },
+      },
+    ]);
   };
 
   return (
