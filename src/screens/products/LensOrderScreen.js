@@ -19,8 +19,6 @@ export default function LensOrderScreen({ navigation, route }) {
     selectedFrame?.id || null,
   );
   const [requireAppointment, setRequireAppointment] = useState(false);
-  const [selectedStore, setSelectedStore] = useState(1);
-  const [appointmentDate, setAppointmentDate] = useState(null);
 
   const stores = [
     {
@@ -29,15 +27,6 @@ export default function LensOrderScreen({ navigation, route }) {
       address: "123 Nguyễn Huệ, Quận 1, TP.HCM",
       phone: "028 1234 5678",
     },
-  ];
-
-  const appointmentSlots = [
-    { id: 1, date: "20/01/2026", time: "09:00 - 10:00", available: true },
-    { id: 2, date: "20/01/2026", time: "14:00 - 15:00", available: true },
-    { id: 3, date: "21/01/2026", time: "09:00 - 10:00", available: false },
-    { id: 4, date: "21/01/2026", time: "14:00 - 15:00", available: true },
-    { id: 5, date: "22/01/2026", time: "10:00 - 11:00", available: true },
-    { id: 6, date: "22/01/2026", time: "15:00 - 16:00", available: true },
   ];
 
   const lensTypes = [
@@ -168,12 +157,6 @@ export default function LensOrderScreen({ navigation, route }) {
       }
       setStep(2);
     } else if (step === 2) {
-      if (requireAppointment) {
-        if (!appointmentDate) {
-          Alert.alert("Thông báo", "Vui lòng chọn lịch hẹn");
-          return;
-        }
-      }
       Alert.alert(
         "Xác nhận đơn hàng",
         `Bạn sẽ thanh toán ${getTotalAmount().toLocaleString("vi-VN") + "đ"} để hoàn tất đặt hàng.`,
@@ -183,16 +166,12 @@ export default function LensOrderScreen({ navigation, route }) {
             text: "Xác nhận",
             onPress: () => {
               const orderId = `ORD${String(Math.floor(Math.random() * 9000) + 1000)}`;
-              const selectedSlot = appointmentSlots.find(
-                (s) => s.id === appointmentDate,
-              );
               navigation.navigate("OrderSuccess", {
                 orderId,
                 totalAmount: getTotalAmount(),
                 orderType: "lens_with_frame",
-                appointmentDate: requireAppointment ? selectedSlot?.date : null,
-                appointmentTime: requireAppointment ? selectedSlot?.time : null,
-                store: requireAppointment ? selectedStore : null,
+                requiresStore: requireAppointment,
+                storeName: requireAppointment ? stores[0].name : null,
               });
             },
           },
@@ -342,23 +321,25 @@ export default function LensOrderScreen({ navigation, route }) {
     return (
       <View>
         <Text className="text-lg font-bold text-text mb-2">
-          Bước 2: {requireAppointment ? "Đặt lịch hẹn" : "Xác nhận đơn hàng"}
+          Bước 2: Thông tin nhận hàng
         </Text>
         <Text className="text-sm text-textGray mb-4">
           {requireAppointment
-            ? "Chọn chi nhánh và thời gian để lắp tròng kính"
+            ? "Shop sẽ chủ động liên hệ để hẹn lịch lắp tròng kính"
             : "Kiểm tra thông tin và xác nhận"}
         </Text>
 
         {requireAppointment ? (
           <>
             {/* Important Note */}
-            <View className="bg-amber-50 rounded-xl p-4 mb-5 flex-row">
-              <Ionicons name="information-circle" size={24} color="#F18F01" />
-              <Text className="flex-1 text-sm text-amber-800 ml-2">
-                <Text className="font-bold">Lưu ý:{"\n"}</Text>
-                Loại tròng kính này cần lắp đặt tại cửa hàng để đảm bảo chất
-                lượng và phù hợp với gọng kính của bạn.
+            <View className="bg-red-50 rounded-xl p-4 mb-5 flex-row">
+              <Ionicons name="alert-circle" size={24} color="#EF4444" />
+              <Text className="flex-1 text-sm text-red-800 ml-2">
+                <Text className="font-bold">Lưu ý quan trọng:{"\n"}</Text>• Shop
+                sẽ chủ động liên hệ để hẹn lịch lắp tròng kính{"\n"}• Bạn BẮT
+                BUỘC phải lên cửa hàng để lắp và kiểm tra{"\n"}• Cần điều chỉnh
+                gọng cho phù hợp với khuôn mặt{"\n"}• Bảo hành chỉ được nhận tại
+                cửa hàng (không nhận online)
               </Text>
             </View>
 
@@ -385,56 +366,6 @@ export default function LensOrderScreen({ navigation, route }) {
                   {stores[0].phone}
                 </Text>
               </View>
-            </View>
-
-            {/* Appointment Time */}
-            <Text className="text-base font-semibold text-text mt-4 mb-3">
-              Chọn thời gian hẹn
-            </Text>
-            <View className="gap-2">
-              {appointmentSlots.map((slot) => (
-                <TouchableOpacity
-                  key={slot.id}
-                  disabled={!slot.available}
-                  className={`bg-white rounded-xl p-4 flex-row items-center justify-between border-2 ${
-                    appointmentDate === slot.id
-                      ? "border-primary"
-                      : "border-transparent"
-                  } ${!slot.available && "opacity-50"}`}
-                  onPress={() => slot.available && setAppointmentDate(slot.id)}
-                >
-                  <View className="flex-row items-center flex-1">
-                    <Ionicons
-                      name="calendar-outline"
-                      size={20}
-                      color="#2E86AB"
-                    />
-                    <View className="ml-3">
-                      <Text className="text-sm font-bold text-text">
-                        {slot.date}
-                      </Text>
-                      <Text className="text-sm text-textGray">{slot.time}</Text>
-                    </View>
-                  </View>
-                  {slot.available ? (
-                    <View
-                      className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
-                        appointmentDate === slot.id
-                          ? "border-primary bg-primary"
-                          : "border-border"
-                      }`}
-                    >
-                      {appointmentDate === slot.id && (
-                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                      )}
-                    </View>
-                  ) : (
-                    <Text className="text-xs text-red-500 font-semibold">
-                      Đã đặt
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              ))}
             </View>
           </>
         ) : (
@@ -487,22 +418,6 @@ export default function LensOrderScreen({ navigation, route }) {
             </Text>
           </View>
         </View>
-
-        {requireAppointment && appointmentDate && (
-          <View className="bg-blue-50 rounded-xl p-4 mt-4">
-            <Text className="text-sm font-bold text-blue-900 mb-2">
-              📅 Lịch hẹn của bạn
-            </Text>
-            <Text className="text-sm text-blue-800 mb-1">
-              <Text className="font-semibold">Địa điểm:</Text> {stores[0].name}
-            </Text>
-            <Text className="text-sm text-blue-800">
-              <Text className="font-semibold">Thời gian:</Text>{" "}
-              {appointmentSlots.find((a) => a.id === appointmentDate)?.date} -{" "}
-              {appointmentSlots.find((a) => a.id === appointmentDate)?.time}
-            </Text>
-          </View>
-        )}
       </View>
     );
   };

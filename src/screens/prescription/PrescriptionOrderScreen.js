@@ -18,7 +18,6 @@ export default function PrescriptionOrderScreen({ navigation }) {
   const [selectedFrame, setSelectedFrame] = useState(null);
   const [selectedLens, setSelectedLens] = useState(null);
   const [selectedStore, setSelectedStore] = useState(1);
-  const [appointmentDate, setAppointmentDate] = useState(null);
   const [paymentType, setPaymentType] = useState("deposit"); // deposit or full
 
   const stores = [
@@ -30,22 +29,16 @@ export default function PrescriptionOrderScreen({ navigation }) {
     },
   ];
 
-  const appointmentSlots = [
-    { id: 1, date: "20/01/2026", time: "09:00 - 10:00", available: true },
-    { id: 2, date: "20/01/2026", time: "14:00 - 15:00", available: true },
-    { id: 3, date: "21/01/2026", time: "09:00 - 10:00", available: false },
-    { id: 4, date: "21/01/2026", time: "14:00 - 15:00", available: true },
-    { id: 5, date: "22/01/2026", time: "10:00 - 11:00", available: true },
-    { id: 6, date: "22/01/2026", time: "15:00 - 16:00", available: true },
-  ];
-
   const lensTypes = [
     {
       id: 1,
       name: "Tròng kính cơ bản",
       price: 500000,
       features: ["Chống tia UV", "Độ bền cao"],
-      deliveryTime: "5-7 ngày làm việc",
+      minimumWaitTime: "3-5 ngày làm việc", // Thời gian tối thiểu để có tròng
+      inStock: true,
+      requiresFullPayment: false, // Có thể cọc 50%
+      warranty: "12 tháng - Nhận bảo hành tại cửa hàng",
     },
     {
       id: 2,
@@ -53,14 +46,21 @@ export default function PrescriptionOrderScreen({ navigation }) {
       price: 1200000,
       features: ["Chống tia UV", "Chống ánh sáng xanh", "Chống mỏi mắt"],
       recommended: true,
-      deliveryTime: "5-7 ngày làm việc",
+      minimumWaitTime: "5-7 ngày làm việc",
+      inStock: true,
+      requiresFullPayment: false,
+      warranty: "12 tháng - Nhận bảo hành tại cửa hàng",
     },
     {
       id: 3,
       name: "Tròng kính đổi màu",
       price: 1800000,
       features: ["Chống tia UV", "Tự động đổi màu", "Bảo vệ tối ưu"],
-      deliveryTime: "7-10 ngày làm việc",
+      minimumWaitTime: "7-10 ngày làm việc",
+      inStock: false, // Không có sẵn
+      requiresThirdParty: true, // Phải lấy từ bên thứ 3
+      requiresFullPayment: true, // Bắt buộc thanh toán toàn bộ
+      warranty: "12 tháng - Nhận bảo hành tại cửa hàng",
     },
   ];
 
@@ -72,6 +72,9 @@ export default function PrescriptionOrderScreen({ navigation }) {
       image:
         "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=300&h=200&fit=crop",
       inStock: true,
+      availableInStore: true,
+      requiresFullPayment: false,
+      warranty: "6 tháng - Nhận bảo hành tại cửa hàng",
     },
     {
       id: 2,
@@ -80,6 +83,9 @@ export default function PrescriptionOrderScreen({ navigation }) {
       image:
         "https://images.unsplash.com/photo-1516714819001-8ee7a13b71d7?w=300&h=200&fit=crop",
       inStock: true,
+      availableInStore: true,
+      requiresFullPayment: false,
+      warranty: "12 tháng - Nhận bảo hành tại cửa hàng",
     },
     {
       id: 3,
@@ -87,7 +93,12 @@ export default function PrescriptionOrderScreen({ navigation }) {
       price: 1800000,
       image:
         "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=300&h=200&fit=crop",
-      inStock: true,
+      inStock: false, // Không có sẵn
+      availableInStore: false,
+      requiresThirdParty: true, // Phải lấy từ bên thứ 3
+      requiresFullPayment: true, // Bắt buộc thanh toán toàn bộ
+      estimatedArrival: "7-10 ngày làm việc",
+      warranty: "6 tháng - Nhận bảo hành tại cửa hàng",
     },
   ];
 
@@ -117,6 +128,48 @@ export default function PrescriptionOrderScreen({ navigation }) {
     return Math.round(getTotalAmount() * 0.5); // 50% deposit
   };
 
+  // Kiểm tra xem có bắt buộc thanh toán toàn bộ không
+  const isFullPaymentRequired = () => {
+    const selectedLensObj = lensTypes.find((l) => l.id === selectedLens);
+    const selectedFrameObj = frames.find((f) => f.id === selectedFrame);
+
+    // Nếu tròng hoặc gọng không có sẵn (phải lấy từ bên thứ 3) → bắt buộc thanh toán full
+    if (
+      selectedLensObj?.requiresFullPayment ||
+      selectedFrameObj?.requiresFullPayment
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  // Lấy thông tin thời gian chờ
+  const getWaitTimeInfo = () => {
+    const selectedLensObj = lensTypes.find((l) => l.id === selectedLens);
+    const selectedFrameObj = frames.find((f) => f.id === selectedFrame);
+    const waitTimes = [];
+
+    if (selectedLensObj?.minimumWaitTime) {
+      waitTimes.push(`Tròng kính: ${selectedLensObj.minimumWaitTime}`);
+    }
+    if (selectedFrameObj?.estimatedArrival) {
+      waitTimes.push(`Gọng kính: ${selectedFrameObj.estimatedArrival}`);
+    }
+
+    return waitTimes.length > 0 ? waitTimes.join(", ") : null;
+  };
+
+  // Kiểm tra xem có sản phẩm nào không có sẵn không
+  const hasUnavailableProducts = () => {
+    const selectedLensObj = lensTypes.find((l) => l.id === selectedLens);
+    const selectedFrameObj = frames.find((f) => f.id === selectedFrame);
+
+    return (
+      !selectedLensObj?.inStock ||
+      (selectedFrameObj && !selectedFrameObj?.inStock)
+    );
+  };
+
   const handleNext = () => {
     if (step === 1) {
       setStep(2);
@@ -141,36 +194,37 @@ export default function PrescriptionOrderScreen({ navigation }) {
       }
       setStep(3);
     } else if (step === 3) {
-      // Cả 2 loại đều phải đặt lịch hẹn
-      if (!appointmentDate) {
-        Alert.alert("Thông báo", "Vui lòng chọn lịch hẹn");
-        return;
-      }
+      // Bỏ validation appointment - shop sẽ chủ động hẹn lịch
       setStep(4);
     } else if (step === 4) {
+      // Set payment type to full if required
+      const finalPaymentType = isFullPaymentRequired() ? "full" : paymentType;
+
       // Navigate to checkout/payment
+      const selectedLensObj = lensTypes.find((l) => l.id === selectedLens);
+      const selectedFrameObj = frames.find((f) => f.id === selectedFrame);
+
       Alert.alert(
         "Xác nhận đơn hàng",
         `Bạn sẽ thanh toán ${
-          paymentType === "deposit"
+          finalPaymentType === "deposit"
             ? getDepositAmount().toLocaleString("vi-VN")
             : getTotalAmount().toLocaleString("vi-VN")
-        }đ để hoàn tất đặt hàng.`,
+        }đ để hoàn tất đặt hàng.${hasUnavailableProducts() ? "\n\nSản phẩm không có sẵn và cần đợi shop lấy hàng." : ""}`,
         [
           { text: "Hủy", style: "cancel" },
           {
             text: "Xác nhận",
             onPress: () => {
               const orderId = `ORD${String(Math.floor(Math.random() * 9000) + 1000)}`;
-              const selectedSlot = appointmentSlots.find(
-                (s) => s.id === appointmentDate,
-              );
               navigation.navigate("OrderSuccess", {
                 orderId,
                 totalAmount: getTotalAmount(),
+                depositAmount:
+                  finalPaymentType === "deposit" ? getDepositAmount() : null,
                 orderType: "prescription",
-                appointmentDate: selectedSlot?.date,
-                appointmentTime: selectedSlot?.time,
+                hasUnavailableProducts: hasUnavailableProducts(),
+                waitTimeInfo: getWaitTimeInfo(),
                 store: selectedStore,
               });
             },
@@ -419,12 +473,40 @@ export default function PrescriptionOrderScreen({ navigation }) {
                   <Text className="text-lg font-bold text-primary">
                     {frame.price.toLocaleString("vi-VN") + "đ"}
                   </Text>
-                  {frame.inStock && (
+                  {frame.inStock ? (
                     <View className="flex-row items-center mt-1">
                       <View className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
-                      <Text className="text-xs text-green-600">Còn hàng</Text>
+                      <Text className="text-xs text-green-600">
+                        Có sẵn tại cửa hàng
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="mt-1">
+                      <View className="flex-row items-center">
+                        <Ionicons
+                          name="time-outline"
+                          size={14}
+                          color="#F59E0B"
+                        />
+                        <Text className="text-xs text-amber-600 ml-1">
+                          Cần đặt trước - {frame.estimatedArrival}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center mt-0.5">
+                        <Ionicons
+                          name="alert-circle-outline"
+                          size={14}
+                          color="#EF4444"
+                        />
+                        <Text className="text-xs text-red-600 ml-1 font-semibold">
+                          Bắt buộc thanh toán toàn bộ
+                        </Text>
+                      </View>
                     </View>
                   )}
+                  <Text className="text-xs text-textGray mt-1">
+                    🛡️ {frame.warranty}
+                  </Text>
                 </View>
                 <View
                   className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
@@ -447,12 +529,12 @@ export default function PrescriptionOrderScreen({ navigation }) {
       <Text className="text-base font-semibold text-text mt-4 mb-3">
         Loại tròng kính
       </Text>
-      <View className="bg-amber-50 rounded-xl p-4 mb-3 flex-row">
-        <Ionicons name="time-outline" size={20} color="#F18F01" />
-        <Text className="flex-1 text-xs text-amber-800 ml-2">
-          <Text className="font-bold">Hàng đặt trước:{"\n"}</Text>
-          Tròng kính được làm theo số đo của bạn. Thời gian hoàn thành 5-10 ngày
-          tùy loại.
+      <View className="bg-blue-50 rounded-xl p-4 mb-3 flex-row">
+        <Ionicons name="information-circle-outline" size={20} color="#2E86AB" />
+        <Text className="flex-1 text-xs text-blue-800 ml-2">
+          <Text className="font-bold">Lưu ý:{"\n"}</Text>
+          Tròng kính được làm theo đơn thuốc của bạn. Shop sẽ hẹn lịch nhận hàng
+          sau khi tròng hoàn thành.
         </Text>
       </View>
 
@@ -481,8 +563,35 @@ export default function PrescriptionOrderScreen({ navigation }) {
               <Text className="text-lg font-bold text-primary mb-1">
                 {lens.price.toLocaleString("vi-VN") + "đ"}
               </Text>
-              <Text className="text-xs text-textGray">
-                ⏱ {lens.deliveryTime}
+              {lens.inStock ? (
+                <View className="flex-row items-center">
+                  <Ionicons name="time-outline" size={14} color="#10B981" />
+                  <Text className="text-xs text-green-600 ml-1">
+                    Thời gian làm: {lens.minimumWaitTime}
+                  </Text>
+                </View>
+              ) : (
+                <View>
+                  <View className="flex-row items-center">
+                    <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                    <Text className="text-xs text-amber-600 ml-1">
+                      Cần đặt trước - {lens.minimumWaitTime}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center mt-0.5">
+                    <Ionicons
+                      name="alert-circle-outline"
+                      size={14}
+                      color="#EF4444"
+                    />
+                    <Text className="text-xs text-red-600 ml-1 font-semibold">
+                      Bắt buộc thanh toán toàn bộ
+                    </Text>
+                  </View>
+                </View>
+              )}
+              <Text className="text-xs text-textGray mt-1">
+                🛡️ {lens.warranty}
               </Text>
             </View>
             <View
@@ -514,22 +623,54 @@ export default function PrescriptionOrderScreen({ navigation }) {
   const renderStep3 = () => (
     <View>
       <Text className="text-lg font-bold text-text mb-2">
-        Bước 3: Đặt lịch hẹn{" "}
-        {orderType === "lens_only" ? "lấy tròng kính" : "lấy kính"}
+        Bước 3: Thông tin nhận hàng
       </Text>
       <Text className="text-sm text-textGray mb-4">
-        Chọn thời gian để nhận{" "}
-        {orderType === "lens_only" ? "tròng kính" : "kính & test"}
+        Shop sẽ chủ động liên hệ để hẹn lịch khi{" "}
+        {orderType === "lens_only" ? "tròng kính" : "sản phẩm"} đã sẵn sàng
       </Text>
+
+      {/* Wait Time Info */}
+      {getWaitTimeInfo() && (
+        <View className="bg-blue-50 rounded-xl p-4 mb-4 flex-row">
+          <Ionicons name="time-outline" size={24} color="#2E86AB" />
+          <View className="flex-1 ml-3">
+            <Text className="font-bold text-blue-800 mb-1">
+              Thời gian dự kiến:
+            </Text>
+            <Text className="text-sm text-blue-700">{getWaitTimeInfo()}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Unavailable Products Warning */}
+      {hasUnavailableProducts() && (
+        <View className="bg-amber-50 rounded-xl p-4 mb-4 flex-row">
+          <Ionicons name="alert-circle-outline" size={24} color="#F59E0B" />
+          <View className="flex-1 ml-3">
+            <Text className="font-bold text-amber-800 mb-1">
+              Sản phẩm cần đặt trước:
+            </Text>
+            <Text className="text-sm text-amber-700">
+              Một hoặc nhiều sản phẩm không có sẵn tại cửa hàng và cần đợi shop
+              lấy từ nhà cung cấp. Sau khi đặt hàng, bạn có thể:{"\n"}• Đợi shop
+              lấy hàng về{"\n"}• Hoặc đổi sang sản phẩm có sẵn khác
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Important Note */}
       <View className="bg-red-50 rounded-xl p-4 mb-5 flex-row">
         <Ionicons name="alert-circle" size={24} color="#EF4444" />
         <Text className="flex-1 text-sm text-red-800 ml-2">
-          <Text className="font-bold">Lưu ý quan trọng:{"\n"}</Text>
-          {orderType === "lens_only"
-            ? "Bạn BẮT BUỘC phải đến cửa hàng để nhận tròng kính được làm theo đơn thuốc của bạn."
-            : "Bạn BẮT BUỘC phải đến cửa hàng để test kính và điều chỉnh gọng cho phù hợp trước khi nhận hàng."}
+          <Text className="font-bold">Lưu ý quan trọng:{"\n"}</Text>• Shop sẽ
+          chủ động liên hệ để hẹn lịch nhận hàng{"\n"}• Bạn BẮT BUỘC phải lên
+          cửa hàng để nhận hàng và kiểm tra{"\n"}
+          {orderType === "frame_lens"
+            ? "• Cần test kính và điều chỉnh gọng cho phù hợp\n"
+            : ""}
+          • Bảo hành chỉ được nhận tại cửa hàng (không nhận online)
         </Text>
       </View>
 
@@ -556,214 +697,207 @@ export default function PrescriptionOrderScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Appointment Time */}
-      <Text className="text-base font-semibold text-text mt-4 mb-3">
-        Chọn thời gian hẹn
-      </Text>
-      <View className="gap-2">
-        {appointmentSlots.map((slot) => (
-          <TouchableOpacity
-            key={slot.id}
-            disabled={!slot.available}
-            className={`bg-white rounded-xl p-4 flex-row items-center justify-between border-2 ${
-              appointmentDate === slot.id
-                ? "border-primary"
-                : "border-transparent"
-            } ${!slot.available && "opacity-50"}`}
-            onPress={() => slot.available && setAppointmentDate(slot.id)}
-          >
-            <View className="flex-row items-center flex-1">
-              <Ionicons name="calendar-outline" size={20} color="#2E86AB" />
-              <View className="ml-3">
-                <Text className="text-sm font-bold text-text">{slot.date}</Text>
-                <Text className="text-sm text-textGray">{slot.time}</Text>
-              </View>
-            </View>
-            {slot.available ? (
-              <View
-                className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
-                  appointmentDate === slot.id
-                    ? "border-primary bg-primary"
-                    : "border-border"
-                }`}
-              >
-                {appointmentDate === slot.id && (
-                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                )}
-              </View>
-            ) : (
-              <Text className="text-xs text-red-500 font-semibold">Đã đặt</Text>
-            )}
-          </TouchableOpacity>
-        ))}
+      {/* Contact Info */}
+      <View className="bg-white rounded-2xl p-4">
+        <Text className="text-base font-semibold text-text mb-3">
+          Thông tin liên hệ của bạn
+        </Text>
+        <View className="bg-background rounded-xl p-3 mb-2">
+          <Text className="text-xs text-textGray mb-1">Họ tên</Text>
+          <Text className="text-sm text-text font-semibold">Nguyễn Văn A</Text>
+        </View>
+        <View className="bg-background rounded-xl p-3 mb-2">
+          <Text className="text-xs text-textGray mb-1">Số điện thoại</Text>
+          <Text className="text-sm text-text font-semibold">0123456789</Text>
+        </View>
+        <View className="bg-green-50 rounded-xl p-3 flex-row">
+          <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+          <Text className="flex-1 text-xs text-green-700 ml-2">
+            Shop sẽ gọi điện cho bạn để hẹn lịch nhận hàng khi sản phẩm đã sẵn
+            sàng
+          </Text>
+        </View>
       </View>
     </View>
   );
 
-  const renderStep4 = () => (
-    <View>
-      <Text className="text-lg font-bold text-text mb-2">
-        Bước 4: Hình thức thanh toán
-      </Text>
-      <Text className="text-sm text-textGray mb-4">
-        {orderType === "frame_lens"
-          ? "Chọn thanh toán cọc hoặc toàn bộ"
-          : "Thanh toán đầy đủ cho đơn hàng"}
-      </Text>
+  const renderStep4 = () => {
+    const fullPaymentRequired = isFullPaymentRequired();
 
-      {/* Payment Type Selection */}
-      {orderType === "frame_lens" && (
+    return (
+      <View>
+        <Text className="text-lg font-bold text-text mb-2">
+          Bước 4: Hình thức thanh toán
+        </Text>
+        <Text className="text-sm text-textGray mb-4">
+          {fullPaymentRequired
+            ? "Thanh toán toàn bộ (bắt buộc do sản phẩm cần đặt từ nhà cung cấp)"
+            : "Chọn hình thức thanh toán phù hợp"}
+        </Text>
+
+        {fullPaymentRequired && (
+          <View className="bg-amber-50 rounded-xl p-4 mb-4 flex-row">
+            <Ionicons name="information-circle" size={24} color="#F59E0B" />
+            <Text className="flex-1 text-sm text-amber-800 ml-2">
+              <Text className="font-bold">Lưu ý:{"\n"}</Text>
+              Sản phẩm bạn chọn không có sẵn và cần đặt từ nhà cung cấp. Vì vậy,
+              bạn cần thanh toán toàn bộ trước.
+            </Text>
+          </View>
+        )}
+
+        {/* Payment Type Selection */}
+        {!fullPaymentRequired && (
+          <TouchableOpacity
+            className={`bg-white rounded-2xl p-4 mb-3 border-2 ${
+              paymentType === "deposit"
+                ? "border-primary"
+                : "border-transparent"
+            }`}
+            onPress={() => setPaymentType("deposit")}
+          >
+            <View className="flex-row items-start justify-between mb-2">
+              <View className="flex-1">
+                <View className="flex-row items-center mb-1">
+                  <Text className="text-base font-bold text-text">
+                    Đặt cọc 50%
+                  </Text>
+                  <View className="bg-accent px-2 py-0.5 rounded-full ml-2">
+                    <Text className="text-xs text-white font-semibold">
+                      Phổ biến
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-lg font-bold text-primary mb-2">
+                  {getDepositAmount().toLocaleString("vi-VN") + "đ"}
+                </Text>
+                <Text className="text-sm text-textGray">
+                  Thanh toán phần còn lại khi nhận kính tại cửa hàng
+                </Text>
+              </View>
+              <View
+                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+                  paymentType === "deposit"
+                    ? "border-primary bg-primary"
+                    : "border-border"
+                }`}
+              >
+                {paymentType === "deposit" && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
-          className={`bg-white rounded-2xl p-4 mb-3 border-2 ${
-            paymentType === "deposit" ? "border-primary" : "border-transparent"
+          className={`bg-white rounded-2xl p-4 mb-4 border-2 ${
+            paymentType === "full" || fullPaymentRequired
+              ? "border-primary"
+              : "border-transparent"
           }`}
-          onPress={() => setPaymentType("deposit")}
+          onPress={() => !fullPaymentRequired && setPaymentType("full")}
+          disabled={fullPaymentRequired}
         >
           <View className="flex-row items-start justify-between mb-2">
             <View className="flex-1">
               <View className="flex-row items-center mb-1">
                 <Text className="text-base font-bold text-text">
-                  Đặt cọc 50%
+                  Thanh toán toàn bộ
                 </Text>
-                <View className="bg-accent px-2 py-0.5 rounded-full ml-2">
-                  <Text className="text-xs text-white font-semibold">
-                    Phổ biến
-                  </Text>
-                </View>
+                {fullPaymentRequired && (
+                  <View className="bg-red-500 px-2 py-0.5 rounded-full ml-2">
+                    <Text className="text-xs text-white font-semibold">
+                      Bắt buộc
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text className="text-lg font-bold text-primary mb-2">
-                {getDepositAmount().toLocaleString("vi-VN") + "đ"}
+                {getTotalAmount().toLocaleString("vi-VN") + "đ"}
               </Text>
               <Text className="text-sm text-textGray">
-                Thanh toán phần còn lại khi nhận kính tại cửa hàng
+                Thanh toán toàn bộ trước, không cần thanh toán thêm
               </Text>
             </View>
             <View
               className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                paymentType === "deposit"
+                paymentType === "full"
                   ? "border-primary bg-primary"
                   : "border-border"
               }`}
             >
-              {paymentType === "deposit" && (
+              {paymentType === "full" && (
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               )}
             </View>
           </View>
         </TouchableOpacity>
-      )}
 
-      <TouchableOpacity
-        className={`bg-white rounded-2xl p-4 mb-4 border-2 ${
-          paymentType === "full" ? "border-primary" : "border-transparent"
-        }`}
-        onPress={() => setPaymentType("full")}
-      >
-        <View className="flex-row items-start justify-between mb-2">
-          <View className="flex-1">
-            <Text className="text-base font-bold text-text mb-1">
-              Thanh toán toàn bộ
-            </Text>
-            <Text className="text-lg font-bold text-primary mb-2">
-              {getTotalAmount().toLocaleString("vi-VN") + "đ"}
-            </Text>
-            <Text className="text-sm text-textGray">
-              Thanh toán toàn bộ trước, không cần thanh toán thêm
-            </Text>
-          </View>
-          <View
-            className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-              paymentType === "full"
-                ? "border-primary bg-primary"
-                : "border-border"
-            }`}
-          >
-            {paymentType === "full" && (
-              <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      {/* Order Summary */}
-      <View className="bg-white rounded-2xl p-4">
-        <Text className="text-base font-bold text-text mb-3">
-          Tổng quan đơn hàng
-        </Text>
-
-        {selectedFrame && (
-          <View className="flex-row justify-between items-center py-2 border-b border-border">
-            <Text className="text-sm text-text">Gọng kính</Text>
-            <Text className="text-sm font-semibold text-text">
-              {frames
-                .find((f) => f.id === selectedFrame)
-                ?.price.toLocaleString("vi-VN")}
-              đ
-            </Text>
-          </View>
-        )}
-
-        {orderType === "frame_lens" && selectedLens && (
-          <View className="flex-row justify-between items-center py-2 border-b border-border">
-            <Text className="text-sm text-text">Tròng kính</Text>
-            <Text className="text-sm font-semibold text-text">
-              {lensTypes
-                .find((l) => l.id === selectedLens)
-                ?.price.toLocaleString("vi-VN")}
-              đ
-            </Text>
-          </View>
-        )}
-
-        <View className="flex-row justify-between items-center pt-3 mb-3">
-          <Text className="text-base font-bold text-text">Tổng cộng</Text>
-          <Text className="text-xl font-bold text-primary">
-            {getTotalAmount().toLocaleString("vi-VN") + "đ"}
+        {/* Order Summary */}
+        <View className="bg-white rounded-2xl p-4">
+          <Text className="text-base font-bold text-text mb-3">
+            Tổng quan đơn hàng
           </Text>
-        </View>
 
-        {orderType === "frame_lens" && paymentType === "deposit" && (
-          <View className="bg-accent/10 rounded-lg p-3">
-            <View className="flex-row justify-between items-center mb-1">
+          {selectedFrame && (
+            <View className="flex-row justify-between items-center py-2 border-b border-border">
+              <Text className="text-sm text-text">Gọng kính</Text>
               <Text className="text-sm font-semibold text-text">
-                Thanh toán ngay
-              </Text>
-              <Text className="text-sm font-bold text-primary">
-                {getDepositAmount().toLocaleString("vi-VN") + "đ"}
-              </Text>
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm text-textGray">
-                Thanh toán khi nhận hàng
-              </Text>
-              <Text className="text-sm font-semibold text-textGray">
-                {(getTotalAmount() - getDepositAmount()).toLocaleString(
-                  "vi-VN",
-                )}
+                {frames
+                  .find((f) => f.id === selectedFrame)
+                  ?.price.toLocaleString("vi-VN")}
                 đ
               </Text>
             </View>
-          </View>
-        )}
-      </View>
+          )}
 
-      {orderType === "frame_lens" && appointmentDate && (
-        <View className="bg-blue-50 rounded-xl p-4 mt-4">
-          <Text className="text-sm font-bold text-blue-900 mb-2">
-            📅 Lịch hẹn của bạn
-          </Text>
-          <Text className="text-sm text-blue-800 mb-1">
-            <Text className="font-semibold">Địa điểm:</Text> {stores[0].name}
-          </Text>
-          <Text className="text-sm text-blue-800">
-            <Text className="font-semibold">Thời gian:</Text>{" "}
-            {appointmentSlots.find((a) => a.id === appointmentDate)?.date} -{" "}
-            {appointmentSlots.find((a) => a.id === appointmentDate)?.time}
-          </Text>
+          {orderType === "frame_lens" && selectedLens && (
+            <View className="flex-row justify-between items-center py-2 border-b border-border">
+              <Text className="text-sm text-text">Tròng kính</Text>
+              <Text className="text-sm font-semibold text-text">
+                {lensTypes
+                  .find((l) => l.id === selectedLens)
+                  ?.price.toLocaleString("vi-VN")}
+                đ
+              </Text>
+            </View>
+          )}
+
+          <View className="flex-row justify-between items-center pt-3 mb-3">
+            <Text className="text-base font-bold text-text">Tổng cộng</Text>
+            <Text className="text-xl font-bold text-primary">
+              {getTotalAmount().toLocaleString("vi-VN") + "đ"}
+            </Text>
+          </View>
+
+          {orderType === "frame_lens" && paymentType === "deposit" && (
+            <View className="bg-accent/10 rounded-lg p-3">
+              <View className="flex-row justify-between items-center mb-1">
+                <Text className="text-sm font-semibold text-text">
+                  Thanh toán ngay
+                </Text>
+                <Text className="text-sm font-bold text-primary">
+                  {getDepositAmount().toLocaleString("vi-VN") + "đ"}
+                </Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-sm text-textGray">
+                  Thanh toán khi nhận hàng
+                </Text>
+                <Text className="text-sm font-semibold text-textGray">
+                  {(getTotalAmount() - getDepositAmount()).toLocaleString(
+                    "vi-VN",
+                  )}
+                  đ
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
-      )}
-    </View>
-  );
+      </View>
+    );
+  };
 
   const maxSteps = 4;
 

@@ -9,9 +9,14 @@ export const SAMPLE_PRODUCTS = [
       "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400&h=300&fit=crop",
     category: "Gọng kính",
     stock: "Còn hàng",
+    inStock: true,
+    availableInStore: true,
+    requiresShipping: false, // Gọng có thể lấy tại cửa hàng
     rating: 4.5,
     reviews: 120,
     discount: 17,
+    warranty: "6 tháng", // Bảo hành có hạn
+    warrantyType: "in-store", // Phải lên cửa hàng nhận bảo hành
   },
   {
     id: "2",
@@ -21,10 +26,16 @@ export const SAMPLE_PRODUCTS = [
     image:
       "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=300&fit=crop",
     category: "Tròng kính",
-    stock: "Còn hàng",
+    stock: "Có sẵn",
+    inStock: true,
+    availableInStore: true,
+    minimumWaitTime: "3-5 ngày làm việc", // Thời gian tối thiểu để có tròng
+    requiresShipping: false,
     rating: 4.8,
     reviews: 89,
     discount: 0,
+    warranty: "12 tháng",
+    warrantyType: "in-store",
   },
   {
     id: "3",
@@ -36,9 +47,14 @@ export const SAMPLE_PRODUCTS = [
       "https://images.unsplash.com/photo-1473496169904-658ba7c44d8a?w=400&h=300&fit=crop",
     category: "Kính mát",
     stock: "Còn hàng",
+    inStock: true,
+    availableInStore: true,
+    requiresShipping: false,
     rating: 4.7,
     reviews: 156,
     discount: 17,
+    warranty: "12 tháng",
+    warrantyType: "in-store",
   },
   {
     id: "4",
@@ -48,10 +64,18 @@ export const SAMPLE_PRODUCTS = [
     image:
       "https://images.unsplash.com/photo-1516714819001-8ee7a13b71d7?w=400&h=300&fit=crop",
     category: "Gọng kính",
-    stock: "Đặt trước",
+    stock: "Đặt trước - Cần lấy từ nhà cung cấp",
+    inStock: false,
+    availableInStore: false,
+    requiresThirdParty: true, // Phải lấy từ bên thứ 3
+    requiresFullPayment: true, // Bắt buộc thanh toán toàn bộ
+    estimatedArrival: "7-10 ngày làm việc",
+    requiresShipping: false,
     rating: 4.9,
     reviews: 45,
     discount: 0,
+    warranty: "12 tháng",
+    warrantyType: "in-store",
   },
   {
     id: "5",
@@ -62,9 +86,13 @@ export const SAMPLE_PRODUCTS = [
       "https://images.unsplash.com/photo-1584308972272-9e4e7685e80f?w=400&h=300&fit=crop",
     category: "Phụ kiện",
     stock: "Còn hàng",
+    inStock: true,
+    availableInStore: true,
+    requiresShipping: true, // Phụ kiện bắt buộc ship
     rating: 4.3,
     reviews: 234,
     discount: 0,
+    warranty: "Không bảo hành",
   },
   {
     id: "6",
@@ -75,9 +103,13 @@ export const SAMPLE_PRODUCTS = [
       "https://images.unsplash.com/photo-1606206873765-2ac6ffb4e6d7?w=400&h=300&fit=crop",
     category: "Kính áp tròng",
     stock: "Còn hàng",
+    inStock: true,
+    availableInStore: true,
+    requiresShipping: true, // Kính áp tròng bắt buộc ship
     rating: 4.6,
     reviews: 178,
     discount: 0,
+    warranty: "Không bảo hành",
   },
 ];
 

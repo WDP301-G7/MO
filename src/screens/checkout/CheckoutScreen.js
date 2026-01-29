@@ -28,16 +28,6 @@ export default function CheckoutScreen({ navigation, route }) {
   const [paymentOption, setPaymentOption] = useState("full"); // "full" or "deposit"
   const [note, setNote] = useState("");
   const [addressModalVisible, setAddressModalVisible] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-
-  const appointmentSlots = [
-    { id: 1, date: "20/01/2026", time: "09:00 - 10:00", available: true },
-    { id: 2, date: "20/01/2026", time: "14:00 - 15:00", available: true },
-    { id: 3, date: "21/01/2026", time: "09:00 - 10:00", available: false },
-    { id: 4, date: "21/01/2026", time: "14:00 - 15:00", available: true },
-    { id: 5, date: "22/01/2026", time: "10:00 - 11:00", available: true },
-    { id: 6, date: "22/01/2026", time: "15:00 - 16:00", available: true },
-  ];
 
   const paymentMethods = [
     { id: "cod", name: "Thanh toán khi nhận hàng (COD)", icon: "cash" },
@@ -58,19 +48,7 @@ export default function CheckoutScreen({ navigation, route }) {
   const total = paymentOption === "deposit" ? depositAmount : fullAmount;
 
   const handlePlaceOrder = () => {
-    // Validation: Nếu requiresStore thì phải chọn lịch hẹn
-    if (requiresStore && !selectedAppointment) {
-      Alert.alert(
-        "Thông báo",
-        "Vui lòng chọn thời gian hẹn để nhận tại cửa hàng",
-      );
-      return;
-    }
-
     const orderId = `ORD${String(Math.floor(Math.random() * 9000) + 1000)}`;
-    const selectedSlot = appointmentSlots.find(
-      (s) => s.id === selectedAppointment,
-    );
 
     navigation.navigate("OrderSuccess", {
       orderId,
@@ -78,8 +56,6 @@ export default function CheckoutScreen({ navigation, route }) {
       paidAmount: total,
       paymentOption,
       orderType: requiresStore ? "store_pickup" : "normal",
-      appointmentDate: selectedSlot?.date,
-      appointmentTime: selectedSlot?.time,
       storeName: requiresStore ? storeName : null,
     });
   };
@@ -152,9 +128,10 @@ export default function CheckoutScreen({ navigation, route }) {
             <View className="bg-red-50 rounded-xl p-4 mb-3 flex-row">
               <Ionicons name="alert-circle" size={20} color="#EF4444" />
               <Text className="flex-1 text-xs text-red-800 ml-2">
-                <Text className="font-bold">Lưu ý:{"\n"}</Text>
-                Bạn cần đến cửa hàng để lắp tròng kính và điều chỉnh gọng cho
-                phù hợp.
+                <Text className="font-bold">Lưu ý quan trọng:{"\n"}</Text>• Shop
+                sẽ chủ động liên hệ để hẹn lịch nhận hàng{"\n"}• Bạn cần đến cửa
+                hàng để lắp tròng kính và điều chỉnh gọng{"\n"}• Bảo hành chỉ
+                được nhận tại cửa hàng (không online)
               </Text>
             </View>
             <View className="bg-background rounded-xl p-4 mb-4">
@@ -173,58 +150,6 @@ export default function CheckoutScreen({ navigation, route }) {
                   028 1234 5678
                 </Text>
               </View>
-            </View>
-
-            {/* Appointment Slots */}
-            <Text className="text-base font-semibold text-text mb-3">
-              Chọn thời gian hẹn
-            </Text>
-            <View className="gap-2">
-              {appointmentSlots.map((slot) => (
-                <TouchableOpacity
-                  key={slot.id}
-                  disabled={!slot.available}
-                  className={`bg-background rounded-xl p-4 flex-row items-center justify-between border-2 ${
-                    selectedAppointment === slot.id
-                      ? "border-primary"
-                      : "border-transparent"
-                  } ${!slot.available && "opacity-50"}`}
-                  onPress={() =>
-                    slot.available && setSelectedAppointment(slot.id)
-                  }
-                >
-                  <View className="flex-row items-center flex-1">
-                    <Ionicons
-                      name="calendar-outline"
-                      size={20}
-                      color="#2E86AB"
-                    />
-                    <View className="ml-3">
-                      <Text className="text-sm font-bold text-text">
-                        {slot.date}
-                      </Text>
-                      <Text className="text-sm text-textGray">{slot.time}</Text>
-                    </View>
-                  </View>
-                  {slot.available ? (
-                    <View
-                      className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
-                        selectedAppointment === slot.id
-                          ? "border-primary bg-primary"
-                          : "border-border"
-                      }`}
-                    >
-                      {selectedAppointment === slot.id && (
-                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                      )}
-                    </View>
-                  ) : (
-                    <Text className="text-xs text-red-500 font-semibold">
-                      Đã đặt
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              ))}
             </View>
           </View>
         ) : (
