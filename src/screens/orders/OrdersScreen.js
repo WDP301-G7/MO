@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,357 +6,121 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import {
+  getMyOrders,
+  formatOrderStatus,
+  getOrderStatusColor,
+  formatPrice,
+} from "../../services/orderService";
 
 export default function OrdersScreen({ navigation, route }) {
   const initialFilter = route?.params?.filter || 0;
   const [selectedTab, setSelectedTab] = useState(initialFilter);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const tabs = [
-    { id: 0, label: "Tất cả", icon: "list-outline" },
-    { id: 1, label: "Chờ xác nhận", icon: "time-outline" },
-    { id: 2, label: "Đang giao", icon: "car-outline" },
-    { id: 3, label: "Hoàn thành", icon: "checkmark-circle-outline" },
-    { id: 4, label: "Đã hủy", icon: "close-circle-outline" },
-  ];
+  useEffect(() => {
+    loadOrders();
+  }, []);
 
-  const orders = [
-    {
-      id: "ORD001",
-      date: "18/01/2026",
-      createdAt: "18/01/2026 14:30",
-      status: "Đang giao",
-      statusColor: "#2E86AB",
-      totalAmount: 1920000,
-      orderType: "normal", // Mua gọng thông thường
-      items: [
-        {
-          id: 1,
-          name: "Gọng kính Rayban Clubmaster",
-          image:
-            "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 1890000,
-          variant: "Màu đen - Size M",
-        },
-      ],
-      trackingNumber: "VN123456789",
-      subtotal: 1890000,
-      shipping: 30000,
-      discount: 0,
-      total: 1920000,
-      payment: {
-        method: "COD",
-        status: "Chưa thanh toán",
-        time: "18/01/2026 14:30",
-      },
-    },
-    {
-      id: "ORD002",
-      date: "17/01/2026",
-      createdAt: "17/01/2026 10:15",
-      status: "Chờ xác nhận",
-      statusColor: "#F18F01",
-      totalAmount: 4300000,
-      orderType: "prescription", // Đặt theo đơn thuốc
-      prescriptionType: "frame_lens",
-      appointmentDate: "22/01/2026",
-      appointmentTime: "14:00 - 15:00",
-      store: "MO Eyewear Store",
-      paymentType: "deposit",
-      depositAmount: 1290000, // 30%
-      items: [
-        {
-          id: 1,
-          name: "Gọng kính Titanium Premium",
-          image:
-            "https://images.unsplash.com/photo-1516714819001-8ee7a13b71d7?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 3500000,
-          variant: "Màu vàng hồng - Size L",
-        },
-        {
-          id: 2,
-          name: "Tròng kính chống ánh sáng xanh",
-          image:
-            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 1200000,
-          variant: "Độ cận -3.50",
-        },
-      ],
-      trackingNumber: null,
-      subtotal: 4700000,
-      shipping: 0,
-      discount: 400000,
-      total: 4300000,
-      payment: {
-        method: "Chuyển khoản",
-        status: "Đã cọc 30%",
-        time: "17/01/2026 10:30",
-      },
-    },
-    {
-      id: "ORD003",
-      date: "16/01/2026",
-      createdAt: "16/01/2026 16:45",
-      status: "Đang chuẩn bị",
-      statusColor: "#F18F01",
-      totalAmount: 2700000,
-      orderType: "lens_with_frame", // Mua tròng + gọng không theo đơn
-      requirePickup: true,
-      appointmentDate: "20/01/2026",
-      appointmentTime: "09:00 - 10:00",
-      store: "MO Eyewear Store",
-      items: [
-        {
-          id: 1,
-          name: "Gọng kính Acetate Fashion",
-          image:
-            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 1800000,
-          variant: "Màu xanh dương - Size M",
-        },
-        {
-          id: 2,
-          name: "Tròng kính cận thông thường",
-          image:
-            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 900000,
-          variant: "Độ cận -2.00",
-        },
-      ],
-      trackingNumber: null,
-      subtotal: 2700000,
-      shipping: 0,
-      discount: 0,
-      total: 2700000,
-      payment: {
-        method: "Chuyển khoản",
-        status: "Đã thanh toán",
-        time: "16/01/2026 17:00",
-      },
-    },
-    {
-      id: "ORD004",
-      date: "15/01/2026",
-      createdAt: "15/01/2026 11:20",
-      status: "Chờ xác nhận",
-      statusColor: "#F18F01",
-      totalAmount: 1280000,
-      orderType: "normal",
-      items: [
-        {
-          id: 1,
-          name: "Mắt kính Oakley Holbrook",
-          image:
-            "https://images.unsplash.com/photo-1473496169904-658ba7c44d8a?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 1250000,
-          variant: "Màu đen nhám - Polarized",
-        },
-      ],
-      trackingNumber: null,
-      subtotal: 1250000,
-      shipping: 30000,
-      discount: 0,
-      total: 1280000,
-      payment: {
-        method: "COD",
-        status: "Chưa thanh toán",
-        time: "15/01/2026 11:20",
-      },
-    },
-    {
-      id: "ORD005",
-      date: "12/01/2026",
-      createdAt: "12/01/2026 09:10",
-      status: "Hoàn thành",
-      statusColor: "#10B981",
-      totalAmount: 1230000,
-      orderType: "lens_only", // Chỉ mua tròng kính
-      requirePickup: true,
-      appointmentDate: "13/01/2026",
-      appointmentTime: "10:00 - 11:00",
-      store: "MO Eyewear Store",
-      items: [
-        {
-          id: 1,
-          name: "Tròng kính đổi màu Transitions",
-          image:
-            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 1200000,
-          variant: "Độ cận -1.50",
-        },
-      ],
-      trackingNumber: null,
-      subtotal: 1200000,
-      shipping: 0,
-      discount: 0,
-      total: 1200000,
-      payment: {
-        method: "Chuyển khoản",
-        status: "Đã thanh toán",
-        time: "12/01/2026 09:25",
-      },
-    },
-    {
-      id: "ORD006",
-      date: "10/01/2026",
-      createdAt: "10/01/2026 15:40",
-      status: "Hoàn thành",
-      statusColor: "#10B981",
-      totalAmount: 750000,
-      orderType: "normal",
-      items: [
-        {
-          id: 1,
-          name: "Gọng kính Gucci GG0061O",
-          image:
-            "https://images.unsplash.com/photo-1516714819001-8ee7a13b71d7?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 750000,
-          variant: "Màu đồi mồi - Size S",
-        },
-      ],
-      trackingNumber: "VN987654321",
-      subtotal: 750000,
-      shipping: 0,
-      discount: 0,
-      total: 750000,
-      payment: {
-        method: "COD",
-        status: "Đã thanh toán",
-        time: "11/01/2026 10:15",
-      },
-    },
-    {
-      id: "ORD007",
-      date: "08/01/2026",
-      createdAt: "08/01/2026 13:25",
-      status: "Hoàn thành",
-      statusColor: "#10B981",
-      totalAmount: 1380000,
-      orderType: "prescription",
-      prescriptionType: "lens_only", // Chỉ tròng theo đơn
-      appointmentDate: "10/01/2026",
-      appointmentTime: "14:00 - 15:00",
-      store: "MO Eyewear Store",
-      items: [
-        {
-          id: 1,
-          name: "Tròng kính Essilor cận + loạn",
-          image:
-            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 1350000,
-          variant: "Độ cận -3.50, Loạn -0.75",
-        },
-      ],
-      trackingNumber: null,
-      subtotal: 1350000,
-      shipping: 30000,
-      discount: 0,
-      total: 1380000,
-      payment: {
-        method: "Chuyển khoản",
-        status: "Đã thanh toán",
-        time: "08/01/2026 13:40",
-      },
-    },
-    {
-      id: "ORD008",
-      date: "05/01/2026",
-      createdAt: "05/01/2026 10:50",
-      status: "Đã hủy",
-      statusColor: "#EF4444",
-      totalAmount: 2800000,
-      orderType: "lens_with_frame",
-      requirePickup: true,
-      appointmentDate: "07/01/2026",
-      appointmentTime: "15:00 - 16:00",
-      store: "MO Eyewear Store",
-      items: [
-        {
-          id: 1,
-          name: "Gọng kính Titanium Light",
-          image:
-            "https://images.unsplash.com/photo-1516714819001-8ee7a13b71d7?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 1900000,
-          variant: "Màu bạc - Size M",
-        },
-        {
-          id: 2,
-          name: "Tròng kính chống UV cao cấp",
-          image:
-            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=160&h=160&fit=crop",
-          quantity: 1,
-          price: 900000,
-          variant: "Độ cận -4.00",
-        },
-      ],
-      trackingNumber: null,
-      subtotal: 2800000,
-      shipping: 0,
-      discount: 0,
-      total: 2800000,
-      payment: {
-        method: "Chuyển khoản",
-        status: "Đã hoàn tiền",
-        time: "06/01/2026 09:30",
-      },
-    },
-  ];
+  // Reload orders when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadOrders();
+    }, []),
+  );
 
-  const filterOrders = () => {
-    if (selectedTab === 0) return orders;
-    const statusMap = {
-      1: "Chờ xác nhận",
-      2: ["Đang giao", "Đang chuẩn bị"], // Bao gồm cả đơn giao hàng và đơn chuẩn bị nhận tại cửa hàng
-      3: "Hoàn thành",
-      4: "Đã hủy",
-    };
-    const targetStatus = statusMap[selectedTab];
-    if (Array.isArray(targetStatus)) {
-      return orders.filter((order) => targetStatus.includes(order.status));
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      const result = await getMyOrders();
+
+      console.log("Orders API result:", JSON.stringify(result, null, 2));
+
+      if (result.success) {
+        // API returns data nested in result.data.data
+        const ordersData = Array.isArray(result.data?.data)
+          ? result.data.data
+          : [];
+        console.log("Orders count:", ordersData.length);
+        setOrders(ordersData);
+      } else {
+        console.error("Failed to load orders:", result.message);
+        setOrders([]);
+      }
+    } catch (error) {
+      console.error("Error loading orders:", error);
+      setOrders([]);
+    } finally {
+      setLoading(false);
     }
-    return orders.filter((order) => order.status === targetStatus);
   };
 
-  const filteredOrders = filterOrders();
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadOrders();
+    setRefreshing(false);
+  };
+
+  const tabs = [
+    { id: 0, label: "Tất cả", icon: "list-outline", status: null },
+    { id: 1, label: "Mới tạo", icon: "document-text-outline", status: "NEW" },
+    { id: 2, label: "Đang xử lý", icon: "sync-outline", status: "PROCESSING" },
+    {
+      id: 3,
+      label: "Hoàn thành",
+      icon: "checkmark-circle-outline",
+      status: "COMPLETED",
+    },
+    {
+      id: 4,
+      label: "Đã hủy",
+      icon: "close-circle-outline",
+      status: "CANCELLED",
+    },
+  ];
+
+  // Filter orders by selected tab
+  const filteredOrders = Array.isArray(orders)
+    ? selectedTab === 0
+      ? orders
+      : orders.filter((order) => order.status === tabs[selectedTab].status)
+    : [];
+
+  // Format date helper
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN");
+  };
 
   const getStatusActions = (status) => {
     switch (status) {
-      case "Chờ xác nhận":
-        return [
-          { label: "Hủy đơn", color: "#EF4444", action: "cancel" },
-          { label: "Xem chi tiết", color: "#2E86AB", action: "detail" },
-        ];
-      case "Đang giao":
-        return [
-          { label: "Theo dõi", color: "#2E86AB", action: "track" },
-          { label: "Liên hệ", color: "#999999", action: "contact" },
-        ];
-      case "Đang chuẩn bị":
+      case "NEW":
+      case "CONFIRMED":
+        return [{ label: "Xem chi tiết", color: "#2E86AB", action: "detail" }];
+      case "PROCESSING":
+      case "READY":
         return [
           { label: "Xem chi tiết", color: "#2E86AB", action: "detail" },
           { label: "Liên hệ", color: "#999999", action: "contact" },
         ];
-      case "Hoàn thành":
+      case "COMPLETED":
         return [
           { label: "Mua lại", color: "#2E86AB", action: "reorder" },
           { label: "Đánh giá", color: "#F18F01", action: "review" },
         ];
-      case "Đã hủy":
+      case "CANCELLED":
         return [{ label: "Mua lại", color: "#2E86AB", action: "reorder" }];
       default:
-        return [];
+        return [{ label: "Xem chi tiết", color: "#2E86AB", action: "detail" }];
     }
   };
 
@@ -364,8 +128,7 @@ export default function OrdersScreen({ navigation, route }) {
     switch (action) {
       case "detail":
       case "track":
-        const order = orders.find((o) => o.id === orderId);
-        navigation.navigate("OrderDetail", { orderId, order });
+        navigation.navigate("OrderDetail", { orderId });
         break;
       case "cancel":
         alert("Hủy đơn hàng");
@@ -419,15 +182,15 @@ export default function OrdersScreen({ navigation, route }) {
     return (
       <TouchableOpacity
         className="bg-white rounded-2xl p-4 mb-3 shadow-sm"
-        onPress={() =>
-          navigation.navigate("OrderDetail", { orderId: item.id, order: item })
-        }
+        onPress={() => navigation.navigate("OrderDetail", { orderId: item.id })}
       >
         {/* Order Header */}
         <View className="flex-row items-center justify-between mb-3 pb-3 border-b border-border">
           <View className="flex-row items-center flex-1">
             <Ionicons name="receipt-outline" size={18} color="#2E86AB" />
-            <Text className="text-sm font-bold text-text ml-2">{item.id}</Text>
+            <Text className="text-sm font-bold text-text ml-2">
+              {item.id.substring(0, 8)}
+            </Text>
             {orderTypeBadge && (
               <View
                 className="ml-2 px-2 py-1 rounded-md flex-row items-center"
@@ -450,86 +213,80 @@ export default function OrdersScreen({ navigation, route }) {
           <View className="flex-row items-center">
             <View
               className="w-2 h-2 rounded-full mr-2"
-              style={{ backgroundColor: item.statusColor }}
+              style={{ backgroundColor: getOrderStatusColor(item.status) }}
             />
             <Text
               className="text-sm font-semibold"
-              style={{ color: item.statusColor }}
+              style={{ color: getOrderStatusColor(item.status) }}
             >
-              {item.status}
+              {formatOrderStatus(item.status)}
             </Text>
           </View>
         </View>
 
         {/* Order Items */}
         <View className="mb-3">
-          {item.items.map((product, index) => (
-            <View
-              key={product.id}
-              className={`flex-row items-center ${index > 0 ? "mt-3" : ""}`}
-            >
-              <Image
-                source={{ uri: product.image }}
-                className="w-16 h-16 rounded-lg"
-              />
-              <View className="flex-1 ml-3">
-                <Text
-                  className="text-sm font-semibold text-text"
-                  numberOfLines={2}
-                >
-                  {product.name}
-                </Text>
-                <Text className="text-xs text-textGray mt-1">
-                  x{product.quantity}
+          {item.orderItems &&
+            item.orderItems.slice(0, 2).map((orderItem, index) => (
+              <View
+                key={orderItem.id}
+                className={`flex-row items-center ${index > 0 ? "mt-3" : ""}`}
+              >
+                <Image
+                  source={{
+                    uri:
+                      orderItem.product?.images?.[0]?.imageUrl ||
+                      "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
+                  }}
+                  className="w-16 h-16 rounded-lg"
+                />
+                <View className="flex-1 ml-3">
+                  <Text
+                    className="text-sm font-semibold text-text"
+                    numberOfLines={2}
+                  >
+                    {orderItem.product?.name || "S\u1ea3n ph\u1ea9m"}
+                  </Text>
+                  <Text className="text-xs text-textGray mt-1">
+                    x{orderItem.quantity}
+                  </Text>
+                </View>
+                <Text className="text-sm font-bold text-primary">
+                  {`${formatPrice(orderItem.unitPrice).toLocaleString("vi-VN")}\u0111`}
                 </Text>
               </View>
-              <Text className="text-sm font-bold text-primary">
-                {product.price.toLocaleString("vi-VN") + "đ"}
-              </Text>
-            </View>
-          ))}
+            ))}
+          {item.orderItems && item.orderItems.length > 2 && (
+            <Text className="text-xs text-textGray mt-2">
+              +{item.orderItems.length - 2} sản phẩm khác
+            </Text>
+          )}
         </View>
 
         {/* Order Footer */}
         <View className="pt-3 border-t border-border">
-          {/* Special Info for certain order types */}
-          {item.orderType === "prescription" && item.appointmentDate && (
+          {/* Appointment info if exists */}
+          {item.appointment && (
             <View className="mb-3 bg-purple-50 rounded-lg p-2.5 flex-row items-center">
               <Ionicons name="calendar" size={16} color="#A23B72" />
               <Text className="text-xs text-purple-800 ml-2">
-                <Text className="font-semibold">Lịch hẹn:</Text>{" "}
-                {item.appointmentDate} - {item.appointmentTime} tại {item.store}
-              </Text>
-            </View>
-          )}
-          {item.orderType === "lens_with_frame" && item.requirePickup && (
-            <View className="mb-3 bg-amber-50 rounded-lg p-2.5 flex-row items-center">
-              <Ionicons name="location" size={16} color="#F18F01" />
-              <Text className="text-xs text-amber-800 ml-2">
-                <Text className="font-semibold">Nhận tại:</Text> {item.store} -{" "}
-                {item.appointmentDate} {item.appointmentTime}
-              </Text>
-            </View>
-          )}
-          {item.paymentType === "deposit" && item.depositAmount && (
-            <View className="mb-3 bg-blue-50 rounded-lg p-2.5 flex-row items-center">
-              <Ionicons name="card" size={16} color="#2E86AB" />
-              <Text className="text-xs text-blue-800 ml-2">
-                <Text className="font-semibold">Đã cọc:</Text>{" "}
-                {item.depositAmount.toLocaleString("vi-VN") + "đ"} - Còn lại{" "}
-                {(item.totalAmount - item.depositAmount).toLocaleString("vi-VN") + "đ"}
+                <Text className="font-semibold">L\u1ecbch h\u1eb9n:</Text>{" "}
+                {formatDate(item.appointment.appointmentDate)}
               </Text>
             </View>
           )}
 
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-xs text-textGray">
-              <Ionicons name="calendar-outline" size={12} /> {item.date}
+              <Ionicons name="calendar-outline" size={12} />{" "}
+              {formatDate(item.createdAt)}
             </Text>
             <View className="flex-row items-center">
-              <Text className="text-xs text-textGray mr-2">Tổng tiền:</Text>
+              <Text className="text-xs text-textGray mr-2">
+                T\u1ed5ng ti\u1ec1n:
+              </Text>
               <Text className="text-lg font-bold text-text">
-                {item.totalAmount.toLocaleString("vi-VN") + "đ"}
+                {`${formatPrice(item.totalAmount).toLocaleString("vi-VN")}\u0111`}
               </Text>
             </View>
           </View>
@@ -622,13 +379,25 @@ export default function OrdersScreen({ navigation, route }) {
       </View>
 
       {/* Orders List */}
-      {filteredOrders.length > 0 ? (
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#2E86AB" />
+          <Text className="text-textGray mt-4">Đang tải...</Text>
+        </View>
+      ) : filteredOrders.length > 0 ? (
         <FlatList
           data={filteredOrders}
           renderItem={renderOrderItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 20 }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={["#2E86AB"]}
+            />
+          }
         />
       ) : (
         <View className="flex-1 items-center justify-center px-8">

@@ -4,6 +4,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View, ActivityIndicator } from "react-native";
 import { isLoggedIn } from "./src/services/authService";
+import { linking, handleDeepLink } from "./src/utils/deepLinkHandler";
 
 // Import Auth screens
 import LoginScreen from "./src/screens/auth/LoginScreen";
@@ -14,12 +15,16 @@ import ForgotPasswordScreen from "./src/screens/auth/ForgotPasswordScreen";
 import HomeScreen from "./src/screens/home/HomeScreen";
 import ProductCatalogScreen from "./src/screens/products/ProductCatalogScreen";
 import ProductDetailScreen from "./src/screens/products/ProductDetailScreen";
+import LensOrderScreen from "./src/screens/products/LensOrderScreen";
 import CartScreen from "./src/screens/cart/CartScreen";
 import CheckoutScreen from "./src/screens/checkout/CheckoutScreen";
+import CheckoutScreenVNPay from "./src/screens/checkout/CheckoutScreenVNPay";
+import VNPayPaymentScreen from "./src/screens/checkout/VNPayPaymentScreen";
 import ProfileScreen from "./src/screens/profile/ProfileScreen";
 import OrdersScreen from "./src/screens/orders/OrdersScreen";
 import OrderDetailScreen from "./src/screens/orders/OrderDetailScreen";
 import OrderSuccessScreen from "./src/screens/orders/OrderSuccessScreen";
+import OrderSuccessScreenVNPay from "./src/screens/orders/OrderSuccessScreenVNPay";
 import SearchScreen from "./src/screens/search/SearchScreen";
 import NotificationsScreen from "./src/screens/notifications/NotificationsScreen";
 import VouchersScreen from "./src/screens/vouchers/VouchersScreen";
@@ -72,7 +77,16 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
+      <NavigationContainer
+        linking={linking}
+        fallback={<ActivityIndicator color="#2E86AB" size="large" />}
+        onStateChange={(state) => {
+          // Xử lý deeplink từ backend
+          if (state) {
+            handleDeepLink(state);
+          }
+        }}
+      >
         <Stack.Navigator
           initialRouteName={userLoggedIn ? "MainApp" : "Login"}
           screenOptions={{
@@ -97,12 +111,22 @@ export default function App() {
             component={ProductCatalogScreen}
           />
           <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+          <Stack.Screen name="LensOrder" component={LensOrderScreen} />
           <Stack.Screen name="Cart" component={CartScreen} />
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
+          <Stack.Screen
+            name="CheckoutScreenVNPay"
+            component={CheckoutScreenVNPay}
+          />
+          <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="Orders" component={OrdersScreen} />
           <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
           <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+          <Stack.Screen
+            name="OrderSuccessVNPay"
+            component={OrderSuccessScreenVNPay}
+          />
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="Vouchers" component={VouchersScreen} />

@@ -91,7 +91,8 @@ export default function VirtualTryOnScreen({ navigation, route }) {
           <View className="w-full h-full bg-background items-center justify-center">
             <Ionicons name="camera-outline" size={120} color="#999999" />
             <Text className="text-textGray text-center mt-4 px-8">
-              Camera đang mở...{"\n"}Nhìn thẳng vào camera
+              {`Camera đang mở...
+Nhìn thẳng vào camera`}
             </Text>
           </View>
         ) : (
@@ -184,7 +185,7 @@ export default function VirtualTryOnScreen({ navigation, route }) {
                   {product.name}
                 </Text>
                 <Text className="text-xs text-primary font-bold mt-1">
-                  {product.price.toLocaleString("vi-VN") + "đ"}
+                  {`${product.price.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
             </TouchableOpacity>

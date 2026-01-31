@@ -305,7 +305,7 @@ export default function VouchersScreen({ navigation }) {
                   </Text>
                   <Text className="text-sm text-textGray">
                     • Đơn hàng tối thiểu:{" "}
-                    {selectedVoucher.minOrder.toLocaleString("vi-VN") + "đ"}
+                    {`${selectedVoucher.minOrder.toLocaleString("vi-VN")}đ`}
                   </Text>
                   <Text className="text-sm text-textGray">
                     • {selectedVoucher.description}

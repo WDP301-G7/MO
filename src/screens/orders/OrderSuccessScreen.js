@@ -47,7 +47,7 @@ export default function OrderSuccessScreen({ navigation, route }) {
           <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-border">
             <Text className="text-sm text-textGray">Tổng tiền:</Text>
             <Text className="text-xl font-bold text-primary">
-              {totalAmount.toLocaleString()}đ
+              {`${totalAmount.toLocaleString()}đ`}
             </Text>
           </View>
           {isPickupOrder && appointmentDate ? (
@@ -115,9 +115,21 @@ export default function OrderSuccessScreen({ navigation, route }) {
           </TouchableOpacity>
           <TouchableOpacity
             className="bg-white border-2 border-primary rounded-xl py-4 items-center"
-            onPress={() => navigation.navigate("Home")}
+            onPress={() =>
+              navigation.navigate("MainApp", { screen: "OrdersTab" })
+            }
           >
             <Text className="text-primary font-bold text-base">
+              Xem đơn hàng của tôi
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="bg-white border-2 border-border rounded-xl py-4 items-center"
+            onPress={() =>
+              navigation.navigate("MainApp", { screen: "HomeTab" })
+            }
+          >
+            <Text className="text-textGray font-bold text-base">
               Tiếp tục mua sắm
             </Text>
           </TouchableOpacity>

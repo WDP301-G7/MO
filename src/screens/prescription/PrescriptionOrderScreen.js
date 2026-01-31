@@ -471,7 +471,7 @@ export default function PrescriptionOrderScreen({ navigation }) {
                     {frame.name}
                   </Text>
                   <Text className="text-lg font-bold text-primary">
-                    {frame.price.toLocaleString("vi-VN") + "đ"}
+                    {`${frame.price.toLocaleString("vi-VN")}đ`}
                   </Text>
                   {frame.inStock ? (
                     <View className="flex-row items-center mt-1">
@@ -531,11 +531,13 @@ export default function PrescriptionOrderScreen({ navigation }) {
       </Text>
       <View className="bg-blue-50 rounded-xl p-4 mb-3 flex-row">
         <Ionicons name="information-circle-outline" size={20} color="#2E86AB" />
-        <Text className="flex-1 text-xs text-blue-800 ml-2">
-          <Text className="font-bold">Lưu ý:{"\n"}</Text>
-          Tròng kính được làm theo đơn thuốc của bạn. Shop sẽ hẹn lịch nhận hàng
-          sau khi tròng hoàn thành.
-        </Text>
+        <View className="flex-1 ml-2">
+          <Text className="text-xs text-blue-800 font-bold">Lưu ý:</Text>
+          <Text className="text-xs text-blue-800">
+            Tròng kính được làm theo đơn thuốc của bạn. Shop sẽ hẹn lịch nhận
+            hàng sau khi tròng hoàn thành.
+          </Text>
+        </View>
       </View>
 
       {lensTypes.map((lens) => (
@@ -561,7 +563,7 @@ export default function PrescriptionOrderScreen({ navigation }) {
                 )}
               </View>
               <Text className="text-lg font-bold text-primary mb-1">
-                {lens.price.toLocaleString("vi-VN") + "đ"}
+                {`${lens.price.toLocaleString("vi-VN")}đ`}
               </Text>
               {lens.inStock ? (
                 <View className="flex-row items-center">
@@ -626,8 +628,7 @@ export default function PrescriptionOrderScreen({ navigation }) {
         Bước 3: Thông tin nhận hàng
       </Text>
       <Text className="text-sm text-textGray mb-4">
-        Shop sẽ chủ động liên hệ để hẹn lịch khi{" "}
-        {orderType === "lens_only" ? "tròng kính" : "sản phẩm"} đã sẵn sàng
+        {`Shop sẽ chủ động liên hệ để hẹn lịch khi ${orderType === "lens_only" ? "tròng kính" : "sản phẩm"} đã sẵn sàng`}
       </Text>
 
       {/* Wait Time Info */}
@@ -652,9 +653,9 @@ export default function PrescriptionOrderScreen({ navigation }) {
               Sản phẩm cần đặt trước:
             </Text>
             <Text className="text-sm text-amber-700">
-              Một hoặc nhiều sản phẩm không có sẵn tại cửa hàng và cần đợi shop
-              lấy từ nhà cung cấp. Sau khi đặt hàng, bạn có thể:{"\n"}• Đợi shop
-              lấy hàng về{"\n"}• Hoặc đổi sang sản phẩm có sẵn khác
+              {`Một hoặc nhiều sản phẩm không có sẵn tại cửa hàng và cần đợi shop lấy từ nhà cung cấp. Sau khi đặt hàng, bạn có thể:
+• Đợi shop lấy hàng về
+• Hoặc đổi sang sản phẩm có sẵn khác`}
             </Text>
           </View>
         </View>
@@ -664,13 +665,10 @@ export default function PrescriptionOrderScreen({ navigation }) {
       <View className="bg-red-50 rounded-xl p-4 mb-5 flex-row">
         <Ionicons name="alert-circle" size={24} color="#EF4444" />
         <Text className="flex-1 text-sm text-red-800 ml-2">
-          <Text className="font-bold">Lưu ý quan trọng:{"\n"}</Text>• Shop sẽ
-          chủ động liên hệ để hẹn lịch nhận hàng{"\n"}• Bạn BẮT BUỘC phải lên
-          cửa hàng để nhận hàng và kiểm tra{"\n"}
-          {orderType === "frame_lens"
-            ? "• Cần test kính và điều chỉnh gọng cho phù hợp\n"
-            : ""}
-          • Bảo hành chỉ được nhận tại cửa hàng (không nhận online)
+          <Text className="font-bold">Lưu ý quan trọng:{"\n"}</Text>
+          {`• Shop sẽ chủ động liên hệ để hẹn lịch nhận hàng
+• Bạn BẮT BUỘC phải lên cửa hàng để nhận hàng và kiểm tra
+${orderType === "frame_lens" ? "• Cần test kính và điều chỉnh gọng cho phù hợp\n" : ""}• Bảo hành chỉ được nhận tại cửa hàng (không nhận online)`}
         </Text>
       </View>
 
@@ -738,11 +736,13 @@ export default function PrescriptionOrderScreen({ navigation }) {
         {fullPaymentRequired && (
           <View className="bg-amber-50 rounded-xl p-4 mb-4 flex-row">
             <Ionicons name="information-circle" size={24} color="#F59E0B" />
-            <Text className="flex-1 text-sm text-amber-800 ml-2">
-              <Text className="font-bold">Lưu ý:{"\n"}</Text>
-              Sản phẩm bạn chọn không có sẵn và cần đặt từ nhà cung cấp. Vì vậy,
-              bạn cần thanh toán toàn bộ trước.
-            </Text>
+            <View className="flex-1 ml-2">
+              <Text className="text-sm text-amber-800 font-bold">Lưu ý:</Text>
+              <Text className="text-sm text-amber-800">
+                Sản phẩm bạn chọn không có sẵn và cần đặt từ nhà cung cấp. Vì
+                vậy, bạn cần thanh toán toàn bộ trước.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -769,7 +769,7 @@ export default function PrescriptionOrderScreen({ navigation }) {
                   </View>
                 </View>
                 <Text className="text-lg font-bold text-primary mb-2">
-                  {getDepositAmount().toLocaleString("vi-VN") + "đ"}
+                  {`${getDepositAmount().toLocaleString("vi-VN")}đ`}
                 </Text>
                 <Text className="text-sm text-textGray">
                   Thanh toán phần còn lại khi nhận kính tại cửa hàng
@@ -814,7 +814,7 @@ export default function PrescriptionOrderScreen({ navigation }) {
                 )}
               </View>
               <Text className="text-lg font-bold text-primary mb-2">
-                {getTotalAmount().toLocaleString("vi-VN") + "đ"}
+                {`${getTotalAmount().toLocaleString("vi-VN")}đ`}
               </Text>
               <Text className="text-sm text-textGray">
                 Thanh toán toàn bộ trước, không cần thanh toán thêm
@@ -844,10 +844,9 @@ export default function PrescriptionOrderScreen({ navigation }) {
             <View className="flex-row justify-between items-center py-2 border-b border-border">
               <Text className="text-sm text-text">Gọng kính</Text>
               <Text className="text-sm font-semibold text-text">
-                {frames
+                {`${frames
                   .find((f) => f.id === selectedFrame)
-                  ?.price.toLocaleString("vi-VN")}
-                đ
+                  ?.price.toLocaleString("vi-VN")}đ`}
               </Text>
             </View>
           )}
@@ -856,10 +855,9 @@ export default function PrescriptionOrderScreen({ navigation }) {
             <View className="flex-row justify-between items-center py-2 border-b border-border">
               <Text className="text-sm text-text">Tròng kính</Text>
               <Text className="text-sm font-semibold text-text">
-                {lensTypes
+                {`${lensTypes
                   .find((l) => l.id === selectedLens)
-                  ?.price.toLocaleString("vi-VN")}
-                đ
+                  ?.price.toLocaleString("vi-VN")}đ`}
               </Text>
             </View>
           )}
@@ -867,7 +865,7 @@ export default function PrescriptionOrderScreen({ navigation }) {
           <View className="flex-row justify-between items-center pt-3 mb-3">
             <Text className="text-base font-bold text-text">Tổng cộng</Text>
             <Text className="text-xl font-bold text-primary">
-              {getTotalAmount().toLocaleString("vi-VN") + "đ"}
+              {`${getTotalAmount().toLocaleString("vi-VN")}đ`}
             </Text>
           </View>
 
@@ -878,7 +876,7 @@ export default function PrescriptionOrderScreen({ navigation }) {
                   Thanh toán ngay
                 </Text>
                 <Text className="text-sm font-bold text-primary">
-                  {getDepositAmount().toLocaleString("vi-VN") + "đ"}
+                  {`${getDepositAmount().toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
               <View className="flex-row justify-between items-center">
@@ -886,10 +884,9 @@ export default function PrescriptionOrderScreen({ navigation }) {
                   Thanh toán khi nhận hàng
                 </Text>
                 <Text className="text-sm font-semibold text-textGray">
-                  {(getTotalAmount() - getDepositAmount()).toLocaleString(
+                  {`${(getTotalAmount() - getDepositAmount()).toLocaleString(
                     "vi-VN",
-                  )}
-                  đ
+                  )}đ`}
                 </Text>
               </View>
             </View>

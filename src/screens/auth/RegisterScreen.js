@@ -242,11 +242,11 @@ export default function RegisterScreen({ navigation }) {
               )}
             </View>
             <Text className="flex-1 text-xs text-textGray leading-5">
-              Tôi đồng ý với{" "}
+              {`Tôi đồng ý với `}
               <Text className="text-primary font-semibold">
                 Điều khoản sử dụng
-              </Text>{" "}
-              và{" "}
+              </Text>
+              {` và `}
               <Text className="text-primary font-semibold">
                 Chính sách bảo mật
               </Text>

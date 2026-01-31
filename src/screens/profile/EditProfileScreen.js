@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,24 +6,143 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { getProfile, updateProfile } from "../../services/authService";
 
 export default function EditProfileScreen({ navigation }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [user, setUser] = useState(null);
+  const [selectedAvatar, setSelectedAvatar] = useState(null);
   const [formData, setFormData] = useState({
-    fullName: "Nguyễn Văn A",
-    email: "nguyenvana@example.com",
-    phone: "0123456789",
-    birthDate: "01/01/1990",
+    fullName: "",
+    email: "",
+    phone: "",
+    birthDate: "",
     gender: "male",
-    address: "123 Đường Lê Lợi, Quận 1, TP.HCM",
+    address: "",
   });
 
-  const handleSave = () => {
-    alert("Cập nhật thông tin thành công!");
-    navigation.goBack();
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      const result = await getProfile();
+
+      if (result.success && result.data) {
+        setUser(result.data);
+        // Map data từ backend vào form
+        setFormData({
+          fullName: result.data.fullName || "",
+          email: result.data.email || "",
+          phone: result.data.phone || "",
+          birthDate: "", // Backend chưa có field này
+          gender: "male", // Backend chưa có field này
+          address: result.data.address || "",
+        });
+      } else {
+        Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi tải thông tin");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const pickImage = async () => {
+    // Request permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (status !== "granted") {
+      Alert.alert(
+        "Quyền truy cập",
+        "Cần cấp quyền truy cập thư viện ảnh để chọn ảnh đại diện",
+      );
+      return;
+    }
+
+    // Pick image
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setSelectedAvatar({
+        uri: asset.uri,
+        name: asset.fileName || `avatar_${Date.now()}.jpg`,
+        type: asset.mimeType || "image/jpeg",
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    // Validate
+    if (!formData.fullName.trim()) {
+      Alert.alert("Thông báo", "Vui lòng nhập họ và tên");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const updateData = {
+        fullName: formData.fullName.trim(),
+        address: formData.address.trim(),
+      };
+
+      // Add avatar if selected
+      if (selectedAvatar) {
+        updateData.avatar = selectedAvatar;
+      }
+
+      const result = await updateProfile(user.id, updateData);
+
+      if (result.success) {
+        Alert.alert(
+          "Thành công",
+          result.message || "Cập nhật thông tin thành công",
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.goBack(),
+            },
+          ],
+        );
+      } else {
+        Alert.alert("Lỗi", result.message || "Cập nhật thất bại");
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi cập nhật thông tin");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Show loading
+  if (loading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color="#2E86AB" />
+        <Text className="text-textGray mt-4">Đang tải thông tin...</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -52,13 +171,16 @@ export default function EditProfileScreen({ navigation }) {
           <View className="relative">
             <Image
               source={{
-                uri: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=240&h=240&fit=crop",
+                uri:
+                  selectedAvatar?.uri ||
+                  user?.avatarUrl ||
+                  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=240&h=240&fit=crop",
               }}
               className="w-24 h-24 rounded-full"
             />
             <TouchableOpacity
               className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary items-center justify-center border-2 border-white"
-              onPress={() => alert("Chọn ảnh đại diện")}
+              onPress={pickImage}
             >
               <Ionicons name="camera" size={16} color="#FFFFFF" />
             </TouchableOpacity>
@@ -91,12 +213,15 @@ export default function EditProfileScreen({ navigation }) {
               Email <Text className="text-red-500">*</Text>
             </Text>
             <TextInput
-              className="bg-background rounded-xl px-4 py-3 text-sm text-text"
+              className="bg-gray-100 rounded-xl px-4 py-3 text-sm text-textGray"
               placeholder="Nhập email"
               keyboardType="email-address"
               value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
+              editable={false}
             />
+            <Text className="text-xs text-textGray mt-1">
+              Email không thể thay đổi
+            </Text>
           </View>
 
           {/* Phone */}
@@ -105,12 +230,15 @@ export default function EditProfileScreen({ navigation }) {
               Số điện thoại <Text className="text-red-500">*</Text>
             </Text>
             <TextInput
-              className="bg-background rounded-xl px-4 py-3 text-sm text-text"
+              className="bg-gray-100 rounded-xl px-4 py-3 text-sm text-textGray"
               placeholder="Nhập số điện thoại"
               keyboardType="phone-pad"
               value={formData.phone}
-              onChangeText={(text) => setFormData({ ...formData, phone: text })}
+              editable={false}
             />
+            <Text className="text-xs text-textGray mt-1">
+              Số điện thoại không thể thay đổi
+            </Text>
           </View>
 
           {/* Birth Date */}
@@ -224,8 +352,13 @@ export default function EditProfileScreen({ navigation }) {
         <TouchableOpacity
           className="bg-primary rounded-xl py-4 items-center"
           onPress={handleSave}
+          disabled={saving}
         >
-          <Text className="text-white font-bold text-base">Lưu thay đổi</Text>
+          {saving ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text className="text-white font-bold text-base">Lưu thay đổi</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

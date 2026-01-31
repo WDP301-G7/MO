@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,20 +6,93 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { logout } from "../../services/authService";
+import { useFocusEffect } from "@react-navigation/native";
+import { logout, getCurrentUser, getProfile } from "../../services/authService";
 
 export default function ProfileScreen({ navigation }) {
-  const user = {
-    name: "Nguyễn Văn A",
-    email: "nguyenvana@example.com",
-    phone: "0123456789",
-    avatar:
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=240&h=240&fit=crop",
-    memberSince: "Tháng 1, 2024",
+  const [user, setUser] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadUserData = async () => {
+    try {
+      // Gọi API để lấy profile mới nhất từ server
+      const result = await getProfile();
+
+      if (result.success && result.data) {
+        // Map data từ backend theo đúng structure
+        setUser({
+          id: result.data.id,
+          name: result.data.fullName,
+          email: result.data.email,
+          phone: result.data.phone,
+          avatar: result.data.avatarUrl || null,
+          role: result.data.role,
+          status: result.data.status,
+          address: result.data.address,
+          storeId: result.data.storeId,
+          createdAt: result.data.createdAt,
+          updatedAt: result.data.updatedAt,
+        });
+      } else {
+        // Fallback: load từ local storage nếu API fail
+        const localUser = await getCurrentUser();
+        if (localUser) {
+          setUser({
+            id: localUser.id,
+            name: localUser.fullName,
+            email: localUser.email,
+            phone: localUser.phone,
+            avatar: localUser.avatarUrl || null,
+            role: localUser.role,
+            status: localUser.status,
+            address: localUser.address,
+            storeId: localUser.storeId,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error);
+      // Fallback to local storage
+      const localUser = await getCurrentUser();
+      if (localUser) {
+        setUser({
+          id: localUser.id,
+          name: localUser.fullName,
+          email: localUser.email,
+          phone: localUser.phone,
+          avatar: localUser.avatarUrl || null,
+          role: localUser.role,
+          status: localUser.status,
+          address: localUser.address,
+          storeId: localUser.storeId,
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadUserData();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Reload user data when screen is focused
+      loadUserData();
+    }, []),
+  );
 
   const stats = [
     {
@@ -157,21 +230,69 @@ export default function ProfileScreen({ navigation }) {
         text: "Đăng xuất",
         style: "destructive",
         onPress: async () => {
-          await logout();
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          });
+          const result = await logout();
+          if (result.success) {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            });
+          } else {
+            // Still logout locally even if API fails
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            });
+          }
         },
       },
     ]);
   };
 
+  // Show loading indicator
+  if (loading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <StatusBar style="dark" />
+        <Text className="text-textGray">Đang tải...</Text>
+      </View>
+    );
+  }
+
+  // Show error if no user data
+  if (!user) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <StatusBar style="dark" />
+        <Ionicons name="person-outline" size={64} color="#CCCCCC" />
+        <Text className="text-textGray mt-4">
+          Không thể tải thông tin người dùng
+        </Text>
+        <TouchableOpacity
+          onPress={loadUserData}
+          className="mt-4 bg-primary px-6 py-3 rounded-lg"
+        >
+          <Text className="text-white font-semibold">Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-background">
       <StatusBar style="light" />
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#FFFFFF"
+            colors={["#2E86AB"]}
+          />
+        }
+      >
         {/* Header with gradient effect */}
         <View className="bg-primary pt-12 pb-6 px-5">
           <View className="flex-row items-center justify-between mb-4">
@@ -188,7 +309,11 @@ export default function ProfileScreen({ navigation }) {
           <View className="bg-white rounded-2xl p-4 flex-row items-center shadow-lg">
             <View className="relative">
               <Image
-                source={{ uri: user.avatar }}
+                source={{
+                  uri:
+                    user.avatar ||
+                    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=240&h=240&fit=crop",
+                }}
                 className="w-16 h-16 rounded-full"
               />
               <TouchableOpacity
@@ -199,14 +324,20 @@ export default function ProfileScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <View className="flex-1 ml-3">
-              <Text className="text-lg font-bold text-text">{user.name}</Text>
-              <Text className="text-sm text-textGray mt-0.5">{user.email}</Text>
-              <View className="flex-row items-center mt-1">
-                <Ionicons name="time-outline" size={12} color="#999999" />
-                <Text className="text-xs text-textGray ml-1">
-                  Thành viên từ {user.memberSince}
-                </Text>
-              </View>
+              <Text className="text-lg font-bold text-text">
+                {user.name || "Người dùng"}
+              </Text>
+              <Text className="text-sm text-textGray mt-0.5">
+                {user.email || ""}
+              </Text>
+              {user.phone && (
+                <View className="flex-row items-center mt-1">
+                  <Ionicons name="call-outline" size={12} color="#999999" />
+                  <Text className="text-xs text-textGray ml-1">
+                    {user.phone}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>

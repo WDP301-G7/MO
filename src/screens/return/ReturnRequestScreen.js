@@ -111,7 +111,7 @@ export default function ReturnRequestScreen({ navigation, route }) {
                 {order.product.variant}
               </Text>
               <Text className="text-sm font-bold text-primary">
-                {order.product.price.toLocaleString()}đ
+                {`${order.product.price.toLocaleString()}đ`}
               </Text>
             </View>
           </View>
@@ -294,9 +294,10 @@ export default function ReturnRequestScreen({ navigation, route }) {
             </Text>
           </View>
           <Text className="text-xs text-textGray leading-5">
-            • Sản phẩm còn nguyên tem, nhãn mác{"\n"}• Trong thời gian 7 ngày kể
-            từ ngày nhận hàng{"\n"}• Không áp dụng với sản phẩm khuyến mãi{"\n"}
-            • Phí vận chuyển hoàn trả do người mua chịu (trừ lỗi từ shop)
+            {`• Sản phẩm còn nguyên tem, nhãn mác
+• Trong thời gian 7 ngày kể từ ngày nhận hàng
+• Không áp dụng với sản phẩm khuyến mãi
+• Phí vận chuyển hoàn trả do người mua chịu (trừ lỗi từ shop)`}
           </Text>
         </View>
       </ScrollView>

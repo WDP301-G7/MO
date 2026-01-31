@@ -128,11 +128,11 @@ export default function FavoritesScreen({ navigation }) {
                     </Text>
                     <View className="flex-row items-center mb-2">
                       <Text className="text-base font-bold text-primary mr-2">
-                        {product.price.toLocaleString()}đ
+                        {`${product.price.toLocaleString()}đ`}
                       </Text>
                       {product.originalPrice && (
                         <Text className="text-xs text-textGray line-through">
-                          {product.originalPrice.toLocaleString()}đ
+                          {`${product.originalPrice.toLocaleString()}đ`}
                         </Text>
                       )}
                     </View>

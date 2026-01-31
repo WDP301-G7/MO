@@ -111,11 +111,11 @@ export default function CartScreen({ navigation }) {
           {item.name}
         </Text>
         <Text className="text-xs text-textGray mb-2">
-          {item.selectedColor} • {item.selectedSize}
+          {`${item.selectedColor} • ${item.selectedSize}`}
         </Text>
         <View className="flex-row justify-between items-center">
           <Text className="text-base font-bold text-primary">
-            {item.price.toLocaleString("vi-VN") + "đ"}
+            {`${item.price.toLocaleString("vi-VN")}đ`}
           </Text>
           <View className="flex-row items-center gap-3">
             <TouchableOpacity
@@ -228,21 +228,21 @@ export default function CartScreen({ navigation }) {
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-sm text-textGray">Tạm tính</Text>
                 <Text className="text-sm font-semibold text-text">
-                  {subtotal.toLocaleString("vi-VN") + "đ"}
+                  {`${subtotal.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
 
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-sm text-textGray">Phí vận chuyển</Text>
                 <Text className="text-sm font-semibold text-text">
-                  {shipping.toLocaleString("vi-VN") + "đ"}
+                  {`${shipping.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
 
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-sm text-textGray">Giảm giá</Text>
                 <Text className="text-sm font-semibold text-green-500">
-                  {"-" + discount.toLocaleString("vi-VN") + "đ"}
+                  {`-${discount.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
 
@@ -251,7 +251,7 @@ export default function CartScreen({ navigation }) {
               <View className="flex-row justify-between items-center">
                 <Text className="text-base font-bold text-text">Tổng cộng</Text>
                 <Text className="text-xl font-bold text-primary">
-                  {total.toLocaleString("vi-VN") + "đ"}
+                  {`${total.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
             </View>
@@ -266,7 +266,7 @@ export default function CartScreen({ navigation }) {
                 Tổng thanh toán
               </Text>
               <Text className="text-2xl font-bold text-primary">
-                {total.toLocaleString("vi-VN") + "đ"}
+                {`${total.toLocaleString("vi-VN")}đ`}
               </Text>
             </View>
             <TouchableOpacity

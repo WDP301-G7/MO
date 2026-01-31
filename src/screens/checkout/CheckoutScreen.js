@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,57 +7,162 @@ import {
   TextInput,
   Modal,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { ADDRESSES } from "../../constants/data";
+import { createOrder, formatPrice } from "../../services/orderService";
+import { getProfile } from "../../services/authService";
 
 export default function CheckoutScreen({ navigation, route }) {
   const {
     productType = "normal",
     requireDeposit = false,
-    requiresStore = false, // Từ LensOrderScreen hoặc PrescriptionOrderScreen
+    requiresStore = false,
     appointmentDate = null,
     appointmentTime = null,
     storeName = "MO Eyewear Store",
     storeAddress = "123 Nguyễn Huệ, Quận 1, TP.HCM",
+    fromProduct = false,
+    product = null,
   } = route.params || {};
 
-  const [selectedAddress, setSelectedAddress] = useState(ADDRESSES[0]);
+  const [loading, setLoading] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [selectedAddress, setSelectedAddress] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState("cod");
-  const [paymentOption, setPaymentOption] = useState("full"); // "full" or "deposit"
+  const [paymentOption, setPaymentOption] = useState("full");
   const [note, setNote] = useState("");
   const [addressModalVisible, setAddressModalVisible] = useState(false);
 
+  useEffect(() => {
+    loadUserData();
+    loadCartItems();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      const result = await getProfile();
+      if (result.success && result.data) {
+        setUserData(result.data);
+        // Set default address from user profile
+        if (result.data.address && result.data.phone) {
+          setSelectedAddress({
+            id: "default",
+            name: result.data.fullName,
+            phone: result.data.phone,
+            address: result.data.address,
+            isDefault: true,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error);
+    }
+  };
+
+  const loadCartItems = () => {
+    // If coming from product detail, use product from params
+    if (fromProduct && product) {
+      setCartItems([
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.image,
+          quantity: 1,
+        },
+      ]);
+    } else {
+      // TODO: Load from Cart API when available
+      // For now, get from AsyncStorage or params
+      setCartItems([]);
+    }
+  };
+
   const paymentMethods = [
     { id: "cod", name: "Thanh toán khi nhận hàng (COD)", icon: "cash" },
-    { id: "momo", name: "Ví MoMo", icon: "wallet" },
-    { id: "zalopay", name: "ZaloPay", icon: "logo-usd" },
-    { id: "card", name: "Thẻ tín dụng/ghi nợ", icon: "card" },
+    { id: "vnpay", name: "VNPay", icon: "card" },
   ];
 
-  const subtotal = 3700000;
-  const shipping = 30000;
-  const discount = 100000;
+  // Calculate totals from cart items
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+  const shipping = requiresStore ? 0 : 30000;
+  const discount = 0;
   const fullAmount = subtotal + shipping - discount;
 
-  // Deposit is 50% of total
-  const depositAmount = Math.round(fullAmount * 0.5);
-  const remainingAmount = fullAmount - depositAmount;
+  // Deposit is 30% for preorder/prescription
+  const depositAmount = requireDeposit ? Math.round(fullAmount * 0.3) : 0;
+  const remainingAmount = requireDeposit ? fullAmount - depositAmount : 0;
 
-  const total = paymentOption === "deposit" ? depositAmount : fullAmount;
+  const total =
+    requireDeposit && paymentOption === "deposit" ? depositAmount : fullAmount;
 
-  const handlePlaceOrder = () => {
-    const orderId = `ORD${String(Math.floor(Math.random() * 9000) + 1000)}`;
+  const handlePlaceOrder = async () => {
+    // Validation
+    if (!requiresStore && !selectedAddress) {
+      Alert.alert("Thông báo", "Vui lòng chọn địa chỉ giao hàng");
+      return;
+    }
 
-    navigation.navigate("OrderSuccess", {
-      orderId,
-      totalAmount: fullAmount,
-      paidAmount: total,
-      paymentOption,
-      orderType: requiresStore ? "store_pickup" : "normal",
-      storeName: requiresStore ? storeName : null,
-    });
+    if (cartItems.length === 0) {
+      Alert.alert("Thông báo", "Giỏ hàng trống");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Prepare order data for API
+      const orderData = {
+        items: cartItems.map((item) => ({
+          productId: item.id,
+          quantity: item.quantity,
+          price: item.price.toString(), // Backend expects string
+        })),
+        shippingAddress: requiresStore
+          ? null
+          : selectedAddress?.address || null,
+        phoneNumber: selectedAddress?.phone || userData?.phone || null,
+        paymentMethod: selectedPayment === "cod" ? "COD" : "VNPAY",
+        note: note || undefined, // Don't send null, use undefined to omit field
+      };
+
+      console.log("Order data being sent:", JSON.stringify(orderData, null, 2));
+
+      const result = await createOrder(orderData);
+
+      if (result.success) {
+        // If VNPay payment, navigate to payment screen
+        if (selectedPayment === "vnpay") {
+          navigation.navigate("VNPayPayment", {
+            orderId: result.data.id,
+            amount: total,
+          });
+        } else {
+          // COD - go directly to success screen
+          navigation.navigate("OrderSuccess", {
+            orderId: result.data.id,
+            totalAmount: fullAmount,
+            paymentMethod: "COD",
+          });
+        }
+      } else {
+        Alert.alert(
+          "Lỗi",
+          result.message || "Đặt hàng thất bại. Vui lòng thử lại.",
+        );
+      }
+    } catch (error) {
+      console.error("Error creating order:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi đặt hàng. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -93,26 +198,34 @@ export default function CheckoutScreen({ navigation, route }) {
                 </Text>
               </TouchableOpacity>
             </View>
-            <View className="bg-background rounded-xl p-4 border-2 border-primary">
-              <View className="flex-1">
-                <Text className="text-base font-bold text-text mb-1">
-                  {selectedAddress.name}
-                </Text>
-                <Text className="text-sm text-textGray mb-2">
-                  {selectedAddress.phone}
-                </Text>
-                <Text className="text-sm text-text leading-5">
-                  {selectedAddress.address}
-                </Text>
-              </View>
-              {selectedAddress.isDefault && (
-                <View className="self-start bg-primary px-3 py-1 rounded-xl mt-2">
-                  <Text className="text-xs text-white font-semibold">
-                    Mặc định
+            {selectedAddress ? (
+              <View className="bg-background rounded-xl p-4 border-2 border-primary">
+                <View className="flex-1">
+                  <Text className="text-base font-bold text-text mb-1">
+                    {selectedAddress.name}
+                  </Text>
+                  <Text className="text-sm text-textGray mb-2">
+                    {selectedAddress.phone}
+                  </Text>
+                  <Text className="text-sm text-text leading-5">
+                    {selectedAddress.address}
                   </Text>
                 </View>
-              )}
-            </View>
+                {selectedAddress.isDefault && (
+                  <View className="self-start bg-primary px-3 py-1 rounded-xl mt-2">
+                    <Text className="text-xs text-white font-semibold">
+                      Mặc định
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View className="bg-background rounded-xl p-4">
+                <Text className="text-sm text-textGray">
+                  Chưa có địa chỉ giao hàng
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -127,12 +240,14 @@ export default function CheckoutScreen({ navigation, route }) {
             </View>
             <View className="bg-red-50 rounded-xl p-4 mb-3 flex-row">
               <Ionicons name="alert-circle" size={20} color="#EF4444" />
-              <Text className="flex-1 text-xs text-red-800 ml-2">
-                <Text className="font-bold">Lưu ý quan trọng:{"\n"}</Text>• Shop
-                sẽ chủ động liên hệ để hẹn lịch nhận hàng{"\n"}• Bạn cần đến cửa
-                hàng để lắp tròng kính và điều chỉnh gọng{"\n"}• Bảo hành chỉ
-                được nhận tại cửa hàng (không online)
-              </Text>
+              <View className="flex-1 ml-2">
+                <Text className="text-xs text-red-800 font-bold">
+                  Lưu ý quan trọng:
+                </Text>
+                <Text className="text-xs text-red-800">
+                  {`• Shop sẽ chủ động liên hệ để hẹn lịch nhận hàng\n• Bạn cần đến cửa hàng để lắp tròng kính và điều chỉnh gọng\n• Bảo hành chỉ được nhận tại cửa hàng (không online)`}
+                </Text>
+              </View>
             </View>
             <View className="bg-background rounded-xl p-4 mb-4">
               <Text className="text-[15px] font-semibold text-text mb-2">
@@ -175,17 +290,20 @@ export default function CheckoutScreen({ navigation, route }) {
         <View className="bg-white p-5 mt-2">
           <View className="flex-row items-center gap-2 mb-4">
             <Ionicons name="cart" size={20} color="#2E86AB" />
-            <Text className="text-base font-bold text-text">Sản phẩm (2)</Text>
-          </View>
-          <View className="bg-background rounded-xl p-4 flex-row justify-between items-center">
-            <Text className="flex-1 text-sm text-text mr-3">
-              Gọng kính Rayban Classic và 1 sản phẩm khác
+            <Text className="text-base font-bold text-text">
+              Sản phẩm ({cartItems.length})
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Cart")}>
-              <Text className="text-sm text-primary font-semibold">
-                Xem chi tiết
+          </View>
+          <View className="bg-background rounded-xl p-4">
+            {cartItems.length > 0 ? (
+              <Text className="text-sm text-text">
+                {cartItems[0]?.name}
+                {cartItems.length > 1 &&
+                  ` và ${cartItems.length - 1} sản phẩm khác`}
               </Text>
-            </TouchableOpacity>
+            ) : (
+              <Text className="text-sm text-textGray">Chưa có sản phẩm</Text>
+            )}
           </View>
         </View>
 
@@ -255,7 +373,7 @@ export default function CheckoutScreen({ navigation, route }) {
                     Thanh toán đủ
                   </Text>
                   <Text className="text-sm text-textGray">
-                    Thanh toán toàn bộ {fullAmount.toLocaleString()}đ
+                    {`Thanh toán toàn bộ ${fullAmount.toLocaleString()}đ`}
                   </Text>
                 </View>
                 <View
@@ -287,12 +405,11 @@ export default function CheckoutScreen({ navigation, route }) {
                     Đặt cọc trước
                   </Text>
                   <Text className="text-sm text-textGray mb-2">
-                    Cọc 50% - {depositAmount.toLocaleString()}đ
+                    {`Cọc 50% - ${depositAmount.toLocaleString()}đ`}
                   </Text>
                   <View className="bg-blue-50 rounded-lg p-3">
                     <Text className="text-xs text-primary font-semibold">
-                      💡 Thanh toán {remainingAmount.toLocaleString()}đ còn lại
-                      khi nhận hàng
+                      {`💡 Thanh toán ${remainingAmount.toLocaleString()}đ còn lại khi nhận hàng`}
                     </Text>
                   </View>
                 </View>
@@ -353,19 +470,19 @@ export default function CheckoutScreen({ navigation, route }) {
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-sm text-textGray">Tạm tính</Text>
             <Text className="text-sm font-semibold text-text">
-              {subtotal.toLocaleString("vi-VN") + "đ"}
+              {`${subtotal.toLocaleString("vi-VN")}đ`}
             </Text>
           </View>
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-sm text-textGray">Phí vận chuyển</Text>
             <Text className="text-sm font-semibold text-text">
-              {shipping.toLocaleString("vi-VN") + "đ"}
+              {`${shipping.toLocaleString("vi-VN")}đ`}
             </Text>
           </View>
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-sm text-textGray">Giảm giá</Text>
             <Text className="text-sm font-semibold text-green-500">
-              {"-" + discount.toLocaleString("vi-VN") + "đ"}
+              {`-${discount.toLocaleString("vi-VN")}đ`}
             </Text>
           </View>
           <View className="h-px bg-border my-3" />
@@ -375,7 +492,7 @@ export default function CheckoutScreen({ navigation, route }) {
               <View className="flex-row justify-between items-center mb-2">
                 <Text className="text-sm text-textGray">Tổng đơn hàng</Text>
                 <Text className="text-sm font-semibold text-text">
-                  {fullAmount.toLocaleString("vi-VN") + "đ"}
+                  {`${fullAmount.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
               <View className="flex-row justify-between items-center mb-2">
@@ -383,7 +500,7 @@ export default function CheckoutScreen({ navigation, route }) {
                   Cần thanh toán ngay (50%)
                 </Text>
                 <Text className="text-base font-bold text-primary">
-                  {depositAmount.toLocaleString("vi-VN") + "đ"}
+                  {`${depositAmount.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
               <View className="flex-row justify-between items-center">
@@ -391,7 +508,7 @@ export default function CheckoutScreen({ navigation, route }) {
                   Còn lại khi nhận hàng
                 </Text>
                 <Text className="text-xs text-textGray">
-                  {remainingAmount.toLocaleString("vi-VN") + "đ"}
+                  {`${remainingAmount.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
             </>
@@ -401,7 +518,7 @@ export default function CheckoutScreen({ navigation, route }) {
             <View className="flex-row justify-between items-center">
               <Text className="text-base font-bold text-text">Tổng cộng</Text>
               <Text className="text-xl font-bold text-primary">
-                {fullAmount.toLocaleString("vi-VN") + "đ"}
+                {`${fullAmount.toLocaleString("vi-VN")}đ`}
               </Text>
             </View>
           )}
@@ -415,72 +532,23 @@ export default function CheckoutScreen({ navigation, route }) {
         <View className="flex-row justify-between items-center mb-3">
           <Text className="text-sm text-textGray">Tổng thanh toán</Text>
           <Text className="text-xl font-bold text-primary">
-            {total.toLocaleString("vi-VN") + "đ"}
+            {`${total.toLocaleString("vi-VN")}đ`}
           </Text>
         </View>
         <TouchableOpacity
           className="bg-primary rounded-xl py-4 items-center"
           onPress={handlePlaceOrder}
+          disabled={loading}
         >
-          <Text className="text-base font-bold text-white">Đặt Hàng</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text className="text-base font-bold text-white">Đặt Hàng</Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* Address Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={addressModalVisible}
-        onRequestClose={() => setAddressModalVisible(false)}
-      >
-        <TouchableOpacity
-          className="flex-1 bg-black/50 justify-end"
-          activeOpacity={1}
-          onPress={() => setAddressModalVisible(false)}
-        >
-          <View className="bg-white rounded-t-3xl pb-10 max-h-[80%]">
-            <View className="flex-row justify-between items-center p-5 border-b border-border">
-              <Text className="text-lg font-bold text-text">
-                Chọn địa chỉ giao hàng
-              </Text>
-              <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#333333" />
-              </TouchableOpacity>
-            </View>
-            {ADDRESSES.map((address) => (
-              <TouchableOpacity
-                key={address.id}
-                className="flex-row justify-between p-5 border-b border-border"
-                onPress={() => {
-                  setSelectedAddress(address);
-                  setAddressModalVisible(false);
-                }}
-              >
-                <View className="flex-1 mr-4">
-                  <Text className="text-[15px] font-bold text-text mb-1">
-                    {address.name}
-                  </Text>
-                  <Text className="text-[13px] text-textGray mb-1.5">
-                    {address.phone}
-                  </Text>
-                  <Text className="text-[13px] text-text leading-[18px]">
-                    {address.address}
-                  </Text>
-                </View>
-                {selectedAddress.id === address.id && (
-                  <Ionicons name="checkmark-circle" size={24} color="#2E86AB" />
-                )}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity className="flex-row items-center justify-center p-5 gap-2">
-              <Ionicons name="add-circle-outline" size={24} color="#2E86AB" />
-              <Text className="text-[15px] font-semibold text-primary">
-                Thêm địa chỉ mới
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* TODO: Address Modal - Implement when Address API is available */}
     </View>
   );
 }
