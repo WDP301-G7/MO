@@ -209,7 +209,7 @@ export default function ReturnHistoryScreen({ navigation }) {
                         {request.productName}
                       </Text>
                       <Text className="text-base font-bold text-primary">
-                        {request.amount.toLocaleString()}đ
+                        {`${request.amount.toLocaleString()}đ`}
                       </Text>
                     </View>
                   </View>

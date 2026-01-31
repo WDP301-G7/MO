@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,77 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { SAMPLE_PRODUCTS } from "../../constants/data";
+import { getProducts, formatPrice } from "../../services/productService";
 
 export default function SearchScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [trendingProducts, setTrendingProducts] = useState([]);
+
+  useEffect(() => {
+    loadTrendingProducts();
+  }, []);
+
+  useEffect(() => {
+    const delaySearch = setTimeout(() => {
+      if (searchQuery.trim().length > 0) {
+        performSearch();
+      } else {
+        setIsSearching(false);
+        setSearchResults([]);
+      }
+    }, 500); // Debounce 500ms
+
+    return () => clearTimeout(delaySearch);
+  }, [searchQuery, selectedFilter]);
+
+  const loadTrendingProducts = async () => {
+    try {
+      const { data } = await getProducts({ page: 1, limit: 4 });
+      setTrendingProducts(data);
+    } catch (error) {
+      console.error("Error loading trending products:", error);
+    }
+  };
+
+  const performSearch = async () => {
+    try {
+      setLoading(true);
+      setIsSearching(true);
+
+      const params = {
+        search: searchQuery.trim(),
+        page: 1,
+        limit: 20,
+      };
+
+      // Apply filter
+      if (selectedFilter !== "all") {
+        const typeMap = {
+          frames: "FRAME",
+          sunglasses: "FRAME", // Could add a separate field for sunglasses
+          lenses: "LENS",
+          accessories: "SERVICE",
+        };
+        params.type = typeMap[selectedFilter];
+      }
+
+      const { data } = await getProducts(params);
+      setSearchResults(data);
+    } catch (error) {
+      console.error("Error searching products:", error);
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const recentSearches = [
     "Gọng kính Rayban",
@@ -44,17 +105,6 @@ export default function SearchScreen({ navigation }) {
 
   const handleSearch = (query) => {
     setSearchQuery(query);
-    if (query.trim().length > 0) {
-      setIsSearching(true);
-      // Simulate search
-      const results = SAMPLE_PRODUCTS.filter((product) =>
-        product.name.toLowerCase().includes(query.toLowerCase()),
-      );
-      setSearchResults(results);
-    } else {
-      setIsSearching(false);
-      setSearchResults([]);
-    }
   };
 
   const handleRecentSearch = (keyword) => {
@@ -68,46 +118,51 @@ export default function SearchScreen({ navigation }) {
     setIsSearching(false);
   };
 
-  const renderProductItem = ({ item }) => (
-    <TouchableOpacity
-      className="bg-white rounded-2xl p-3 mb-3 flex-row shadow-sm"
-      onPress={() =>
-        navigation.navigate("ProductDetail", { productId: item.id })
-      }
-    >
-      <Image source={{ uri: item.image }} className="w-24 h-24 rounded-xl" />
-      <View className="flex-1 ml-3 justify-between">
-        <View>
-          <Text className="text-sm font-bold text-text" numberOfLines={2}>
-            {item.name}
-          </Text>
-          <Text className="text-xs text-textGray mt-1">{item.brand}</Text>
-        </View>
-        <View className="flex-row items-center justify-between">
+  const renderProductItem = ({ item }) => {
+    const primaryImage =
+      item.images?.find((img) => img.isPrimary)?.imageUrl ||
+      item.images?.[0]?.imageUrl ||
+      (item.type === "FRAME"
+        ? "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400"
+        : item.type === "LENS"
+          ? "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400"
+          : "https://images.unsplash.com/photo-1622519407650-3df9883f76e6?w=400");
+
+    return (
+      <TouchableOpacity
+        className="bg-white rounded-2xl p-3 mb-3 flex-row shadow-sm"
+        onPress={() =>
+          navigation.navigate("ProductDetail", { productId: item.id })
+        }
+      >
+        <Image
+          source={{ uri: primaryImage }}
+          className="w-24 h-24 rounded-xl"
+        />
+        <View className="flex-1 ml-3 justify-between">
           <View>
-            {item.originalPrice ? (
-              <View>
-                <Text className="text-xs text-textGray line-through">
-                  {item.originalPrice.toLocaleString("vi-VN") + "đ"}
-                </Text>
-                <Text className="text-base font-bold text-primary">
-                  {item.price.toLocaleString("vi-VN") + "đ"}
-                </Text>
-              </View>
-            ) : (
-              <Text className="text-base font-bold text-primary">
-                {item.price.toLocaleString("vi-VN") + "đ"}
-              </Text>
-            )}
+            <Text className="text-sm font-bold text-text" numberOfLines={2}>
+              {item.name}
+            </Text>
+            <Text className="text-xs text-textGray mt-1">
+              {item.brandName || "Không rõ"}
+            </Text>
           </View>
-          <View className="flex-row items-center">
-            <Ionicons name="star" size={14} color="#F18F01" />
-            <Text className="text-xs text-textGray ml-1">{item.rating}</Text>
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-base font-bold text-primary">
+                {`${formatPrice(item.price).toLocaleString("vi-VN")}đ`}
+              </Text>
+            </View>
+            <View className="flex-row items-center">
+              <Ionicons name="star" size={14} color="#F18F01" />
+              <Text className="text-xs text-textGray ml-1">4.5</Text>
+            </View>
           </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -237,40 +292,51 @@ export default function SearchScreen({ navigation }) {
                 Sản phẩm nổi bật
               </Text>
               <View className="flex-row flex-wrap justify-between">
-                {SAMPLE_PRODUCTS.slice(0, 4).map((product) => (
-                  <TouchableOpacity
-                    key={product.id}
-                    className="bg-white rounded-2xl p-3 mb-3 shadow-sm"
-                    style={{ width: "48%" }}
-                    onPress={() =>
-                      navigation.navigate("ProductDetail", {
-                        productId: product.id,
-                      })
-                    }
-                  >
-                    <Image
-                      source={{ uri: product.image }}
-                      className="w-full h-32 rounded-xl"
-                    />
-                    <Text
-                      className="text-sm font-semibold text-text mt-2"
-                      numberOfLines={2}
+                {trendingProducts.map((product) => {
+                  const primaryImage =
+                    product.images?.find((img) => img.isPrimary)?.imageUrl ||
+                    product.images?.[0]?.imageUrl ||
+                    (product.type === "FRAME"
+                      ? "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400"
+                      : product.type === "LENS"
+                        ? "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400"
+                        : "https://images.unsplash.com/photo-1622519407650-3df9883f76e6?w=400");
+
+                  return (
+                    <TouchableOpacity
+                      key={product.id}
+                      className="bg-white rounded-2xl p-3 mb-3 shadow-sm"
+                      style={{ width: "48%" }}
+                      onPress={() =>
+                        navigation.navigate("ProductDetail", {
+                          productId: product.id,
+                        })
+                      }
                     >
-                      {product.name}
-                    </Text>
-                    <View className="flex-row items-center justify-between mt-2">
-                      <Text className="text-base font-bold text-primary">
-                        {product.price.toLocaleString("vi-VN") + "đ"}
+                      <Image
+                        source={{ uri: primaryImage }}
+                        className="w-full h-32 rounded-xl"
+                      />
+                      <Text
+                        className="text-sm font-semibold text-text mt-2"
+                        numberOfLines={2}
+                      >
+                        {product.name}
                       </Text>
-                      <View className="flex-row items-center">
-                        <Ionicons name="star" size={12} color="#F18F01" />
-                        <Text className="text-xs text-textGray ml-1">
-                          {product.rating}
+                      <View className="flex-row items-center justify-between mt-2">
+                        <Text className="text-base font-bold text-primary">
+                          {`${formatPrice(product.price).toLocaleString("vi-VN")}đ`}
                         </Text>
+                        <View className="flex-row items-center">
+                          <Ionicons name="star" size={12} color="#F18F01" />
+                          <Text className="text-xs text-textGray ml-1">
+                            4.5
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           </>
@@ -282,7 +348,14 @@ export default function SearchScreen({ navigation }) {
                 Tìm thấy {searchResults.length} kết quả cho &quot;{searchQuery}
                 &quot;
               </Text>
-              {searchResults.length > 0 ? (
+              {loading ? (
+                <View className="items-center py-8">
+                  <ActivityIndicator size="large" color="#2E86AB" />
+                  <Text className="text-sm text-textGray mt-2">
+                    Đang tìm kiếm...
+                  </Text>
+                </View>
+              ) : searchResults.length > 0 ? (
                 <FlatList
                   data={searchResults}
                   renderItem={renderProductItem}

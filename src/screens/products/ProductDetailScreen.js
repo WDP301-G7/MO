@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,68 +6,192 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { SAMPLE_PRODUCTS } from "../../constants/data";
+import {
+  getProductById,
+  getProductImages,
+  formatPrice,
+} from "../../services/productService";
+import { getProductAvailableQuantity } from "../../services/inventoryService";
 
 const { width } = Dimensions.get("window");
 
 export default function ProductDetailScreen({ navigation, route }) {
-  const product = route.params?.product || SAMPLE_PRODUCTS[0];
+  const productId = route.params?.productId || route.params?.id;
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [images, setImages] = useState([]);
+  const [availableQuantity, setAvailableQuantity] = useState(0);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [selectedColor, setSelectedColor] = useState("black");
-  const [selectedSize, setSelectedSize] = useState("M");
-  const [isFavorite, setIsFavorite] = useState(false);
+  // TODO: Remove these when variants/favorites APIs are available
+  // const [selectedColor, setSelectedColor] = useState("");
+  // const [selectedSize, setSelectedSize] = useState("");
+  // const [isFavorite, setIsFavorite] = useState(false);
 
-  const images = [product.image, product.image, product.image];
-  const colors = [
-    { id: "black", name: "Đen", hex: "#000000" },
-    { id: "blue", name: "Xanh", hex: "#2E86AB" },
-    { id: "brown", name: "Nâu", hex: "#8B4513" },
-  ];
-  const sizes = ["S", "M", "L"];
+  useEffect(() => {
+    if (productId) {
+      loadProductDetails();
+    }
+  }, [productId]);
 
-  const specifications = [
-    { label: "Thương hiệu", value: product.brand },
-    { label: "Chất liệu", value: "Titanium" },
-    { label: "Màu sắc", value: "Đen, Xanh, Nâu" },
-    { label: "Kích thước", value: "52-18-140" },
-    { label: "Trọng lượng", value: "15g" },
-    { label: "Bảo hành", value: "12 tháng" },
-  ];
+  const loadProductDetails = async () => {
+    try {
+      setLoading(true);
+      const [productResult, imagesResult, quantityResult] = await Promise.all([
+        getProductById(productId),
+        getProductImages(productId),
+        getProductAvailableQuantity(productId),
+      ]);
+
+      // Check if product data loaded successfully
+      if (!productResult.success || !productResult.data) {
+        Alert.alert(
+          "Lỗi",
+          productResult.message || "Không thể tải thông tin sản phẩm",
+        );
+        return;
+      }
+
+      const productData = productResult.data;
+      setProduct(productData);
+
+      // Set images or use fallback
+      if (
+        imagesResult.success &&
+        imagesResult.data &&
+        imagesResult.data.length > 0
+      ) {
+        const sortedImages = [...imagesResult.data].sort((a, b) =>
+          b.isPrimary ? 1 : a.isPrimary ? -1 : 0,
+        );
+        setImages(sortedImages.map((img) => img.imageUrl));
+      } else {
+        // Fallback image based on product type
+        const fallbackImage =
+          productData.type === "FRAME"
+            ? "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400"
+            : productData.type === "LENS"
+              ? "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400"
+              : "https://images.unsplash.com/photo-1622519407650-3df9883f76e6?w=400";
+        setImages([fallbackImage]);
+      }
+
+      setAvailableQuantity(quantityResult.success ? quantityResult.data : 0);
+    } catch (error) {
+      console.error("Error loading product details:", error);
+      Alert.alert("Lỗi", "Không thể tải thông tin sản phẩm");
+    } finally {
+      setLoading(false);
+    }
+  };
+  // TODO: Colors and sizes should come from backend product variants
+  // Temporarily hidden until backend API is available
+  // const colors = [];
+  // const sizes = [];
+
+  const specifications = product
+    ? [
+        {
+          label: "Loại sản phẩm",
+          value:
+            product.type === "FRAME"
+              ? "Gọng kính"
+              : product.type === "LENS"
+                ? "Tròng kính"
+                : "Dịch vụ",
+        },
+        { label: "Thương hiệu", value: product.brand || "Chưa cập nhật" },
+        { label: "Tồn kho", value: `${availableQuantity} sản phẩm` },
+        {
+          label: "Tình trạng",
+          value: product.isPreorder
+            ? `Đặt trước (${product.leadTimeDays || 7} ngày)`
+            : availableQuantity > 0 ? "Sẵn hàng" : "Hết hàng",
+        },
+      ]
+    : [];
 
   const handleAddToCart = () => {
+    if (!product) return;
+
+    // Check if out of stock
+    if (availableQuantity === 0) {
+      Alert.alert("Thông báo", "Sản phẩm hiện đã hết hàng");
+      return;
+    }
+
     // Nếu là tròng kính, chuyển đến màn hình đặt tròng + gọng
-    if (product.category === "Tròng kính") {
+    if (product.type === "LENS") {
       navigation.navigate("LensOrder", {
         selectedLensFromProduct: {
           id: product.id,
           name: product.name,
-          price: product.price,
-          image: product.image,
+          price: formatPrice(product.price),
+          image:
+            images[0] ||
+            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400",
         },
       });
       return;
     }
 
-    alert("Đã thêm vào giỏ hàng");
+    Alert.alert("Thành công", "Đã thêm vào giỏ hàng");
     navigation.navigate("Cart");
   };
 
   const handleBuyNow = () => {
+    if (!product) return;
+
+    // Check if out of stock
+    if (availableQuantity === 0) {
+      Alert.alert("Thông báo", "Sản phẩm hiện đã hết hàng");
+      return;
+    }
+
     // Kiểm tra nếu là tròng kính thì phải đến cửa hàng
-    const isLens = product.category === "Tròng kính";
+    const isLens = product.type === "LENS";
 
     navigation.navigate("Checkout", {
       productType: isLens ? "lens_only" : "normal",
-      requireDeposit: false,
+      requireDeposit: product.isPreorder || false,
       requiresStore: isLens, // Tròng kính phải lắp tại cửa hàng
       fromProduct: true,
-      product: product,
+      product: {
+        id: product.id,
+        name: product.name,
+        price: formatPrice(product.price),
+        image: images[0],
+      },
     });
   };
+
+  if (loading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" color="#2E86AB" />
+        <Text className="text-sm text-textGray mt-4">Đang tải...</Text>
+      </View>
+    );
+  }
+
+  if (!product) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <Text className="text-lg text-text">Không tìm thấy sản phẩm</Text>
+        <TouchableOpacity
+          className="mt-4 bg-primary px-6 py-3 rounded-xl"
+          onPress={() => navigation.goBack()}
+        >
+          <Text className="text-white font-semibold">Quay lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -86,9 +210,7 @@ export default function ProductDetailScreen({ navigation, route }) {
           onPress={() => navigation.navigate("Cart")}
         >
           <Ionicons name="cart-outline" size={24} color="#333333" />
-          <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4.5 h-4.5 items-center justify-center">
-            <Text className="text-white text-[10px] font-bold">2</Text>
-          </View>
+          {/* TODO: Cart count badge - need cart API */}
         </TouchableOpacity>
       </View>
 
@@ -100,23 +222,7 @@ export default function ProductDetailScreen({ navigation, route }) {
             style={{ width: width, height: width }}
             resizeMode="cover"
           />
-          {product.discount && (
-            <View className="absolute top-[100px] left-5 bg-red-500 px-3 py-1.5 rounded-lg">
-              <Text className="text-white text-sm font-bold">
-                -{product.discount}%
-              </Text>
-            </View>
-          )}
-          <TouchableOpacity
-            className="absolute top-[100px] right-5 w-12 h-12 rounded-full bg-white items-center justify-center shadow-lg"
-            onPress={() => setIsFavorite(!isFavorite)}
-          >
-            <Ionicons
-              name={isFavorite ? "heart" : "heart-outline"}
-              size={24}
-              color="#EF4444"
-            />
-          </TouchableOpacity>
+          {/* TODO: Favorite button - need favorites API */}
         </View>
 
         {/* Product Info */}
@@ -125,111 +231,42 @@ export default function ProductDetailScreen({ navigation, route }) {
           <View className="flex-row items-center self-start bg-background px-3 py-1.5 rounded-xl mb-3">
             <View
               className={`w-2 h-2 rounded-full mr-1.5 ${
-                product.category === "Tròng kính"
+                product.isPreorder
                   ? "bg-yellow-500"
-                  : product.stock === "Còn hàng"
+                  : availableQuantity > 0
                     ? "bg-green-500"
-                    : product.stock === "Hết hàng"
-                      ? "bg-red-500"
-                      : "bg-yellow-500"
+                    : "bg-red-500"
               }`}
             />
             <Text className="text-xs font-semibold text-text">
-              {product.category === "Tròng kính"
-                ? "Đặt trước"
-                : product.stock || "Còn hàng"}
+              {product.isPreorder
+                ? `Đặt trước (${product.leadTimeDays || 7} ngày)`
+                : availableQuantity > 0
+                  ? `Còn ${availableQuantity} sản phẩm`
+                  : "Hết hàng"}
             </Text>
           </View>
 
-          <Text className="text-sm text-textGray mb-2">{product.brand}</Text>
+          <Text className="text-sm text-textGray mb-2">
+            {product.brand || "Không rõ thương hiệu"}
+          </Text>
           <Text className="text-2xl font-bold text-text mb-3">
             {product.name}
           </Text>
 
-          {/* Rating */}
-          <View className="flex-row items-center mb-4">
-            <View className="flex-row items-center mr-2">
-              <Ionicons name="star" size={18} color="#FFC107" />
-              <Text className="text-base font-bold text-text ml-1">
-                {product.rating}
-              </Text>
-            </View>
-            <Text className="text-sm text-textGray mr-3">
-              ({product.reviews} đánh giá)
-            </Text>
-            <TouchableOpacity>
-              <Text className="text-sm text-primary font-semibold">
-                Xem đánh giá
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* TODO: Rating section - need reviews API */}
 
           {/* Price */}
           <View className="flex-row items-center mb-5">
             <Text className="text-[28px] font-bold text-primary mr-3">
-              {product.price.toLocaleString("vi-VN") + "đ"}
+              {`${formatPrice(product.price).toLocaleString("vi-VN")}đ`}
             </Text>
-            {product.originalPrice && (
-              <Text className="text-lg text-textGray line-through">
-                {product.originalPrice.toLocaleString("vi-VN") + "đ"}
-              </Text>
-            )}
           </View>
 
           {/* Divider */}
           <View className="h-px bg-border my-5" />
 
-          {/* Colors */}
-          <View className="mb-5">
-            <Text className="text-base font-bold text-text mb-3">Màu sắc</Text>
-            <View className="flex-row gap-3">
-              {colors.map((color) => (
-                <TouchableOpacity
-                  key={color.id}
-                  className={`flex-row items-center px-4 py-2 rounded-full border-2 gap-2 ${
-                    selectedColor === color.id
-                      ? "border-primary bg-background"
-                      : "border-border"
-                  }`}
-                  onPress={() => setSelectedColor(color.id)}
-                >
-                  <View
-                    className="w-5 h-5 rounded-full border border-border"
-                    style={{ backgroundColor: color.hex }}
-                  />
-                  <Text className="text-sm text-text">{color.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Sizes */}
-          <View className="mb-5">
-            <Text className="text-base font-bold text-text mb-3">
-              Kích thước
-            </Text>
-            <View className="flex-row gap-3">
-              {sizes.map((size) => (
-                <TouchableOpacity
-                  key={size}
-                  className={`w-[50px] h-[50px] rounded-full border-2 items-center justify-center ${
-                    selectedSize === size
-                      ? "border-primary bg-primary"
-                      : "border-border"
-                  }`}
-                  onPress={() => setSelectedSize(size)}
-                >
-                  <Text
-                    className={`text-base font-bold ${
-                      selectedSize === size ? "text-white" : "text-text"
-                    }`}
-                  >
-                    {size}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          {/* TODO: Colors and Sizes - need product variants API */}
 
           {/* Quantity */}
           <View className="mb-5">
@@ -262,10 +299,8 @@ export default function ProductDetailScreen({ navigation, route }) {
               Mô tả sản phẩm
             </Text>
             <Text className="text-sm text-textGray leading-[22px]">
-              Gọng kính {product.name} là sự kết hợp hoàn hảo giữa phong cách
-              hiện đại và chất lượng cao cấp. Được làm từ chất liệu Titanium
-              siêu nhẹ, mang lại sự thoải mái tối đa cho người đeo. Thiết kế
-              tinh tế, phù hợp với nhiều khuôn mặt khác nhau.
+              {product.description ||
+                `${product.name} - Sản phẩm chất lượng cao với thiết kế hiện đại và tinh tế.`}
             </Text>
           </View>
 
@@ -274,7 +309,7 @@ export default function ProductDetailScreen({ navigation, route }) {
             className="bg-gradient-to-r from-primary to-secondary rounded-2xl p-4 mb-5 flex-row items-center shadow-md"
             style={{ backgroundColor: "#2E86AB" }}
             onPress={() =>
-              navigation.navigate("VirtualTryOn", { product: product })
+              navigation.navigate("VirtualTryOn", { productId: product.id })
             }
           >
             <View className="w-14 h-14 rounded-full bg-white/20 items-center justify-center mr-4">
@@ -309,69 +344,7 @@ export default function ProductDetailScreen({ navigation, route }) {
             ))}
           </View>
 
-          {/* Reviews Section */}
-          <TouchableOpacity
-            className="bg-white rounded-2xl p-4 mb-5 border border-border"
-            onPress={() => navigation.navigate("Reviews", { product: product })}
-          >
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-text">
-                Đánh giá sản phẩm
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color="#999999" />
-            </View>
-            <View className="flex-row items-center">
-              <View className="flex-row mr-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Ionicons key={star} name="star" size={16} color="#F18F01" />
-                ))}
-              </View>
-              <Text className="text-sm text-text font-semibold mr-1">4.8</Text>
-              <Text className="text-sm text-textGray">
-                ({product.reviews || 234} đánh giá)
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Related Products */}
-          <View className="mb-5">
-            <Text className="text-lg font-bold text-text mb-3">
-              Sản phẩm liên quan
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingRight: 20 }}
-            >
-              {SAMPLE_PRODUCTS.slice(0, 3).map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  className="mr-3"
-                  style={{ width: 120 }}
-                  onPress={() =>
-                    navigation.push("ProductDetail", { product: item })
-                  }
-                >
-                  <Image
-                    source={{ uri: item.image }}
-                    style={{ width: 120, height: 120 }}
-                    className="rounded-lg bg-background mb-2"
-                    resizeMode="cover"
-                  />
-                  <Text
-                    className="text-xs text-text mb-1"
-                    numberOfLines={2}
-                    style={{ height: 32 }}
-                  >
-                    {item.name}
-                  </Text>
-                  <Text className="text-sm font-bold text-primary">
-                    {item.price.toLocaleString("vi-VN") + "đ"}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+          {/* TODO: Reviews Section - need reviews API */}
         </View>
 
         <View className="h-32" />

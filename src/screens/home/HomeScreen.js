@@ -8,17 +8,71 @@ import {
   Image,
   FlatList,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { SAMPLE_PRODUCTS, CATEGORIES } from "../../constants/data";
+import { useFocusEffect } from "@react-navigation/native";
+import { getProducts, formatPrice } from "../../services/productService";
+import { getCategories } from "../../services/categoryService";
+import { getProfile } from "../../services/authService";
 
 const { width } = Dimensions.get("window");
 
 export default function HomeScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const bannerScrollRef = useRef(null);
+
+  useEffect(() => {
+    loadHomeData();
+  }, []);
+
+  // Reload user profile when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const reloadUserProfile = async () => {
+        const userResult = await getProfile();
+        if (userResult.success) {
+          setUser(userResult.data);
+        }
+      };
+      
+      reloadUserProfile();
+    }, [])
+  );
+
+  const loadHomeData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load user profile
+      const userResult = await getProfile();
+      if (userResult.success) {
+        setUser(userResult.data);
+      }
+      
+      // Load categories
+      const categoriesResult = await getCategories({ limit: 6 });
+      if (categoriesResult.success) {
+        setCategories(categoriesResult.data);
+      }
+      
+      // Load featured products (first 10 products)
+      const productsResult = await getProducts({ limit: 10 });
+      if (productsResult.success) {
+        setFeaturedProducts(productsResult.data);
+      }
+    } catch (error) {
+      console.error("Error loading home data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const banners = [
     {
@@ -48,6 +102,8 @@ export default function HomeScreen({ navigation }) {
   ];
 
   useEffect(() => {
+    if (banners.length === 0) return;
+    
     const interval = setInterval(() => {
       setActiveBannerIndex((prevIndex) => {
         const nextIndex = (prevIndex + 1) % banners.length;
@@ -62,72 +118,90 @@ export default function HomeScreen({ navigation }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Map icon cho category
+  const getCategoryIcon = (name) => {
+    const iconMap = {
+      "Gọng kính": "glasses-outline",
+      "Tròng kính": "ellipse-outline",
+      "Dịch vụ": "medical-outline",
+      "Phụ kiện": "bag-outline",
+    };
+    return iconMap[name] || "cube-outline";
+  };
+
+  // Get product image
+  const getProductImage = (product) => {
+    if (product.images && product.images.length > 0) {
+      const primaryImage = product.images.find(img => img.isPrimary);
+      return primaryImage?.imageUrl || product.images[0]?.imageUrl;
+    }
+    
+    const typeImages = {
+      FRAME: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400&h=300&fit=crop",
+      LENS: "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=300&fit=crop",
+      SERVICE: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&h=300&fit=crop",
+    };
+    return typeImages[product.type] || typeImages.FRAME;
+  };
+
   const renderCategory = ({ item }) => (
     <TouchableOpacity
       className="items-center w-20"
       onPress={() =>
-        navigation.navigate("ProductCatalog", { category: item.name })
+        navigation.navigate("ProductCatalog", { 
+          categoryId: item.id,
+          categoryName: item.name 
+        })
       }
     >
       <View className="w-16 h-16 rounded-full bg-white items-center justify-center mb-2 shadow-md">
-        <Ionicons name={item.icon} size={32} color="#2E86AB" />
+        <Ionicons name={getCategoryIcon(item.name)} size={32} color="#2E86AB" />
       </View>
-      <Text className="text-xs text-text text-center">{item.name}</Text>
+      <Text className="text-xs text-text text-center" numberOfLines={2}>
+        {item.name}
+      </Text>
     </TouchableOpacity>
   );
 
-  const renderProduct = ({ item }) => (
-    <TouchableOpacity
-      className="w-40 bg-white rounded-xl overflow-hidden shadow-md"
-      onPress={() => navigation.navigate("ProductDetail", { product: item })}
-    >
-      <Image
-        source={{ uri: item.image }}
-        className="w-full h-40 bg-background"
-      />
-      {item.discount && (
-        <View className="absolute top-2 right-2 bg-red-500 px-2 py-1 rounded-md">
-          <Text className="text-white text-xs font-bold">
-            -{item.discount}%
-          </Text>
-        </View>
-      )}
-      <View className="p-3">
-        <Text className="text-xs text-textGray mb-1">{item.brand}</Text>
-        <Text
-          className="text-sm font-semibold text-text mb-1 h-9"
-          numberOfLines={2}
-        >
-          {item.name}
-        </Text>
-        <View className="flex-row items-center mb-2">
-          <Ionicons name="star" size={14} color="#FFC107" />
-          <Text className="text-xs font-bold text-text ml-1">
-            {item.rating}
-          </Text>
-          <Text className="text-xs text-textGray ml-1">({item.reviews})</Text>
-        </View>
-        <View className="flex-row items-center mb-2">
-          <Text className="text-base font-bold text-primary mr-2">
-            {item.price.toLocaleString("vi-VN") + "đ"}
-          </Text>
-          {item.originalPrice && (
-            <Text className="text-xs text-textGray line-through">
-              {item.originalPrice.toLocaleString("vi-VN") + "đ"}
-            </Text>
+  const renderProduct = ({ item }) => {
+    const price = formatPrice(item.price);
+    
+    return (
+      <TouchableOpacity
+        className="w-40 bg-white rounded-xl overflow-hidden shadow-md"
+        onPress={() => navigation.navigate("ProductDetail", { productId: item.id })}
+      >
+        <Image
+          source={{ uri: getProductImage(item) }}
+          className="w-full h-40 bg-background"
+        />
+        {item.isPreorder && (
+          <View className="absolute top-2 right-2 bg-accent px-2 py-1 rounded-md">
+            <Text className="text-white text-xs font-bold">Đặt trước</Text>
+          </View>
+        )}
+        <View className="p-3">
+          {item.brand && (
+            <Text className="text-xs text-textGray mb-1">{item.brand}</Text>
           )}
+          <Text
+            className="text-sm font-semibold text-text mb-1 h-9"
+            numberOfLines={2}
+          >
+            {item.name}
+          </Text>
+          <View className="flex-row items-center mb-2">
+            <Text className="text-base font-bold text-primary mr-2">
+              {price.toLocaleString("vi-VN")}đ
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <Text className="text-xs text-textGray">{item.category?.name || ""}</Text>
+          </View>
         </View>
-        <View className="flex-row items-center">
-          <View
-            className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-              item.stock === "Còn hàng" ? "bg-green-500" : "bg-yellow-500"
-            }`}
-          />
-          <Text className="text-xs text-textGray">{item.stock}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderBannerItem = ({ item }) => (
     <View className="px-5" style={{ width: width }}>
@@ -172,6 +246,16 @@ export default function HomeScreen({ navigation }) {
     </View>
   );
 
+  if (loading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color="#2E86AB" />
+        <Text className="text-textGray mt-4">Đang tải...</Text>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-background">
       <StatusBar style="dark" />
@@ -181,18 +265,18 @@ export default function HomeScreen({ navigation }) {
         <View className="flex-row justify-between items-center mb-4">
           <TouchableOpacity
             className="flex-row items-center"
-            onPress={() => navigation.navigate("ProfileTab")}
+            onPress={() => navigation.navigate("MainApp", { screen: "ProfileTab" })}
           >
             <Image
               source={{
-                uri: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+                uri: user?.avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
               }}
               className="w-12 h-12 rounded-full mr-3"
             />
             <View>
               <Text className="text-sm text-textGray">Xin chào 👋</Text>
               <Text className="text-xl font-bold text-text mt-1">
-                Nguyễn Văn A
+                {user?.fullName || "Khách hàng"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -202,9 +286,6 @@ export default function HomeScreen({ navigation }) {
               onPress={() => navigation.navigate("CartTab")}
             >
               <Ionicons name="cart-outline" size={24} color="#333333" />
-              <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4.5 h-4.5 items-center justify-center">
-                <Text className="text-white text-[10px] font-bold">2</Text>
-              </View>
             </TouchableOpacity>
             <TouchableOpacity
               className="relative"
@@ -215,9 +296,6 @@ export default function HomeScreen({ navigation }) {
                 size={24}
                 color="#333333"
               />
-              <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4.5 h-4.5 items-center justify-center">
-                <Text className="text-white text-[10px] font-bold">3</Text>
-              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -296,85 +374,49 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={CATEGORIES}
-            renderItem={renderCategory}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-          />
+          {categories.length > 0 ? (
+            <FlatList
+              data={categories}
+              renderItem={renderCategory}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+            />
+          ) : (
+            <View className="px-5 py-4">
+              <Text className="text-textGray text-center">Đang tải danh mục...</Text>
+            </View>
+          )}
         </View>
 
-        {/* Flash Sale */}
+        {/* Featured Products */}
         <View className="mt-6">
           <View className="flex-row justify-between items-center px-5 mb-3">
             <View className="flex-row items-center gap-2">
-              <Ionicons name="flash" size={24} color="#F18F01" />
-              <Text className="text-lg font-bold text-text">Flash Sale</Text>
-              <View className="flex-row items-center bg-red-500 px-2 py-1 rounded-md gap-1">
-                <Ionicons name="time-outline" size={16} color="#FFFFFF" />
-                <Text className="text-white text-xs font-bold">02:45:30</Text>
-              </View>
+              <Ionicons name="star" size={24} color="#F18F01" />
+              <Text className="text-lg font-bold text-text">Sản phẩm nổi bật</Text>
             </View>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate("ProductCatalog", {})}>
               <Text className="text-sm text-primary font-semibold">
                 Xem tất cả
               </Text>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={SAMPLE_PRODUCTS.filter((p) => p.discount)}
-            renderItem={renderProduct}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-          />
-        </View>
-
-        {/* Popular Products */}
-        <View className="mt-6">
-          <View className="flex-row justify-between items-center px-5 mb-3">
-            <Text className="text-lg font-bold text-text">
-              Sản Phẩm Phổ Biến
-            </Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate("ProductCatalog")}
-            >
-              <Text className="text-sm text-primary font-semibold">
-                Xem tất cả
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={SAMPLE_PRODUCTS}
-            renderItem={renderProduct}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-          />
-        </View>
-
-        {/* New Arrivals */}
-        <View className="mt-6">
-          <View className="flex-row justify-between items-center px-5 mb-3">
-            <Text className="text-lg font-bold text-text">Hàng Mới Về</Text>
-            <TouchableOpacity>
-              <Text className="text-sm text-primary font-semibold">
-                Xem tất cả
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={SAMPLE_PRODUCTS.slice(0, 3)}
-            renderItem={renderProduct}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-          />
+          {featuredProducts.length > 0 ? (
+            <FlatList
+              data={featuredProducts}
+              renderItem={renderProduct}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+            />
+          ) : (
+            <View className="px-5 py-4">
+              <Text className="text-textGray text-center">Không có sản phẩm</Text>
+            </View>
+          )}
         </View>
 
         <View className="h-5" />

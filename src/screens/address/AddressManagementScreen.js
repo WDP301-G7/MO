@@ -126,8 +126,7 @@ export default function AddressManagementScreen({ navigation }) {
           <View className="flex-row items-start mb-2">
             <Ionicons name="location-outline" size={16} color="#999999" />
             <Text className="text-sm text-text flex-1 ml-2 leading-5">
-              {address.address}, {address.ward}, {address.district},{" "}
-              {address.city}
+              {`${address.address}, ${address.ward}, ${address.district}, ${address.city}`}
             </Text>
           </View>
           <View className="flex-row items-center">

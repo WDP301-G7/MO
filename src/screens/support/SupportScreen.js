@@ -305,7 +305,8 @@ export default function SupportScreen({ navigation }) {
             <View className="flex-row items-start">
               <Ionicons name="time-outline" size={20} color="#2E86AB" />
               <Text className="flex-1 text-sm text-textGray ml-2">
-                Thứ 2 - Thứ 7: 8:00 - 20:00{"\n"}Chủ nhật: 9:00 - 18:00
+                {`Thứ 2 - Thứ 7: 8:00 - 20:00
+Chủ nhật: 9:00 - 18:00`}
               </Text>
             </View>
           </View>

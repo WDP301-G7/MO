@@ -1,9 +1,10 @@
 {
   "expo": {
-    "name": "my-react-native-app",
-    "slug": "my-react-native-app",
+    "name": "MO Eyewear",
+    "slug": "mo-eyewear-app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "myapp",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,

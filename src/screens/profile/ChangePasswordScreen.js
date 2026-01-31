@@ -5,9 +5,12 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { changePassword, logout } from "../../services/authService";
 
 export default function ChangePasswordScreen({ navigation }) {
   const [formData, setFormData] = useState({
@@ -22,28 +25,70 @@ export default function ChangePasswordScreen({ navigation }) {
     confirm: false,
   });
 
-  const handleChangePassword = () => {
+  const [loading, setLoading] = useState(false);
+
+  const handleChangePassword = async () => {
     if (
       !formData.currentPassword ||
       !formData.newPassword ||
       !formData.confirmPassword
     ) {
-      alert("Vui lòng điền đầy đủ thông tin");
+      Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin");
       return;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      alert("Mật khẩu mới không khớp!");
+      Alert.alert("Lỗi", "Mật khẩu mới không khớp!");
       return;
     }
 
     if (formData.newPassword.length < 6) {
-      alert("Mật khẩu phải có ít nhất 6 ký tự");
+      Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 6 ký tự");
       return;
     }
 
-    alert("Đổi mật khẩu thành công!");
-    navigation.goBack();
+    setLoading(true);
+
+    try {
+      const result = await changePassword({
+        oldPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+      });
+
+      setLoading(false);
+
+      if (result.success) {
+        Alert.alert(
+          "Đổi mật khẩu thành công",
+          "Mật khẩu của bạn đã được thay đổi. Vui lòng đăng nhập lại với mật khẩu mới.",
+          [
+            {
+              text: "Đăng nhập lại",
+              onPress: async () => {
+                // Logout user
+                await logout();
+                // Navigate to Login screen
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "Login" }],
+                });
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+      } else {
+        // Show detailed error message
+        const errorMsg = result.message || "Đổi mật khẩu thất bại";
+        Alert.alert("Lỗi", errorMsg);
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert(
+        "Lỗi",
+        "Có lỗi xảy ra. Vui lòng thử đăng nhập lại nếu token hết hạn.",
+      );
+    }
   };
 
   return (
@@ -267,8 +312,13 @@ export default function ChangePasswordScreen({ navigation }) {
         <TouchableOpacity
           className="bg-primary rounded-xl py-4 items-center"
           onPress={handleChangePassword}
+          disabled={loading}
         >
-          <Text className="text-white font-bold text-base">Đổi mật khẩu</Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text className="text-white font-bold text-base">Đổi mật khẩu</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

@@ -243,7 +243,7 @@ export default function MainTabNavigator() {
         component={CartStack}
         options={{
           tabBarLabel: "Giỏ hàng",
-          tabBarBadge: 2, // Số lượng sản phẩm trong giỏ
+          tabBarBadge: "2",
         }}
       />
       <Tab.Screen
@@ -251,7 +251,7 @@ export default function MainTabNavigator() {
         component={OrdersStack}
         options={{
           tabBarLabel: "Đơn hàng",
-          tabBarBadge: 3, // Số đơn hàng chưa hoàn thành
+          tabBarBadge: "3",
         }}
       />
       <Tab.Screen

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,18 +6,78 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { SAMPLE_PRODUCTS } from "../../constants/data";
+import { getProducts, formatPrice } from "../../services/productService";
+import { getProductAvailableQuantity } from "../../services/inventoryService";
 
 export default function ProductCatalogScreen({ navigation, route }) {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedSort, setSelectedSort] = useState("popular");
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const category = route.params?.category || "Tất cả";
+  const categoryId = route.params?.categoryId;
+  const categoryName = route.params?.categoryName || "Tất cả sản phẩm";
+
+  useEffect(() => {
+    loadProducts();
+  }, [categoryId, selectedFilter, selectedSort]);
+
+  const loadProducts = async (page = 1, append = false) => {
+    try {
+      if (!append) setLoading(true);
+
+      const params = {
+        page,
+        limit: 20,
+      };
+
+      if (categoryId) params.categoryId = categoryId;
+
+      // Apply filters
+      if (selectedFilter === "preorder") {
+        params.isPreorder = true;
+      }
+
+      const result = await getProducts(params);
+
+      if (result.success) {
+        if (append) {
+          setProducts([...products, ...result.data]);
+        } else {
+          setProducts(result.data);
+        }
+        setPagination(result.pagination);
+      }
+    } catch (error) {
+      console.error("Error loading products:", error);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadProducts(1, false);
+    setRefreshing(false);
+  };
+
+  const handleLoadMore = () => {
+    if (pagination && pagination.page < pagination.totalPages && !loadingMore) {
+      setLoadingMore(true);
+      loadProducts(pagination.page + 1, true);
+    }
+  };
 
   const sortOptions = [
     { id: "popular", label: "Phổ biến nhất", icon: "flame" },
@@ -29,77 +89,87 @@ export default function ProductCatalogScreen({ navigation, route }) {
 
   const filterOptions = [
     { id: "all", label: "Tất cả" },
-    { id: "available", label: "Còn hàng" },
     { id: "preorder", label: "Đặt trước" },
-    { id: "sale", label: "Giảm giá" },
   ];
 
-  const renderProduct = ({ item }) => (
-    <TouchableOpacity
-      className="flex-1 m-2 bg-white rounded-xl overflow-hidden shadow-md"
-      onPress={() => navigation.navigate("ProductDetail", { product: item })}
-    >
-      <Image
-        source={{ uri: item.image }}
-        className="w-full h-40 bg-background"
-      />
-      {item.discount && (
-        <View className="absolute top-2 left-2 bg-red-500 px-2 py-1 rounded-md">
-          <Text className="text-white text-xs font-bold">
-            -{item.discount}%
-          </Text>
-        </View>
-      )}
-      <TouchableOpacity
-        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white items-center justify-center shadow-md"
-        onPress={() => alert("Đã thêm vào yêu thích")}
-      >
-        <Ionicons name="heart-outline" size={20} color="#EF4444" />
-      </TouchableOpacity>
+  // Get placeholder image based on product type
+  const getProductImage = (product) => {
+    if (product.images && product.images.length > 0) {
+      const primaryImage = product.images.find((img) => img.isPrimary);
+      return primaryImage?.imageUrl || product.images[0]?.imageUrl;
+    }
 
-      <View className="p-3">
-        <Text className="text-[11px] text-textGray mb-1">{item.brand}</Text>
-        <Text
-          className="text-[13px] font-semibold text-text mb-1.5 h-8"
-          numberOfLines={2}
+    // Fallback images by type
+    const typeImages = {
+      FRAME:
+        "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400&h=300&fit=crop",
+      LENS: "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=300&fit=crop",
+      SERVICE:
+        "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&h=300&fit=crop",
+    };
+    return typeImages[product.type] || typeImages.FRAME;
+  };
+
+  const renderProduct = ({ item }) => {
+    const price = formatPrice(item.price);
+
+    return (
+      <TouchableOpacity
+        className="flex-1 m-2 bg-white rounded-xl overflow-hidden shadow-md"
+        onPress={() =>
+          navigation.navigate("ProductDetail", { productId: item.id })
+        }
+      >
+        <Image
+          source={{ uri: getProductImage(item) }}
+          className="w-full h-40 bg-background"
+        />
+        {item.isPreorder && (
+          <View className="absolute top-2 left-2 bg-accent px-2 py-1 rounded-md">
+            <Text className="text-white text-xs font-bold">Đặt trước</Text>
+          </View>
+        )}
+        <TouchableOpacity
+          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white items-center justify-center shadow-md"
+          onPress={() => alert("Tính năng yêu thích sẽ được cập nhật sau")}
         >
-          {item.name}
-        </Text>
-        <View className="flex-row items-center mb-2">
-          <Ionicons name="star" size={14} color="#FFC107" />
-          <Text className="text-[11px] font-bold text-text ml-1">
-            {item.rating}
+          <Ionicons name="heart-outline" size={20} color="#EF4444" />
+        </TouchableOpacity>
+
+        <View className="p-3">
+          {item.brand && (
+            <Text className="text-[11px] text-textGray mb-1">{item.brand}</Text>
+          )}
+          <Text
+            className="text-[13px] font-semibold text-text mb-1.5 h-8"
+            numberOfLines={2}
+          >
+            {item.name}
           </Text>
-          <Text className="text-[11px] text-textGray ml-1">
-            ({item.reviews})
-          </Text>
-        </View>
-        <View className="flex-row justify-between items-center mb-2">
-          <View className="flex-1">
-            <Text className="text-sm font-bold text-primary">
-              {item.price.toLocaleString("vi-VN") + "đ"}
+          <View className="flex-row justify-between items-center mb-2">
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-primary">
+                {price.toLocaleString("vi-VN")}đ
+              </Text>
+            </View>
+            <TouchableOpacity className="w-8 h-8 rounded-full bg-primary items-center justify-center">
+              <Ionicons name="cart" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-row items-center">
+            <Text className="text-[11px] text-textGray">
+              {item.category?.name || ""}
             </Text>
-            {item.originalPrice && (
-              <Text className="text-xs text-textGray line-through">
-                {item.originalPrice.toLocaleString("vi-VN") + "đ"}
+            {item.isPreorder && item.leadTimeDays && (
+              <Text className="text-[11px] text-accent ml-2">
+                • {item.leadTimeDays} ngày
               </Text>
             )}
           </View>
-          <TouchableOpacity className="w-8 h-8 rounded-full bg-primary items-center justify-center">
-            <Ionicons name="cart" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
-        <View className="flex-row items-center">
-          <View
-            className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-              item.stock === "Còn hàng" ? "bg-green-500" : "bg-yellow-500"
-            }`}
-          />
-          <Text className="text-[11px] text-textGray">{item.stock}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderSortModal = () => (
     <Modal
@@ -143,6 +213,17 @@ export default function ProductCatalogScreen({ navigation, route }) {
     </Modal>
   );
 
+  // Show loading
+  if (loading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color="#2E86AB" />
+        <Text className="text-textGray mt-4">Đang tải sản phẩm...</Text>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-background">
       <StatusBar style="dark" />
@@ -155,7 +236,7 @@ export default function ProductCatalogScreen({ navigation, route }) {
         >
           <Ionicons name="arrow-back" size={24} color="#333333" />
         </TouchableOpacity>
-        <Text className="text-lg font-bold text-text">{category}</Text>
+        <Text className="text-lg font-bold text-text">{categoryName}</Text>
         <TouchableOpacity
           className="w-10 h-10 rounded-full bg-background items-center justify-center"
           onPress={() => navigation.navigate("Search")}
@@ -188,7 +269,7 @@ export default function ProductCatalogScreen({ navigation, route }) {
 
         <View className="flex-1 items-center">
           <Text className="text-xs text-textGray">
-            {SAMPLE_PRODUCTS.length} sản phẩm
+            {pagination?.total || 0} sản phẩm
           </Text>
         </View>
       </View>
@@ -223,14 +304,37 @@ export default function ProductCatalogScreen({ navigation, route }) {
       </View>
 
       {/* Products Grid */}
-      <FlatList
-        data={SAMPLE_PRODUCTS}
-        renderItem={renderProduct}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={{ padding: 12 }}
-        showsVerticalScrollIndicator={false}
-      />
+      {products.length === 0 ? (
+        <View className="flex-1 items-center justify-center">
+          <Ionicons name="cube-outline" size={64} color="#CCCCCC" />
+          <Text className="text-textGray mt-4">Không có sản phẩm nào</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          renderItem={renderProduct}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          contentContainerStyle={{ padding: 12 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={["#2E86AB"]}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? (
+              <View className="py-4">
+                <ActivityIndicator size="small" color="#2E86AB" />
+              </View>
+            ) : null
+          }
+        />
+      )}
 
       {renderSortModal()}
     </View>

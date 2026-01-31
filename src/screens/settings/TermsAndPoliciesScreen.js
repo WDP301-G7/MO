@@ -38,10 +38,10 @@ export default function TermsAndPoliciesScreen({ navigation }) {
                 2. Tài khoản người dùng
               </Text>
               <Text className="text-sm text-textGray leading-6">
-                • Bạn chịu trách nhiệm bảo mật thông tin tài khoản{"\n"}• Cung
-                cấp thông tin chính xác khi đăng ký{"\n"}• Thông báo ngay nếu
-                phát hiện truy cập trái phép{"\n"}• Không được chia sẻ tài khoản
-                cho người khác
+                {`• Bạn chịu trách nhiệm bảo mật thông tin tài khoản
+• Cung cấp thông tin chính xác khi đăng ký
+• Thông báo ngay nếu phát hiện truy cập trái phép
+• Không được chia sẻ tài khoản cho người khác`}
               </Text>
             </View>
 
@@ -92,10 +92,11 @@ export default function TermsAndPoliciesScreen({ navigation }) {
                 1. Thu thập thông tin
               </Text>
               <Text className="text-sm text-textGray leading-6">
-                Chúng tôi thu thập các thông tin sau:{"\n"}• Thông tin cá nhân:
-                Họ tên, email, số điện thoại{"\n"}• Thông tin giao dịch: Lịch sử
-                đơn hàng, thanh toán{"\n"}• Thông tin thiết bị: IP, loại thiết
-                bị, hệ điều hành{"\n"}• Cookies và dữ liệu sử dụng
+                {`Chúng tôi thu thập các thông tin sau:
+• Thông tin cá nhân: Họ tên, email, số điện thoại
+• Thông tin giao dịch: Lịch sử đơn hàng, thanh toán
+• Thông tin thiết bị: IP, loại thiết bị, hệ điều hành
+• Cookies và dữ liệu sử dụng`}
               </Text>
             </View>
 
@@ -104,9 +105,11 @@ export default function TermsAndPoliciesScreen({ navigation }) {
                 2. Sử dụng thông tin
               </Text>
               <Text className="text-sm text-textGray leading-6">
-                Thông tin của bạn được sử dụng để:{"\n"}• Xử lý và giao hàng đơn
-                hàng{"\n"}• Cải thiện trải nghiệm người dùng{"\n"}• Gửi thông
-                báo về đơn hàng và khuyến mãi{"\n"}• Phân tích và thống kê
+                {`Thông tin của bạn được sử dụng để:
+• Xử lý và giao hàng đơn hàng
+• Cải thiện trải nghiệm người dùng
+• Gửi thông báo về đơn hàng và khuyến mãi
+• Phân tích và thống kê`}
               </Text>
             </View>
 
@@ -137,9 +140,11 @@ export default function TermsAndPoliciesScreen({ navigation }) {
                 5. Quyền của bạn
               </Text>
               <Text className="text-sm text-textGray leading-6">
-                Bạn có quyền:{"\n"}• Truy cập và cập nhật thông tin cá nhân
-                {"\n"}• Yêu cầu xóa tài khoản{"\n"}• Từ chối nhận email
-                marketing{"\n"}• Khiếu nại về việc xử lý dữ liệu
+                {`Bạn có quyền:
+• Truy cập và cập nhật thông tin cá nhân
+• Yêu cầu xóa tài khoản
+• Từ chối nhận email marketing
+• Khiếu nại về việc xử lý dữ liệu`}
               </Text>
             </View>
           </View>
@@ -157,9 +162,10 @@ export default function TermsAndPoliciesScreen({ navigation }) {
                 1. Điều kiện đổi trả
               </Text>
               <Text className="text-sm text-textGray leading-6">
-                • Sản phẩm còn nguyên tem, nhãn mác, bao bì{"\n"}• Trong thời
-                gian 7 ngày kể từ ngày nhận hàng{"\n"}• Có hóa đơn mua hàng hoặc
-                mã đơn hàng{"\n"}• Sản phẩm không bị hư hỏng do người dùng
+                {`• Sản phẩm còn nguyên tem, nhãn mác, bao bì
+• Trong thời gian 7 ngày kể từ ngày nhận hàng
+• Có hóa đơn mua hàng hoặc mã đơn hàng
+• Sản phẩm không bị hư hỏng do người dùng`}
               </Text>
             </View>
 
@@ -168,9 +174,10 @@ export default function TermsAndPoliciesScreen({ navigation }) {
                 2. Sản phẩm không áp dụng đổi trả
               </Text>
               <Text className="text-sm text-textGray leading-6">
-                • Sản phẩm khuyến mãi, giảm giá từ 50% trở lên{"\n"}• Kính áp
-                tròng đã mở hộp{"\n"}• Sản phẩm đặt theo yêu cầu riêng{"\n"}•
-                Phụ kiện đã qua sử dụng
+                {`• Sản phẩm khuyến mãi, giảm giá từ 50% trở lên
+• Kính áp tròng đã mở hộp
+• Sản phẩm đặt theo yêu cầu riêng
+• Phụ kiện đã qua sử dụng`}
               </Text>
             </View>
 
@@ -179,10 +186,10 @@ export default function TermsAndPoliciesScreen({ navigation }) {
                 3. Quy trình đổi trả
               </Text>
               <Text className="text-sm text-textGray leading-6">
-                Bước 1: Tạo yêu cầu đổi trả trong ứng dụng{"\n"}
-                Bước 2: Chọn lý do và cung cấp hình ảnh{"\n"}
-                Bước 3: Đóng gói sản phẩm và chờ nhân viên đến lấy{"\n"}
-                Bước 4: Kiểm tra và hoàn tiền trong 5-7 ngày
+                {`Bước 1: Tạo yêu cầu đổi trả trong ứng dụng
+Bước 2: Chọn lý do và cung cấp hình ảnh
+Bước 3: Đóng gói sản phẩm và chờ nhân viên đến lấy
+Bước 4: Kiểm tra và hoàn tiền trong 5-7 ngày`}
               </Text>
             </View>
 
@@ -191,9 +198,10 @@ export default function TermsAndPoliciesScreen({ navigation }) {
                 4. Phí đổi trả
               </Text>
               <Text className="text-sm text-textGray leading-6">
-                • Miễn phí với sản phẩm lỗi do nhà sản xuất{"\n"}• Miễn phí nếu
-                giao sai sản phẩm{"\n"}• Khách hàng chịu phí vận chuyển nếu đổi
-                ý{"\n"}• Phí vận chuyển: 30.000đ - 50.000đ tùy địa điểm
+                {`• Miễn phí với sản phẩm lỗi do nhà sản xuất
+• Miễn phí nếu giao sai sản phẩm
+• Khách hàng chịu phí vận chuyển nếu đổi ý
+• Phí vận chuyển: 30.000đ - 50.000đ tùy địa điểm`}
               </Text>
             </View>
 
