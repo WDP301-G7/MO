@@ -14,7 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { getProfile, updateProfile } from "../../services/authService";
 
-export default function EditProfileScreen({ navigation }) {
+export default function EditProfileScreen({ navigation, route }) {
+  const requirePhone = route?.params?.requirePhone || false;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState(null);
@@ -30,6 +31,14 @@ export default function EditProfileScreen({ navigation }) {
 
   useEffect(() => {
     loadUserProfile();
+    // Hiển thị alert nếu cần cập nhật phone
+    if (requirePhone) {
+      Alert.alert(
+        "Cập nhật số điện thoại",
+        "Bạn đã đăng nhập bằng Google. Vui lòng cập nhật số điện thoại để hoàn tất đăng ký.",
+        [{ text: "Đã hiểu" }],
+      );
+    }
   }, []);
 
   const loadUserProfile = async () => {
@@ -96,6 +105,21 @@ export default function EditProfileScreen({ navigation }) {
       return;
     }
 
+    // Validate phone nếu cần thiết (login bằng Google)
+    if (requirePhone && !formData.phone.trim()) {
+      Alert.alert("Thông báo", "Vui lòng nhập số điện thoại");
+      return;
+    }
+
+    // Validate phone format nếu có nhập
+    if (formData.phone.trim()) {
+      const phoneRegex = /^[0-9]{10}$/;
+      if (!phoneRegex.test(formData.phone.trim())) {
+        Alert.alert("Thông báo", "Số điện thoại không hợp lệ (10 số)");
+        return;
+      }
+    }
+
     try {
       setSaving(true);
 
@@ -103,6 +127,11 @@ export default function EditProfileScreen({ navigation }) {
         fullName: formData.fullName.trim(),
         address: formData.address.trim(),
       };
+
+      // Thêm phone nếu có
+      if (formData.phone.trim()) {
+        updateData.phone = formData.phone.trim();
+      }
 
       // Add avatar if selected
       if (selectedAvatar) {
@@ -227,18 +256,21 @@ export default function EditProfileScreen({ navigation }) {
           {/* Phone */}
           <View className="mb-4">
             <Text className="text-sm font-semibold text-text mb-2">
-              Số điện thoại <Text className="text-red-500">*</Text>
+              Số điện thoại{" "}
+              {requirePhone && <Text className="text-red-500">*</Text>}
             </Text>
             <TextInput
-              className="bg-gray-100 rounded-xl px-4 py-3 text-sm text-textGray"
+              className="bg-background rounded-xl px-4 py-3 text-sm text-text"
               placeholder="Nhập số điện thoại"
               keyboardType="phone-pad"
               value={formData.phone}
-              editable={false}
+              onChangeText={(text) => setFormData({ ...formData, phone: text })}
             />
-            <Text className="text-xs text-textGray mt-1">
-              Số điện thoại không thể thay đổi
-            </Text>
+            {requirePhone && (
+              <Text className="text-xs text-red-500 mt-1">
+                Bắt buộc nhập số điện thoại
+              </Text>
+            )}
           </View>
 
           {/* Birth Date */}

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "./api";
 import { API_ENDPOINTS } from "../constants/api";
+import { signInWithGoogle } from "./googleAuthService";
 
 /**
  * Register new user
@@ -72,6 +73,70 @@ export const login = async (credentials) => {
         error.response?.data?.message ||
         error.message ||
         "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
+    };
+  }
+};
+
+/**
+ * Login with Google
+ * Flow: Google OAuth -> Get ID Token -> Send to Backend -> Save Backend Token
+ * @param {Function} promptAsync - Function từ useGoogleAuth hook
+ * @param {Object} request - Request object từ useGoogleAuth hook
+ * @returns {Promise<Object>} Response data with token
+ */
+export const loginWithGoogle = async (promptAsync, request) => {
+  try {
+    // 1. Đăng nhập với Google và lấy ID Token
+    const googleResult = await signInWithGoogle(promptAsync, request);
+
+    if (!googleResult.success) {
+      return {
+        success: false,
+        message: googleResult.message,
+      };
+    }
+
+    // 2. Gửi ID Token cho backend để xác thực
+    const response = await api.post(API_ENDPOINTS.AUTH.GOOGLE_LOGIN, {
+      credential: googleResult.idToken,
+    });
+
+    // 3. Backend trả về token của hệ thống
+    const accessToken =
+      response.data.data?.tokens?.accessToken || response.data.token;
+    const refreshToken =
+      response.data.data?.tokens?.refreshToken || response.data.refreshToken;
+    const userData = response.data.data?.user || response.data.user;
+
+    // 4. Lưu tokens vào AsyncStorage như login thường
+    if (accessToken) {
+      await AsyncStorage.setItem("userToken", accessToken);
+
+      if (refreshToken) {
+        await AsyncStorage.setItem("refreshToken", refreshToken);
+      }
+
+      if (userData) {
+        await AsyncStorage.setItem("userData", JSON.stringify(userData));
+      }
+    }
+
+    // 5. Check xem user có phone chưa
+    const hasPhone = !!(userData?.phone && userData.phone.trim() !== "");
+
+    return {
+      success: true,
+      data: response.data,
+      requiresPhoneUpdate: !hasPhone, // Flag để biết cần update phone
+    };
+  } catch (error) {
+    console.error("Login with Google Error:", error);
+    return {
+      success: false,
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        "Đăng nhập với Google thất bại. Vui lòng thử lại.",
     };
   }
 };
@@ -281,6 +346,9 @@ export const updateProfile = async (userId, data) => {
     }
     if (data.address) {
       formData.append("address", data.address);
+    }
+    if (data.phone) {
+      formData.append("phone", data.phone);
     }
 
     // Add avatar if provided

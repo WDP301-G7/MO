@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,13 +12,18 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { login } from "../../services/authService";
+import { login, loginWithGoogle } from "../../services/authService";
+import { useGoogleAuth } from "../../services/googleAuthService";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Google Auth Hook
+  const { request, response, promptAsync } = useGoogleAuth();
 
   const handleLogin = async () => {
     // Validation
@@ -53,6 +58,51 @@ export default function LoginScreen({ navigation }) {
       Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await loginWithGoogle(promptAsync, request);
+
+      if (result.success) {
+        // Kiểm tra xem user có cần cập nhật số điện thoại không
+        if (result.requiresPhoneUpdate) {
+          // Navigate trực tiếp vào MainApp trước
+          navigation.replace("MainApp");
+          // Delay nhỏ rồi navigate vào EditProfile
+          setTimeout(() => {
+            Alert.alert(
+              "Cập nhật thông tin",
+              "Vui lòng cập nhật số điện thoại để tiếp tục sử dụng dịch vụ.",
+              [
+                {
+                  text: "Cập nhật ngay",
+                  onPress: () => {
+                    navigation.navigate("EditProfile", { requirePhone: true });
+                  },
+                },
+              ],
+              { cancelable: false },
+            );
+          }, 500);
+        } else {
+          Alert.alert("Thành công", "Đăng nhập với Google thành công!", [
+            {
+              text: "OK",
+              onPress: () => navigation.replace("MainApp"),
+            },
+          ]);
+        }
+      } else {
+        Alert.alert("Đăng nhập thất bại", result.message);
+      }
+    } catch (error) {
+      console.error("❌ Google Login Error:", error);
+      Alert.alert("Lỗi", "Không thể mở Google Sign-In");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -155,15 +205,18 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           {/* Social Login */}
-          <View className="flex-row justify-center gap-4 mb-6">
-            <TouchableOpacity className="w-14 h-14 rounded-full bg-background items-center justify-center border border-border">
-              <Ionicons name="logo-google" size={24} color="#DB4437" />
-            </TouchableOpacity>
-            <TouchableOpacity className="w-14 h-14 rounded-full bg-background items-center justify-center border border-border">
-              <Ionicons name="logo-facebook" size={24} color="#4267B2" />
-            </TouchableOpacity>
-            <TouchableOpacity className="w-14 h-14 rounded-full bg-background items-center justify-center border border-border">
-              <Ionicons name="logo-apple" size={24} color="#000000" />
+          <View className="flex-row justify-center mb-6">
+            <TouchableOpacity
+              className="w-14 h-14 rounded-full bg-background items-center justify-center border border-border"
+              onPress={handleGoogleLogin}
+              disabled={googleLoading || loading}
+              style={{ opacity: googleLoading || loading ? 0.5 : 1 }}
+            >
+              {googleLoading ? (
+                <ActivityIndicator size="small" color="#DB4437" />
+              ) : (
+                <Ionicons name="logo-google" size={24} color="#DB4437" />
+              )}
             </TouchableOpacity>
           </View>
 
