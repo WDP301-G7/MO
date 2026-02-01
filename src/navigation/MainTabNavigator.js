@@ -1,8 +1,20 @@
-import React from "react";
+import React, { createContext, useState, useContext } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
 import { View, Text } from "react-native";
+
+// Context để quản lý số lượng đơn hàng
+export const OrdersContext = createContext();
+
+export function OrdersProvider({ children }) {
+  const [ordersCount, setOrdersCount] = useState(0);
+  return (
+    <OrdersContext.Provider value={{ ordersCount, setOrdersCount }}>
+      {children}
+    </OrdersContext.Provider>
+  );
+}
 
 // Import screens
 import HomeScreen from "../screens/home/HomeScreen";
@@ -174,7 +186,9 @@ function ProfileStack() {
   );
 }
 
-export default function MainTabNavigator() {
+function TabNavigatorContent() {
+  const { ordersCount } = useContext(OrdersContext);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -243,7 +257,6 @@ export default function MainTabNavigator() {
         component={CartStack}
         options={{
           tabBarLabel: "Giỏ hàng",
-          tabBarBadge: "2",
         }}
       />
       <Tab.Screen
@@ -251,7 +264,7 @@ export default function MainTabNavigator() {
         component={OrdersStack}
         options={{
           tabBarLabel: "Đơn hàng",
-          tabBarBadge: "3",
+          tabBarBadge: ordersCount > 0 ? ordersCount : undefined,
         }}
       />
       <Tab.Screen
@@ -262,5 +275,13 @@ export default function MainTabNavigator() {
         }}
       />
     </Tab.Navigator>
+  );
+}
+
+export default function MainTabNavigator() {
+  return (
+    <OrdersProvider>
+      <TabNavigatorContent />
+    </OrdersProvider>
   );
 }

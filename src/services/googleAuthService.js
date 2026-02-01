@@ -82,6 +82,13 @@ export const signInWithGoogle = async (promptAsync, request) => {
 
         const tokens = await tokenResponse.json();
 
+        if (tokens.error) {
+          // Token exchange failed - có thể do code đã hết hạn hoặc đã dùng rồi
+          throw new Error(
+            `Token exchange failed: ${tokens.error} - ${tokens.error_description || ""}. Vui lòng thử đăng nhập lại.`,
+          );
+        }
+
         if (tokens.access_token) {
           authentication = {
             accessToken: tokens.access_token,
@@ -89,7 +96,7 @@ export const signInWithGoogle = async (promptAsync, request) => {
             refreshToken: tokens.refresh_token,
           };
         } else {
-          throw new Error("Token exchange failed: " + JSON.stringify(tokens));
+          throw new Error("Token exchange failed: Missing access token");
         }
       }
 

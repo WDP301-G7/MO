@@ -147,11 +147,6 @@ export default function LensOrderScreen({ navigation, route }) {
           note: "Đơn hàng tròng + gọng kính (không cần đơn thuốc)",
         };
 
-        console.log(
-          "Creating lens+frame order:",
-          JSON.stringify(orderData, null, 2),
-        );
-
         const result = await createOrder(orderData);
 
         if (result.success) {

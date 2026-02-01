@@ -62,6 +62,8 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleGoogleLogin = async () => {
+    if (googleLoading) return; // Prevent double tap
+
     setGoogleLoading(true);
     try {
       const result = await loginWithGoogle(promptAsync, request);

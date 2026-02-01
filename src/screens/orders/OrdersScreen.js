@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -18,8 +18,10 @@ import {
   getOrderStatusColor,
   formatPrice,
 } from "../../services/orderService";
+import { OrdersContext } from "../../navigation/MainTabNavigator";
 
 export default function OrdersScreen({ navigation, route }) {
+  const { setOrdersCount } = useContext(OrdersContext);
   const initialFilter = route?.params?.filter || 0;
   const [selectedTab, setSelectedTab] = useState(initialFilter);
   const [orders, setOrders] = useState([]);
@@ -42,22 +44,24 @@ export default function OrdersScreen({ navigation, route }) {
       setLoading(true);
       const result = await getMyOrders();
 
-      console.log("Orders API result:", JSON.stringify(result, null, 2));
-
       if (result.success) {
         // API returns data nested in result.data.data
         const ordersData = Array.isArray(result.data?.data)
           ? result.data.data
           : [];
-        console.log("Orders count:", ordersData.length);
         setOrders(ordersData);
+        
+        // Cập nhật số lượng đơn hàng cho tab badge
+        setOrdersCount(ordersData.length);
       } else {
         console.error("Failed to load orders:", result.message);
         setOrders([]);
+        setOrdersCount(0);
       }
     } catch (error) {
       console.error("Error loading orders:", error);
       setOrders([]);
+      setOrdersCount(0);
     } finally {
       setLoading(false);
     }
@@ -70,20 +74,30 @@ export default function OrdersScreen({ navigation, route }) {
   };
 
   const tabs = [
-    { id: 0, label: "Tất cả", icon: "list-outline", status: null },
-    { id: 1, label: "Mới tạo", icon: "document-text-outline", status: "NEW" },
-    { id: 2, label: "Đang xử lý", icon: "sync-outline", status: "PROCESSING" },
+    { id: 0, label: "Tất cả", icon: "list-outline", statuses: null },
+    { 
+      id: 1, 
+      label: "Mới tạo", 
+      icon: "document-text-outline", 
+      statuses: ["NEW", "CONFIRMED"] 
+    },
+    { 
+      id: 2, 
+      label: "Đang xử lý", 
+      icon: "sync-outline", 
+      statuses: ["WAITING_PRODUCT", "WAITING_CUSTOMER", "PROCESSING", "READY"] 
+    },
     {
       id: 3,
       label: "Hoàn thành",
       icon: "checkmark-circle-outline",
-      status: "COMPLETED",
+      statuses: ["COMPLETED"],
     },
     {
       id: 4,
       label: "Đã hủy",
       icon: "close-circle-outline",
-      status: "CANCELLED",
+      statuses: ["CANCELLED"],
     },
   ];
 
@@ -91,7 +105,7 @@ export default function OrdersScreen({ navigation, route }) {
   const filteredOrders = Array.isArray(orders)
     ? selectedTab === 0
       ? orders
-      : orders.filter((order) => order.status === tabs[selectedTab].status)
+      : orders.filter((order) => tabs[selectedTab].statuses.includes(order.status))
     : [];
 
   // Format date helper
