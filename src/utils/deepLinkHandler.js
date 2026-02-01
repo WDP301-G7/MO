@@ -97,9 +97,6 @@ export const handleDeepLink = (state) => {
   const route = state?.routes[state.routes.length - 1];
 
   if (route?.name && route?.params) {
-    console.log("Deep Link Handler - Route:", route.name);
-    console.log("Deep Link Handler - Params:", route.params);
-
     // Xử lý các trường hợp đặc biệt
     switch (route.name) {
       case "OrderSuccess":

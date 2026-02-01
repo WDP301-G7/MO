@@ -2,9 +2,10 @@
   "expo": {
     "name": "MO Eyewear",
     "slug": "mo-eyewear-app",
+    "owner": "tomishere0712",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "myapp",
+    "scheme": "mo-eyewear-app",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -14,9 +15,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.moeyewear.app"
     },
     "android": {
+      "package": "com.moeyewear.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

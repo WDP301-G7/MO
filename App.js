@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View, ActivityIndicator } from "react-native";
 import { isLoggedIn } from "./src/services/authService";
 import { linking, handleDeepLink } from "./src/utils/deepLinkHandler";
+import { configureGoogleSignIn } from "./src/services/googleAuthService";
 
 // Import Auth screens
 import LoginScreen from "./src/screens/auth/LoginScreen";
@@ -53,6 +54,8 @@ export default function App() {
   const [userLoggedIn, setUserLoggedIn] = useState(false);
 
   useEffect(() => {
+    // Cấu hình Google Sign-In khi app khởi động
+    configureGoogleSignIn();
     checkAuthStatus();
   }, []);
 
