@@ -48,12 +48,8 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
       setIsVerifying(true);
       setErrorMessage(null);
 
-      console.log("Verifying payment for order:", orderId);
-
       // Gọi GET /payments/order/{orderId} để get payment details
       const result = await getPaymentByOrderId(orderId);
-
-      console.log("Payment verification result:", result);
 
       if (result.success && result.data) {
         setPaymentVerified(true);

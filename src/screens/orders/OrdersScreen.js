@@ -21,7 +21,8 @@ import {
 import { OrdersContext } from "../../navigation/MainTabNavigator";
 
 export default function OrdersScreen({ navigation, route }) {
-  const { setOrdersCount } = useContext(OrdersContext);
+  const context = useContext(OrdersContext);
+  const setOrdersCount = context?.setOrdersCount || (() => {}); // Fallback if context is undefined
   const initialFilter = route?.params?.filter || 0;
   const [selectedTab, setSelectedTab] = useState(initialFilter);
   const [orders, setOrders] = useState([]);
@@ -50,7 +51,7 @@ export default function OrdersScreen({ navigation, route }) {
           ? result.data.data
           : [];
         setOrders(ordersData);
-        
+
         // Cập nhật số lượng đơn hàng cho tab badge
         setOrdersCount(ordersData.length);
       } else {
@@ -75,17 +76,17 @@ export default function OrdersScreen({ navigation, route }) {
 
   const tabs = [
     { id: 0, label: "Tất cả", icon: "list-outline", statuses: null },
-    { 
-      id: 1, 
-      label: "Mới tạo", 
-      icon: "document-text-outline", 
-      statuses: ["NEW", "CONFIRMED"] 
+    {
+      id: 1,
+      label: "Mới tạo",
+      icon: "document-text-outline",
+      statuses: ["NEW", "CONFIRMED"],
     },
-    { 
-      id: 2, 
-      label: "Đang xử lý", 
-      icon: "sync-outline", 
-      statuses: ["WAITING_PRODUCT", "WAITING_CUSTOMER", "PROCESSING", "READY"] 
+    {
+      id: 2,
+      label: "Đang xử lý",
+      icon: "sync-outline",
+      statuses: ["WAITING_PRODUCT", "WAITING_CUSTOMER", "PROCESSING", "READY"],
     },
     {
       id: 3,
@@ -105,7 +106,9 @@ export default function OrdersScreen({ navigation, route }) {
   const filteredOrders = Array.isArray(orders)
     ? selectedTab === 0
       ? orders
-      : orders.filter((order) => tabs[selectedTab].statuses.includes(order.status))
+      : orders.filter((order) =>
+          tabs[selectedTab].statuses.includes(order.status),
+        )
     : [];
 
   // Format date helper
