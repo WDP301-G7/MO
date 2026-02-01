@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import {
   View,
   Text,
@@ -12,11 +12,20 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { logout, getCurrentUser, getProfile } from "../../services/authService";
+import { OrdersContext } from "../../navigation/MainTabNavigator";
+import { getMyOrders } from "../../services/orderService";
 
 export default function ProfileScreen({ navigation }) {
+  const { ordersCount } = useContext(OrdersContext);
   const [user, setUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [orderStats, setOrderStats] = useState({
+    pending: 0,
+    processing: 0,
+    completed: 0,
+    cancelled: 0,
+  });
 
   const loadUserData = async () => {
     try {
@@ -77,9 +86,30 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const loadOrderStats = async () => {
+    try {
+      const result = await getMyOrders();
+      if (result.success) {
+        const orders = Array.isArray(result.data?.data) ? result.data.data : [];
+        
+        // Dem so luong don hang theo nhom trang thai (theo flow thuc te)
+        const stats = {
+          pending: orders.filter(o => ["NEW", "CONFIRMED"].includes(o.status)).length,
+          processing: orders.filter(o => ["WAITING_PRODUCT", "WAITING_CUSTOMER", "PROCESSING", "READY"].includes(o.status)).length,
+          completed: orders.filter(o => o.status === "COMPLETED").length,
+          cancelled: orders.filter(o => o.status === "CANCELLED").length,
+        };
+        setOrderStats(stats);
+      }
+    } catch (error) {
+      console.error("Error loading order stats:", error);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadUserData();
+    await loadOrderStats();
     setRefreshing(false);
   };
 
@@ -89,8 +119,9 @@ export default function ProfileScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      // Reload user data when screen is focused
+      // Reload user data and order stats when screen is focused
       loadUserData();
+      loadOrderStats();
     }, []),
   );
 
@@ -98,7 +129,7 @@ export default function ProfileScreen({ navigation }) {
     {
       id: 1,
       label: "Chờ xác nhận",
-      count: 2,
+      count: orderStats.pending,
       icon: "time-outline",
       color: "#F18F01",
       screen: "Orders",
@@ -106,7 +137,7 @@ export default function ProfileScreen({ navigation }) {
     {
       id: 2,
       label: "Đang giao",
-      count: 1,
+      count: orderStats.processing,
       icon: "car-outline",
       color: "#2E86AB",
       screen: "Orders",
@@ -114,7 +145,7 @@ export default function ProfileScreen({ navigation }) {
     {
       id: 3,
       label: "Hoàn thành",
-      count: 24,
+      count: orderStats.completed,
       icon: "checkmark-circle-outline",
       color: "#10B981",
       screen: "Orders",
@@ -122,7 +153,7 @@ export default function ProfileScreen({ navigation }) {
     {
       id: 4,
       label: "Đã hủy",
-      count: 1,
+      count: orderStats.cancelled,
       icon: "close-circle-outline",
       color: "#EF4444",
       screen: "Orders",

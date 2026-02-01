@@ -9,23 +9,10 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { SAMPLE_PRODUCTS } from "../../constants/data";
 
 export default function CartScreen({ navigation }) {
-  const [cartItems, setCartItems] = useState([
-    {
-      ...SAMPLE_PRODUCTS[0],
-      quantity: 1,
-      selectedColor: "Đen",
-      selectedSize: "M",
-    },
-    {
-      ...SAMPLE_PRODUCTS[1],
-      quantity: 2,
-      selectedColor: "Xanh",
-      selectedSize: "L",
-    },
-  ]);
+  // TODO: Implement cart API - currently showing empty cart
+  const [cartItems, setCartItems] = useState([]);
 
   const updateQuantity = (id, delta) => {
     setCartItems(

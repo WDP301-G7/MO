@@ -42,8 +42,6 @@ export default function OrderDetailScreen({ navigation, route }) {
       if (result.success) {
         const orderData = result.data;
 
-        console.log("Order data from API:", JSON.stringify(orderData, null, 2));
-
         // Calculate totalAmount if not provided by backend
         if (!orderData.totalAmount && orderData.orderItems) {
           const calculatedTotal = orderData.orderItems.reduce((sum, item) => {

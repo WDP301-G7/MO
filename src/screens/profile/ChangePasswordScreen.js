@@ -245,7 +245,7 @@ export default function ChangePasswordScreen({ navigation }) {
                     : "text-textGray"
                 }`}
               >
-                Ít nhất 6 ký tự
+                Ít nhất 8 ký tự
               </Text>
             </View>
             <View className="flex-row items-center">

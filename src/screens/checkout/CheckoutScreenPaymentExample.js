@@ -17,11 +17,28 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { ADDRESSES } from "../../constants/data";
 import {
   initiatePayment,
   formatPaymentData,
 } from "../../services/paymentService";
+
+// Sample addresses - TODO: Fetch from API
+const ADDRESSES = [
+  {
+    id: "1",
+    name: "Nguyễn Văn A",
+    phone: "0901234567",
+    address: "123 Nguyễn Huệ, Quận 1, TP.HCM",
+    isDefault: true,
+  },
+  {
+    id: "2",
+    name: "Nguyễn Văn A",
+    phone: "0901234567",
+    address: "456 Lê Lợi, Quận 3, TP.HCM",
+    isDefault: false,
+  },
+];
 
 export default function CheckoutScreenPaymentExample({ navigation, route }) {
   const {

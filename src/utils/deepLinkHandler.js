@@ -106,7 +106,6 @@ export const handleDeepLink = (state) => {
 
       case "OrderDetail":
         // Lấy chi tiết đơn hàng
-        console.log("Opening Order Detail:", route.params.orderId);
         break;
 
       case "ProductDetail":
