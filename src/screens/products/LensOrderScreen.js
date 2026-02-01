@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getProducts, formatPrice } from "../../services/productService";
 import { createOrder } from "../../services/orderService";
 import { getProfile } from "../../services/authService";
+import { getProductAvailableQuantity } from "../../services/inventoryService";
 
 export default function LensOrderScreen({ navigation, route }) {
   const { selectedFrame, selectedLensFromProduct, fromCart, cartItems } =
@@ -23,13 +24,13 @@ export default function LensOrderScreen({ navigation, route }) {
     selectedFrame?.id || null,
   );
   const [requireAppointment, setRequireAppointment] = useState(false);
+  const [paymentOption, setPaymentOption] = useState("full"); // "full" or "deposit"
 
   // API data states
   const [lensProducts, setLensProducts] = useState([]);
   const [frameProducts, setFrameProducts] = useState([]);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [ordering, setOrdering] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -83,6 +84,24 @@ export default function LensOrderScreen({ navigation, route }) {
     }
   }, [selectedLensFromProduct, lensProducts]);
 
+  const isProductAvailable = (product) => {
+    if (!product) return false;
+
+    // Product is available if:
+    // 1. It's a preorder item (isPreorder = true) - can always be ordered
+    // 2. For non-preorder items - allow selection (will check inventory on "Next" button)
+    // Note: API /products doesn't return stock info, need to call /inventory/product/:id separately
+
+    // Preorder items are always available
+    if (product.isPreorder === true) {
+      return true;
+    }
+
+    // For non-preorder items, assume available (will check with inventory API later)
+    // This prevents blocking UI when stock data is not loaded yet
+    return true;
+  };
+
   const getTotalAmount = () => {
     let total = 0;
     if (selectedFrameId) {
@@ -103,32 +122,69 @@ export default function LensOrderScreen({ navigation, route }) {
         return;
       }
       const lens = lensProducts.find((l) => l.id === selectedLensType);
-      setRequireAppointment(lens?.isPreorder || false);
+      const frame = frameProducts.find((f) => f.id === selectedFrameId);
 
       if (!selectedFrameId) {
         Alert.alert("Thông báo", "Vui lòng chọn gọng kính");
         return;
       }
-      setStep(2);
-    } else if (step === 2) {
-      // Create order with both FRAME and LENS
-      try {
-        setOrdering(true);
 
-        const selectedFrame = frameProducts.find(
-          (f) => f.id === selectedFrameId,
-        );
-        const selectedLens = lensProducts.find(
-          (l) => l.id === selectedLensType,
-        );
-
-        if (!selectedFrame || !selectedLens) {
-          Alert.alert("Lỗi", "Không tìm thấy sản phẩm đã chọn");
+      // Check inventory for non-preorder items
+      if (!lens.isPreorder) {
+        const lensInventory = await getProductAvailableQuantity(lens.id);
+        if (!lensInventory.success || lensInventory.data?.totalAvailable <= 0) {
+          Alert.alert(
+            "Thông báo",
+            "Tròng kính đã chọn hiện đang hết hàng. Vui lòng chọn sản phẩm khác.",
+          );
           return;
         }
+      }
 
-        // Prepare order with both items
-        const orderData = {
+      if (!frame.isPreorder) {
+        const frameInventory = await getProductAvailableQuantity(frame.id);
+        if (
+          !frameInventory.success ||
+          frameInventory.data?.totalAvailable <= 0
+        ) {
+          Alert.alert(
+            "Thông báo",
+            "Gọng kính đã chọn hiện đang hết hàng. Vui lòng chọn sản phẩm khác.",
+          );
+          return;
+        }
+      }
+
+      // Nếu có sản phẩm preorder thì bắt buộc thanh toán full
+      const hasPreorder = lens?.isPreorder || frame?.isPreorder;
+      if (hasPreorder) {
+        setPaymentOption("full");
+      }
+      setRequireAppointment(hasPreorder);
+
+      setStep(2);
+    } else if (step === 2) {
+      const selectedFrame = frameProducts.find((f) => f.id === selectedFrameId);
+      const selectedLens = lensProducts.find((l) => l.id === selectedLensType);
+
+      if (!selectedFrame || !selectedLens) {
+        Alert.alert("Lỗi", "Không tìm thấy sản phẩm đã chọn");
+        return;
+      }
+
+      const totalAmount = getTotalAmount();
+      const depositAmount = Math.round(totalAmount * 0.5);
+      const paymentAmount =
+        paymentOption === "deposit" ? depositAmount : totalAmount;
+
+      // Determine order type based on whether any product is preorder
+      const hasPreorder = selectedLens?.isPreorder || selectedFrame?.isPreorder;
+      const orderTypeForBackend = hasPreorder ? "PRE_ORDER" : "IN_STOCK";
+
+      // Navigate đến VNPayPaymentScreen với thông tin order
+      navigation.navigate("VNPayPayment", {
+        orderData: {
+          orderType: orderTypeForBackend, // Backend enum: IN_STOCK, PRE_ORDER, PRESCRIPTION
           items: [
             {
               productId: selectedFrame.id,
@@ -141,30 +197,17 @@ export default function LensOrderScreen({ navigation, route }) {
               price: selectedLens.price.toString(),
             },
           ],
-          shippingAddress: userData?.address || "Lắp tại cửa hàng",
+          shippingAddress: "Lắp tại cửa hàng",
           phoneNumber: userData?.phone || null,
-          paymentMethod: "COD",
+          paymentMethod: "VNPAY",
           note: "Đơn hàng tròng + gọng kính (không cần đơn thuốc)",
-        };
-
-        const result = await createOrder(orderData);
-
-        if (result.success) {
-          navigation.replace("OrderSuccess", {
-            orderId: result.data.id,
-            totalAmount: getTotalAmount(),
-            paymentMethod: "COD",
-            orderType: "lens_with_frame",
-          });
-        } else {
-          Alert.alert("Lỗi", result.message || "Đặt hàng thất bại");
-        }
-      } catch (error) {
-        console.error("Error creating order:", error);
-        Alert.alert("Lỗi", "Đã xảy ra lỗi khi đặt hàng");
-      } finally {
-        setOrdering(false);
-      }
+        },
+        totalAmount: totalAmount,
+        depositAmount: paymentOption === "deposit" ? depositAmount : null,
+        paymentAmount: paymentAmount,
+        requireDeposit: paymentOption === "deposit",
+        orderType: "lens_with_frame", // For UI tracking only
+      });
     }
   };
 
@@ -196,66 +239,84 @@ export default function LensOrderScreen({ navigation, route }) {
         </View>
       )}
 
-      {lensProducts.map((lens) => (
-        <TouchableOpacity
-          key={lens.id}
-          className={`bg-white rounded-2xl p-4 mb-3 border-2 ${
-            selectedLensType === lens.id
-              ? "border-primary"
-              : "border-transparent"
-          }`}
-          onPress={() => setSelectedLensType(lens.id)}
-        >
-          <View className="flex-row items-start justify-between mb-3">
-            <View className="flex-1">
-              <View className="flex-row items-center mb-2">
-                <Text className="text-base font-bold text-text">
-                  {lens.name}
+      {lensProducts.map((lens) => {
+        const available = isProductAvailable(lens);
+        return (
+          <TouchableOpacity
+            key={lens.id}
+            className={`bg-white rounded-2xl p-4 mb-3 border-2 ${
+              selectedLensType === lens.id
+                ? "border-primary"
+                : "border-transparent"
+            } ${!available ? "opacity-50" : ""}`}
+            onPress={() => available && setSelectedLensType(lens.id)}
+            disabled={!available}
+          >
+            <View className="flex-row items-start justify-between mb-3">
+              <View className="flex-1">
+                <View className="flex-row items-center mb-2">
+                  <Text className="text-base font-bold text-text">
+                    {lens.name}
+                  </Text>
+                  {lens.brand && (
+                    <View className="bg-accent px-2 py-0.5 rounded-full ml-2">
+                      <Text className="text-xs text-white font-semibold">
+                        {lens.brand}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text className="text-lg font-bold text-primary mb-1">
+                  {`${formatPrice(lens.price).toLocaleString("vi-VN")}đ`}
                 </Text>
-                {lens.brand && (
-                  <View className="bg-accent px-2 py-0.5 rounded-full ml-2">
-                    <Text className="text-xs text-white font-semibold">
-                      {lens.brand}
-                    </Text>
-                  </View>
+                <View className="flex-row items-center mb-2">
+                  <Ionicons
+                    name={
+                      !available
+                        ? "close-circle"
+                        : lens.isPreorder
+                          ? "time"
+                          : "checkmark-circle"
+                    }
+                    size={14}
+                    color={
+                      !available
+                        ? "#EF4444"
+                        : lens.isPreorder
+                          ? "#F18F01"
+                          : "#10B981"
+                    }
+                  />
+                  <Text className="text-xs text-textGray ml-1">
+                    {!available
+                      ? "Hết hàng"
+                      : lens.isPreorder
+                        ? `Đặt trước (${lens.leadTimeDays || 7} ngày)`
+                        : "Sẵn hàng"}
+                  </Text>
+                </View>
+              </View>
+              <View
+                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+                  selectedLensType === lens.id
+                    ? "border-primary bg-primary"
+                    : "border-border"
+                }`}
+              >
+                {selectedLensType === lens.id && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                 )}
               </View>
-              <Text className="text-lg font-bold text-primary mb-1">
-                {`${formatPrice(lens.price).toLocaleString("vi-VN")}đ`}
-              </Text>
-              <View className="flex-row items-center mb-2">
-                <Ionicons
-                  name={lens.isPreorder ? "time" : "checkmark-circle"}
-                  size={14}
-                  color={lens.isPreorder ? "#F18F01" : "#10B981"}
-                />
-                <Text className="text-xs text-textGray ml-1">
-                  {lens.isPreorder
-                    ? `Đặt trước (${lens.leadTimeDays || 7} ngày)`
-                    : "Sẵn hàng"}
-                </Text>
-              </View>
             </View>
-            <View
-              className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                selectedLensType === lens.id
-                  ? "border-primary bg-primary"
-                  : "border-border"
-              }`}
-            >
-              {selectedLensType === lens.id && (
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-              )}
-            </View>
-          </View>
 
-          {lens.description && (
-            <Text className="text-sm text-textGray" numberOfLines={2}>
-              {lens.description}
-            </Text>
-          )}
-        </TouchableOpacity>
-      ))}
+            {lens.description && (
+              <Text className="text-sm text-textGray" numberOfLines={2}>
+                {lens.description}
+              </Text>
+            )}
+          </TouchableOpacity>
+        );
+      })}
 
       {/* Frame Selection */}
       <Text className="text-base font-semibold text-text mt-4 mb-3">
@@ -266,6 +327,7 @@ export default function LensOrderScreen({ navigation, route }) {
         const imageUrl =
           frame.images?.[0]?.imageUrl ||
           "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=300&h=200&fit=crop";
+        const available = isProductAvailable(frame);
 
         return (
           <TouchableOpacity
@@ -274,8 +336,9 @@ export default function LensOrderScreen({ navigation, route }) {
               selectedFrameId === frame.id
                 ? "border-primary"
                 : "border-transparent"
-            }`}
-            onPress={() => setSelectedFrameId(frame.id)}
+            } ${!available ? "opacity-50" : ""}`}
+            onPress={() => available && setSelectedFrameId(frame.id)}
+            disabled={!available}
           >
             <Image
               source={{ uri: imageUrl }}
@@ -296,8 +359,14 @@ export default function LensOrderScreen({ navigation, route }) {
                   {`${formatPrice(frame.price).toLocaleString("vi-VN")}đ`}
                 </Text>
                 <View className="flex-row items-center mt-1">
-                  <View className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
-                  <Text className="text-xs text-green-600">Còn hàng</Text>
+                  <View
+                    className={`w-2 h-2 rounded-full mr-1.5 ${available ? "bg-green-500" : "bg-red-500"}`}
+                  />
+                  <Text
+                    className={`text-xs ${available ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {available ? "Còn hàng" : "Hết hàng"}
+                  </Text>
                 </View>
               </View>
               <View
@@ -321,6 +390,9 @@ export default function LensOrderScreen({ navigation, route }) {
   const renderStep2 = () => {
     const selectedLens = lensProducts.find((l) => l.id === selectedLensType);
     const selectedFrame = frameProducts.find((f) => f.id === selectedFrameId);
+    const hasPreorder = selectedLens?.isPreorder || selectedFrame?.isPreorder;
+    const totalAmount = getTotalAmount();
+    const depositAmount = Math.round(totalAmount * 0.5);
 
     return (
       <View>
@@ -328,7 +400,7 @@ export default function LensOrderScreen({ navigation, route }) {
           Bước 2: Xác nhận đơn hàng
         </Text>
         <Text className="text-sm text-textGray mb-4">
-          Kiểm tra thông tin trước khi đặt hàng
+          Kiểm tra thông tin trước khi thanh toán
         </Text>
 
         {/* Order Summary */}
@@ -358,18 +430,99 @@ export default function LensOrderScreen({ navigation, route }) {
           <View className="flex-row justify-between items-center pt-3">
             <Text className="text-base font-bold text-text">Tổng cộng</Text>
             <Text className="text-xl font-bold text-primary">
-              {`${getTotalAmount().toLocaleString("vi-VN")}đ`}
+              {`${totalAmount.toLocaleString("vi-VN")}đ`}
             </Text>
           </View>
         </View>
 
+        {/* Payment Options */}
+        <View className="bg-white rounded-2xl p-5 mb-4">
+          <Text className="text-base font-bold text-text mb-3">
+            Phương thức thanh toán
+          </Text>
+
+          {hasPreorder && (
+            <View className="bg-yellow-50 rounded-xl p-3 mb-3 flex-row items-center">
+              <Ionicons name="information-circle" size={20} color="#F18F01" />
+              <Text className="flex-1 text-xs text-yellow-800 ml-2">
+                Sản phẩm đặt trước yêu cầu thanh toán toàn bộ
+              </Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            className={`border-2 rounded-xl p-4 mb-3 ${
+              paymentOption === "full"
+                ? "border-primary bg-primary/5"
+                : "border-border"
+            }`}
+            onPress={() => setPaymentOption("full")}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-base font-bold text-text mb-1">
+                  Thanh toán toàn bộ
+                </Text>
+                <Text className="text-sm text-textGray">
+                  {`${totalAmount.toLocaleString("vi-VN")}đ`}
+                </Text>
+              </View>
+              <View
+                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+                  paymentOption === "full"
+                    ? "border-primary bg-primary"
+                    : "border-border"
+                }`}
+              >
+                {paymentOption === "full" && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {!hasPreorder && (
+            <TouchableOpacity
+              className={`border-2 rounded-xl p-4 ${
+                paymentOption === "deposit"
+                  ? "border-primary bg-primary/5"
+                  : "border-border"
+              }`}
+              onPress={() => setPaymentOption("deposit")}
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1">
+                  <Text className="text-base font-bold text-text mb-1">
+                    Thanh toán cọc (50%)
+                  </Text>
+                  <Text className="text-sm text-textGray">
+                    {`${depositAmount.toLocaleString("vi-VN")}đ - Còn lại khi nhận hàng`}
+                  </Text>
+                </View>
+                <View
+                  className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+                    paymentOption === "deposit"
+                      ? "border-primary bg-primary"
+                      : "border-border"
+                  }`}
+                >
+                  {paymentOption === "deposit" && (
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Important Note */}
-        <View className="bg-yellow-50 rounded-xl p-4 mb-4 flex-row">
-          <Ionicons name="information-circle" size={24} color="#F18F01" />
-          <Text className="flex-1 text-sm text-yellow-800 ml-2">
+        <View className="bg-blue-50 rounded-xl p-4 mb-4 flex-row">
+          <Ionicons name="information-circle" size={24} color="#2E86AB" />
+          <Text className="flex-1 text-sm text-blue-800 ml-2">
             <Text className="font-bold">Lưu ý:{"\n"}</Text>
             {`• Đơn hàng bao gồm 1 gọng + 1 tròng kính
-• Phương thức thanh toán: COD (thanh toán khi nhận hàng)
+• Thanh toán qua VNPay
+• Quý khách vui lòng đến cửa hàng để nhận hàng
 • Shop sẽ liên hệ để xác nhận đơn hàng`}
           </Text>
         </View>
@@ -482,20 +635,10 @@ export default function LensOrderScreen({ navigation, route }) {
           <TouchableOpacity
             className="flex-1 bg-primary rounded-xl py-4 items-center flex-row justify-center"
             onPress={handleNext}
-            disabled={ordering}
           >
-            {ordering ? (
-              <>
-                <ActivityIndicator size="small" color="#FFFFFF" />
-                <Text className="text-white font-bold text-base ml-2">
-                  Đang xử lý...
-                </Text>
-              </>
-            ) : (
-              <Text className="text-white font-bold text-base">
-                {step === maxSteps ? "Xác nhận đặt hàng" : "Tiếp theo"}
-              </Text>
-            )}
+            <Text className="text-white font-bold text-base">
+              {step === maxSteps ? "Thanh toán" : "Tiếp theo"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

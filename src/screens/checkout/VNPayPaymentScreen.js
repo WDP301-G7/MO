@@ -18,16 +18,35 @@ import {
   createVNPayPayment,
   handleVNPayReturn,
 } from "../../services/paymentService";
+import { createOrder } from "../../services/orderService";
 
 export default function VNPayPaymentScreen({ navigation, route }) {
-  const { orderId, amount } = route.params || {};
+  const {
+    orderId,
+    amount,
+    orderData,
+    totalAmount,
+    depositAmount,
+    paymentAmount,
+    requireDeposit,
+    orderType,
+  } = route.params || {};
 
   const [loading, setLoading] = useState(true);
   const [vnpayUrl, setVnpayUrl] = useState(null);
   const [error, setError] = useState(null);
+  const [createdOrderId, setCreatedOrderId] = useState(orderId);
 
   useEffect(() => {
-    if (!orderId || !amount) {
+    // Check if we have orderData (new flow) or orderId (existing flow)
+    if (!orderId && !orderData) {
+      Alert.alert("Lỗi", "Thiếu thông tin đơn hàng", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+      return;
+    }
+
+    if (!amount && !paymentAmount && !totalAmount) {
       Alert.alert("Lỗi", "Thiếu thông tin đơn hàng", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
@@ -35,16 +54,48 @@ export default function VNPayPaymentScreen({ navigation, route }) {
     }
 
     initPayment();
-  }, [orderId, amount]);
+  }, [orderId, amount, orderData]);
 
   const initPayment = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log("Creating VNPay payment:", { orderId, amount });
+      let orderIdToUse = orderId;
 
-      const result = await createVNPayPayment(orderId, amount);
+      // If we have orderData, create the order first (new flow)
+      if (orderData && !orderId) {
+        const orderResult = await createOrder(orderData);
+
+        if (!orderResult.success || !orderResult.data?.id) {
+          const errorMsg = orderResult.message || "Không thể tạo đơn hàng";
+          console.error(
+            "Create order error - Full response:",
+            JSON.stringify(orderResult, null, 2),
+          );
+
+          setError(errorMsg);
+
+          // Show more specific error message
+          let userMessage = errorMsg;
+          if (errorMsg.includes("Insufficient stock")) {
+            userMessage =
+              "Sản phẩm đã hết hàng hoặc không đủ số lượng. Vui lòng chọn sản phẩm khác.";
+          }
+
+          Alert.alert("Không thể tạo đơn hàng", userMessage, [
+            { text: "Quay lại", onPress: () => navigation.goBack() },
+          ]);
+          return;
+        }
+
+        orderIdToUse = orderResult.data.id;
+        setCreatedOrderId(orderIdToUse);
+      }
+
+      const amountToUse = paymentAmount || amount || totalAmount;
+
+      const result = await createVNPayPayment(orderIdToUse, amountToUse);
 
       if (result.success && result.data?.paymentUrl) {
         setVnpayUrl(result.data.paymentUrl);
@@ -67,7 +118,6 @@ export default function VNPayPaymentScreen({ navigation, route }) {
 
   const handleWebViewNavigation = async (navState) => {
     const url = navState.url;
-    console.log("WebView navigating to:", url);
 
     // Check if returned from VNPay
     if (
@@ -83,19 +133,18 @@ export default function VNPayPaymentScreen({ navigation, route }) {
           params[key] = value;
         });
 
-        console.log("VNPay return params:", params);
-
         // Call backend to verify payment
         const result = await handleVNPayReturn(params);
 
         if (result.success) {
           // Navigate to success screen
           navigation.replace("OrderSuccessVNPay", {
-            orderId: orderId,
-            amount: amount,
+            orderId: createdOrderId || orderId,
+            amount: paymentAmount || amount || totalAmount,
             transactionId:
               result.data?.transactionId || params.vnp_TransactionNo,
             paymentMethod: "VNPAY",
+            orderType: orderType,
           });
         } else {
           // Payment failed
