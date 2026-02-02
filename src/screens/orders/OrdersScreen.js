@@ -80,22 +80,46 @@ export default function OrdersScreen({ navigation, route }) {
       id: 1,
       label: "Mới tạo",
       icon: "document-text-outline",
-      statuses: ["NEW", "CONFIRMED"],
+      statuses: ["NEW"],
     },
     {
       id: 2,
-      label: "Đang xử lý",
-      icon: "sync-outline",
-      statuses: ["WAITING_PRODUCT", "WAITING_CUSTOMER", "PROCESSING", "READY"],
+      label: "Đã xác nhận",
+      icon: "checkmark-circle-outline",
+      statuses: ["CONFIRMED"],
     },
     {
       id: 3,
-      label: "Hoàn thành",
-      icon: "checkmark-circle-outline",
-      statuses: ["COMPLETED"],
+      label: "Chờ khách",
+      icon: "person-outline",
+      statuses: ["WAITING_CUSTOMER"],
     },
     {
       id: 4,
+      label: "Chờ hàng",
+      icon: "cube-outline",
+      statuses: ["WAITING_PRODUCT"],
+    },
+    {
+      id: 5,
+      label: "Đang xử lý",
+      icon: "sync-outline",
+      statuses: ["PROCESSING"],
+    },
+    {
+      id: 6,
+      label: "Sẵn sàng",
+      icon: "gift-outline",
+      statuses: ["READY"],
+    },
+    {
+      id: 7,
+      label: "Hoàn thành",
+      icon: "checkmark-done-outline",
+      statuses: ["COMPLETED"],
+    },
+    {
+      id: 8,
       label: "Đã hủy",
       icon: "close-circle-outline",
       statuses: ["CANCELLED"],
@@ -300,7 +324,7 @@ export default function OrdersScreen({ navigation, route }) {
             </Text>
             <View className="flex-row items-center">
               <Text className="text-xs text-textGray mr-2">
-                T\u1ed5ng ti\u1ec1n:
+                Thanh toán:
               </Text>
               <Text className="text-lg font-bold text-text">
                 {`${formatPrice(item.totalAmount).toLocaleString("vi-VN")}\u0111`}
