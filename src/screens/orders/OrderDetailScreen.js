@@ -362,9 +362,9 @@ export default function OrderDetailScreen({ navigation, route }) {
           )}
 
           {/* Shipping/Pickup Info */}
-          {order.orderType === "prescription" ||
-          order.orderType === "lens_only" ||
-          order.orderType === "lens_with_frame" ? (
+          {(order.orderType === "prescription" ||
+            order.orderType === "lens_only" ||
+            order.orderType === "lens_with_frame") && (
             <View className="bg-white mx-5 mt-4 p-4 rounded-2xl">
               <View className="flex-row items-center mb-3">
                 <Ionicons name="location-outline" size={20} color="#2E86AB" />
@@ -385,22 +385,6 @@ export default function OrderDetailScreen({ navigation, route }) {
               </View>
               <Text className="text-sm text-textGray">
                 Vui lòng mang theo CMND/CCCD khi đến nhận hàng
-              </Text>
-            </View>
-          ) : (
-            <View className="bg-white mx-5 mt-4 p-4 rounded-2xl">
-              <View className="flex-row items-center mb-3">
-                <Ionicons name="location-outline" size={20} color="#2E86AB" />
-                <Text className="text-base font-bold text-text ml-2">
-                  Địa chỉ giao hàng
-                </Text>
-              </View>
-              <Text className="text-sm font-semibold text-text">
-                Nguyễn Văn A
-              </Text>
-              <Text className="text-sm text-textGray mt-1">0123456789</Text>
-              <Text className="text-sm text-text mt-2">
-                123 Nguyễn Văn Linh, Phường Tân Phú, Quận 7, TP.HCM
               </Text>
             </View>
           )}
@@ -514,23 +498,32 @@ export default function OrderDetailScreen({ navigation, route }) {
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-sm text-textGray">Phương thức:</Text>
                   <Text className="text-sm font-semibold text-text">
-                    {order.payment?.method || "COD"}
+                    {order.payments?.[0]?.method || "Chưa thanh toán"}
                   </Text>
                 </View>
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-sm text-textGray">Trạng thái:</Text>
-                  <Text className="text-sm font-semibold text-green-500">
-                    {order.payment?.status ||
-                      (order.status === "Hoàn thành"
-                        ? "Đã thanh toán"
-                        : "Chưa thanh toán")}
+                  <Text
+                    className={`text-sm font-semibold ${
+                      order.paymentStatus === "PAID"
+                        ? "text-green-500"
+                        : order.paymentStatus === "DEPOSITED"
+                        ? "text-amber-500"
+                        : "text-red-500"
+                    }`}
+                  >
+                    {order.paymentStatus === "PAID"
+                      ? "Đã thanh toán"
+                      : order.paymentStatus === "DEPOSITED"
+                      ? "Đã đặt cọc"
+                      : "Chưa thanh toán"}
                   </Text>
                 </View>
-                {order.status === "Hoàn thành" && (
+                {order.paymentStatus === "PAID" && order.payments?.[0]?.paidAt && (
                   <View className="flex-row items-center justify-between">
                     <Text className="text-sm text-textGray">Thời gian:</Text>
                     <Text className="text-sm text-text">
-                      {order.payment?.time || order.createdAt}
+                      {new Date(order.payments[0].paidAt).toLocaleString("vi-VN")}
                     </Text>
                   </View>
                 )}

@@ -161,6 +161,8 @@ export const formatOrderStatus = (status) => {
   const statusMap = {
     NEW: "Mới tạo",
     CONFIRMED: "Đã xác nhận",
+    WAITING_CUSTOMER: "Chờ khách",
+    WAITING_PRODUCT: "Chờ hàng",
     PROCESSING: "Đang xử lý",
     READY: "Sẵn sàng",
     COMPLETED: "Hoàn thành",
@@ -176,12 +178,14 @@ export const formatOrderStatus = (status) => {
  */
 export const getOrderStatusColor = (status) => {
   const colorMap = {
-    NEW: "#3B82F6", // blue
-    CONFIRMED: "#8B5CF6", // purple
-    PROCESSING: "#F59E0B", // amber
-    READY: "#10B981", // green
-    COMPLETED: "#059669", // emerald
-    CANCELLED: "#EF4444", // red
+    NEW: "#3B82F6", // blue - Mới tạo
+    CONFIRMED: "#8B5CF6", // purple - Đã xác nhận
+    WAITING_CUSTOMER: "#EC4899", // pink - Chờ khách
+    WAITING_PRODUCT: "#F59E0B", // amber - Chờ hàng
+    PROCESSING: "#F97316", // orange - Đang xử lý
+    READY: "#10B981", // green - Sẵn sàng
+    COMPLETED: "#059669", // emerald - Hoàn thành
+    CANCELLED: "#EF4444", // red - Đã hủy
   };
   return colorMap[status] || "#6B7280"; // gray default
 };
@@ -195,8 +199,10 @@ export const getOrderStatusIcon = (status) => {
   const iconMap = {
     NEW: "document-text-outline",
     CONFIRMED: "checkmark-circle-outline",
+    WAITING_CUSTOMER: "person-outline",
+    WAITING_PRODUCT: "cube-outline",
     PROCESSING: "sync-outline",
-    READY: "cube-outline",
+    READY: "gift-outline",
     COMPLETED: "checkmark-done-outline",
     CANCELLED: "close-circle-outline",
   };
