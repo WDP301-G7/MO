@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,896 +7,208 @@ import {
   TextInput,
   Image,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import {
+  getStores,
+  createPrescriptionRequest,
+  CONSULTATION_TYPES,
+} from "../../services/prescriptionService";
+import { getProfile } from "../../services/authService";
 
 export default function PrescriptionOrderScreen({ navigation }) {
-  const [step, setStep] = useState(1);
-  const [uploadMethod, setUploadMethod] = useState("upload");
-  const [orderType, setOrderType] = useState("frame_lens"); // frame_lens or lens_only
-  const [selectedFrame, setSelectedFrame] = useState(null);
-  const [selectedLens, setSelectedLens] = useState(null);
-  const [selectedStore, setSelectedStore] = useState(1);
-  const [paymentType, setPaymentType] = useState("deposit"); // deposit or full
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [stores, setStores] = useState([]);
+  const [userPhone, setUserPhone] = useState("");
 
-  const stores = [
-    {
-      id: 1,
-      name: "MO Eyewear Store",
-      address: "123 Nguyễn Huệ, Quận 1, TP.HCM",
-      phone: "028 1234 5678",
-    },
-  ];
+  const [formData, setFormData] = useState({
+    storeId: "00000000-0000-0000-0000-000000000011",
+    consultationType: "PHONE",
+    phone: "",
+    symptoms: "",
+    images: [],
+  });
 
-  const lensTypes = [
-    {
-      id: 1,
-      name: "Tròng kính cơ bản",
-      price: 500000,
-      features: ["Chống tia UV", "Độ bền cao"],
-      minimumWaitTime: "3-5 ngày làm việc", // Thời gian tối thiểu để có tròng
-      inStock: true,
-      requiresFullPayment: false, // Có thể cọc 50%
-      warranty: "12 tháng - Nhận bảo hành tại cửa hàng",
-    },
-    {
-      id: 2,
-      name: "Tròng kính chống ánh sáng xanh",
-      price: 1200000,
-      features: ["Chống tia UV", "Chống ánh sáng xanh", "Chống mỏi mắt"],
-      recommended: true,
-      minimumWaitTime: "5-7 ngày làm việc",
-      inStock: true,
-      requiresFullPayment: false,
-      warranty: "12 tháng - Nhận bảo hành tại cửa hàng",
-    },
-    {
-      id: 3,
-      name: "Tròng kính đổi màu",
-      price: 1800000,
-      features: ["Chống tia UV", "Tự động đổi màu", "Bảo vệ tối ưu"],
-      minimumWaitTime: "7-10 ngày làm việc",
-      inStock: false, // Không có sẵn
-      requiresThirdParty: true, // Phải lấy từ bên thứ 3
-      requiresFullPayment: true, // Bắt buộc thanh toán toàn bộ
-      warranty: "12 tháng - Nhận bảo hành tại cửa hàng",
-    },
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const frames = [
-    {
-      id: 1,
-      name: "Gọng kính Rayban Classic",
-      price: 2500000,
-      image:
-        "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=300&h=200&fit=crop",
-      inStock: true,
-      availableInStore: true,
-      requiresFullPayment: false,
-      warranty: "6 tháng - Nhận bảo hành tại cửa hàng",
-    },
-    {
-      id: 2,
-      name: "Gọng kính Titanium Premium",
-      price: 3500000,
-      image:
-        "https://images.unsplash.com/photo-1516714819001-8ee7a13b71d7?w=300&h=200&fit=crop",
-      inStock: true,
-      availableInStore: true,
-      requiresFullPayment: false,
-      warranty: "12 tháng - Nhận bảo hành tại cửa hàng",
-    },
-    {
-      id: 3,
-      name: "Gọng kính Acetate Fashion",
-      price: 1800000,
-      image:
-        "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=300&h=200&fit=crop",
-      inStock: false, // Không có sẵn
-      availableInStore: false,
-      requiresThirdParty: true, // Phải lấy từ bên thứ 3
-      requiresFullPayment: true, // Bắt buộc thanh toán toàn bộ
-      estimatedArrival: "7-10 ngày làm việc",
-      warranty: "6 tháng - Nhận bảo hành tại cửa hàng",
-    },
-  ];
+  const loadData = async () => {
+    try {
+      setLoading(true);
 
-  const getTotalAmount = () => {
-    let total = 0;
-    if (orderType === "frame_lens") {
-      // Cả gọng và tròng
-      if (selectedFrame) {
-        const frame = frames.find((f) => f.id === selectedFrame);
-        total += frame?.price || 0;
-      }
-      if (selectedLens) {
-        const lens = lensTypes.find((l) => l.id === selectedLens);
-        total += lens?.price || 0;
-      }
-    } else if (orderType === "lens_only") {
-      // Chỉ tròng
-      if (selectedLens) {
-        const lens = lensTypes.find((l) => l.id === selectedLens);
-        total += lens?.price || 0;
-      }
-    }
-    return total;
-  };
-
-  const getDepositAmount = () => {
-    return Math.round(getTotalAmount() * 0.5); // 50% deposit
-  };
-
-  // Kiểm tra xem có bắt buộc thanh toán toàn bộ không
-  const isFullPaymentRequired = () => {
-    const selectedLensObj = lensTypes.find((l) => l.id === selectedLens);
-    const selectedFrameObj = frames.find((f) => f.id === selectedFrame);
-
-    // Nếu tròng hoặc gọng không có sẵn (phải lấy từ bên thứ 3) → bắt buộc thanh toán full
-    if (
-      selectedLensObj?.requiresFullPayment ||
-      selectedFrameObj?.requiresFullPayment
-    ) {
-      return true;
-    }
-    return false;
-  };
-
-  // Lấy thông tin thời gian chờ
-  const getWaitTimeInfo = () => {
-    const selectedLensObj = lensTypes.find((l) => l.id === selectedLens);
-    const selectedFrameObj = frames.find((f) => f.id === selectedFrame);
-    const waitTimes = [];
-
-    if (selectedLensObj?.minimumWaitTime) {
-      waitTimes.push(`Tròng kính: ${selectedLensObj.minimumWaitTime}`);
-    }
-    if (selectedFrameObj?.estimatedArrival) {
-      waitTimes.push(`Gọng kính: ${selectedFrameObj.estimatedArrival}`);
-    }
-
-    return waitTimes.length > 0 ? waitTimes.join(", ") : null;
-  };
-
-  // Kiểm tra xem có sản phẩm nào không có sẵn không
-  const hasUnavailableProducts = () => {
-    const selectedLensObj = lensTypes.find((l) => l.id === selectedLens);
-    const selectedFrameObj = frames.find((f) => f.id === selectedFrame);
-
-    return (
-      !selectedLensObj?.inStock ||
-      (selectedFrameObj && !selectedFrameObj?.inStock)
-    );
-  };
-
-  const handleNext = () => {
-    if (step === 1) {
-      setStep(2);
-    } else if (step === 2) {
-      // Validation cho frame_lens: cần cả gọng và tròng
-      if (orderType === "frame_lens") {
-        if (!selectedFrame) {
-          Alert.alert("Thông báo", "Vui lòng chọn gọng kính");
-          return;
+      // Load stores
+      const storesResult = await getStores();
+      if (storesResult.success) {
+        const storesData = Array.isArray(storesResult.data)
+          ? storesResult.data
+          : [];
+        setStores(storesData);
+        // Set default store to Chi nhánh Quận 3
+        const defaultStoreId = "00000000-0000-0000-0000-000000000011";
+        const hasDefaultStore = storesData.some(
+          (store) => store.id === defaultStoreId,
+        );
+        if (hasDefaultStore) {
+          setFormData((prev) => ({
+            ...prev,
+            storeId: defaultStoreId,
+          }));
+        } else if (storesData.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            storeId: storesData[0].id,
+          }));
         }
-        if (!selectedLens) {
-          Alert.alert("Thông báo", "Vui lòng chọn loại tròng kính");
-          return;
-        }
+      } else {
+        setStores([]);
+        Alert.alert(
+          "Thông báo",
+          storesResult.message || "Không thể tải danh sách cửa hàng",
+        );
       }
-      // Validation cho lens_only: chỉ cần tròng
-      if (orderType === "lens_only") {
-        if (!selectedLens) {
-          Alert.alert("Thông báo", "Vui lòng chọn loại tròng kính");
-          return;
-        }
+
+      // Load user profile to get phone
+      const profileResult = await getProfile();
+      if (profileResult.success && profileResult.data) {
+        const phone = profileResult.data.phone || "";
+        setUserPhone(phone);
+        setFormData((prev) => ({ ...prev, phone }));
       }
-      setStep(3);
-    } else if (step === 3) {
-      // Bỏ validation appointment - shop sẽ chủ động hẹn lịch
-      setStep(4);
-    } else if (step === 4) {
-      // Set payment type to full if required
-      const finalPaymentType = isFullPaymentRequired() ? "full" : paymentType;
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể tải dữ liệu");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Navigate to checkout/payment
-      const selectedLensObj = lensTypes.find((l) => l.id === selectedLens);
-      const selectedFrameObj = frames.find((f) => f.id === selectedFrame);
+  const pickImage = async () => {
+    if (formData.images.length >= 3) {
+      Alert.alert("Thông báo", "Chỉ có thể upload tối đa 3 ảnh");
+      return;
+    }
 
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (status !== "granted") {
       Alert.alert(
-        "Xác nhận đơn hàng",
-        `Bạn sẽ thanh toán ${
-          finalPaymentType === "deposit"
-            ? getDepositAmount().toLocaleString("vi-VN")
-            : getTotalAmount().toLocaleString("vi-VN")
-        }đ để hoàn tất đặt hàng.${hasUnavailableProducts() ? "\n\nSản phẩm không có sẵn và cần đợi shop lấy hàng." : ""}`,
+        "Quyền truy cập",
+        "Cần cấp quyền truy cập thư viện ảnh để chọn ảnh đơn thuốc",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.6, // Compress to reduce size
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const newImage = {
+        uri: asset.uri,
+        name: asset.fileName || `prescription_${Date.now()}.jpg`,
+        type: asset.mimeType || "image/jpeg",
+      };
+
+      setFormData((prev) => ({
+        ...prev,
+        images: [...prev.images, newImage],
+      }));
+    }
+  };
+
+  const removeImage = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSubmit = async () => {
+    // Validate
+    if (!formData.storeId) {
+      Alert.alert("Thông báo", "Vui lòng chọn cửa hàng");
+      return;
+    }
+
+    if (!formData.phone.trim()) {
+      Alert.alert("Thông báo", "Vui lòng nhập số điện thoại");
+      return;
+    }
+
+    const phoneRegex = /^[0-9]{10,20}$/;
+    if (!phoneRegex.test(formData.phone.trim())) {
+      Alert.alert("Thông báo", "Số điện thoại không hợp lệ (10-20 số)");
+      return;
+    }
+
+    if (formData.images.length === 0) {
+      Alert.alert(
+        "Xác nhận",
+        "Bạn chưa upload ảnh đơn thuốc. Bạn có muốn tiếp tục?",
         [
           { text: "Hủy", style: "cancel" },
-          {
-            text: "Xác nhận",
-            onPress: () => {
-              const orderId = `ORD${String(Math.floor(Math.random() * 9000) + 1000)}`;
-              navigation.navigate("OrderSuccess", {
-                orderId,
-                totalAmount: getTotalAmount(),
-                depositAmount:
-                  finalPaymentType === "deposit" ? getDepositAmount() : null,
-                orderType: "prescription",
-                hasUnavailableProducts: hasUnavailableProducts(),
-                waitTimeInfo: getWaitTimeInfo(),
-                store: selectedStore,
-              });
-            },
-          },
+          { text: "Tiếp tục", onPress: () => submitRequest() },
         ],
       );
+      return;
+    }
+
+    submitRequest();
+  };
+
+  const submitRequest = async () => {
+    try {
+      setSubmitting(true);
+
+      const result = await createPrescriptionRequest(formData);
+
+      if (result.success) {
+        Alert.alert(
+          "Thành công",
+          "Yêu cầu tư vấn đã được gửi. Tư vấn viên sẽ liên hệ với bạn trong 1-2 giờ.",
+          [
+            {
+              text: "Về trang chủ",
+              style: "cancel",
+              onPress: () => {
+                navigation.navigate("Home");
+              },
+            },
+            {
+              text: "Xem yêu cầu",
+              onPress: () => {
+                navigation.navigate("Appointments");
+              },
+            },
+          ],
+        );
+      } else {
+        Alert.alert("Lỗi", result.message || "Không thể gửi yêu cầu tư vấn");
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi gửi yêu cầu");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const renderStep1 = () => (
-    <View>
-      <Text className="text-lg font-bold text-text mb-4">
-        Bước 1: Loại đơn hàng và thông tin đơn thuốc
-      </Text>
-
-      {/* Order Type Selection */}
-      <View className="mb-5">
-        <Text className="text-sm font-semibold text-text mb-3">
-          Chọn loại đơn hàng
-        </Text>
-        <View className="gap-3">
-          <TouchableOpacity
-            className={`border-2 rounded-xl p-4 ${
-              orderType === "frame_lens"
-                ? "border-primary bg-primary/10"
-                : "border-border bg-white"
-            }`}
-            onPress={() => setOrderType("frame_lens")}
-          >
-            <View className="flex-row items-center">
-              <Ionicons
-                name="eye-outline"
-                size={32}
-                color={orderType === "frame_lens" ? "#2E86AB" : "#999999"}
-              />
-              <View className="flex-1 ml-3">
-                <Text
-                  className={`text-base font-bold ${
-                    orderType === "frame_lens" ? "text-primary" : "text-text"
-                  }`}
-                >
-                  Gọng + Tròng kính
-                </Text>
-                <Text className="text-xs text-textGray mt-1">
-                  Nhận tại cửa hàng sau 5-7 ngày
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className={`border-2 rounded-xl p-4 ${
-              orderType === "lens_only"
-                ? "border-primary bg-primary/10"
-                : "border-border bg-white"
-            }`}
-            onPress={() => setOrderType("lens_only")}
-          >
-            <View className="flex-row items-center">
-              <Ionicons
-                name="disc-outline"
-                size={32}
-                color={orderType === "lens_only" ? "#2E86AB" : "#999999"}
-              />
-              <View className="flex-1 ml-3">
-                <Text
-                  className={`text-base font-bold ${
-                    orderType === "lens_only" ? "text-primary" : "text-text"
-                  }`}
-                >
-                  Chỉ Tròng kính
-                </Text>
-                <Text className="text-xs text-textGray mt-1">
-                  Nhận tại cửa hàng sau 5-7 ngày
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Method Selection - Always show because prescription is needed for both types */}
-      <Text className="text-sm font-semibold text-text mb-3">
-        Cung cấp thông tin đơn thuốc
-      </Text>
-      <View className="flex-row gap-3 mb-5">
-        <TouchableOpacity
-          className={`flex-1 border-2 rounded-xl p-4 items-center ${
-            uploadMethod === "upload"
-              ? "border-primary bg-primary/10"
-              : "border-border bg-white"
-          }`}
-          onPress={() => setUploadMethod("upload")}
-        >
-          <Ionicons
-            name="cloud-upload-outline"
-            size={32}
-            color={uploadMethod === "upload" ? "#2E86AB" : "#999999"}
-          />
-          <Text
-            className={`text-sm font-semibold mt-2 text-center ${
-              uploadMethod === "upload" ? "text-primary" : "text-textGray"
-            }`}
-          >
-            Tải ảnh đơn
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className={`flex-1 border-2 rounded-xl p-4 items-center ${
-            uploadMethod === "manual"
-              ? "border-primary bg-primary/10"
-              : "border-border bg-white"
-          }`}
-          onPress={() => setUploadMethod("manual")}
-        >
-          <Ionicons
-            name="create-outline"
-            size={32}
-            color={uploadMethod === "manual" ? "#2E86AB" : "#999999"}
-          />
-          <Text
-            className={`text-sm font-semibold mt-2 text-center ${
-              uploadMethod === "manual" ? "text-primary" : "text-textGray"
-            }`}
-          >
-            Nhập số đo
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {uploadMethod === "upload" ? (
-        <TouchableOpacity className="bg-white border-2 border-dashed border-primary rounded-2xl p-8 items-center">
-          <Ionicons name="camera-outline" size={48} color="#2E86AB" />
-          <Text className="text-base font-bold text-text mt-3">
-            Chụp hoặc tải ảnh đơn thuốc
-          </Text>
-          <Text className="text-sm text-textGray text-center mt-2">
-            Hỗ trợ JPG, PNG (Tối đa 5MB)
-          </Text>
-          <View className="bg-primary px-6 py-3 rounded-full mt-4">
-            <Text className="text-white font-semibold">Chọn ảnh</Text>
-          </View>
-        </TouchableOpacity>
-      ) : (
-        <View className="bg-white rounded-2xl p-4">
-          <Text className="text-sm font-bold text-text mb-3">
-            Mắt phải (OD)
-          </Text>
-          <View className="flex-row gap-2 mb-4">
-            <View className="flex-1">
-              <Text className="text-xs text-textGray mb-1">SPH</Text>
-              <TextInput
-                className="bg-background rounded-lg px-3 py-2 text-sm"
-                placeholder="0.00"
-                keyboardType="numeric"
-              />
-            </View>
-            <View className="flex-1">
-              <Text className="text-xs text-textGray mb-1">CYL</Text>
-              <TextInput
-                className="bg-background rounded-lg px-3 py-2 text-sm"
-                placeholder="0.00"
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <Text className="text-sm font-bold text-text mb-3">
-            Mắt trái (OS)
-          </Text>
-          <View className="flex-row gap-2 mb-4">
-            <View className="flex-1">
-              <Text className="text-xs text-textGray mb-1">SPH</Text>
-              <TextInput
-                className="bg-background rounded-lg px-3 py-2 text-sm"
-                placeholder="0.00"
-                keyboardType="numeric"
-              />
-            </View>
-            <View className="flex-1">
-              <Text className="text-xs text-textGray mb-1">CYL</Text>
-              <TextInput
-                className="bg-background rounded-lg px-3 py-2 text-sm"
-                placeholder="0.00"
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <Text className="text-sm font-bold text-text mb-3">
-            Khoảng cách đồng tử (PD)
-          </Text>
-          <TextInput
-            className="bg-background rounded-lg px-3 py-2 text-sm"
-            placeholder="62"
-            keyboardType="numeric"
-          />
-        </View>
-      )}
-
-      {/* Info Note */}
-      <View className="bg-accent/10 rounded-xl p-4 mt-4 flex-row">
-        <Ionicons name="information-circle-outline" size={24} color="#F18F01" />
-        <Text className="flex-1 text-sm text-text ml-2">
-          Đơn thuốc cần được cấp bởi bác sĩ nhãn khoa và còn hiệu lực (trong
-          vòng 2 năm)
-        </Text>
-      </View>
-    </View>
-  );
-
-  const renderStep2 = () => (
-    <View>
-      <Text className="text-lg font-bold text-text mb-2">
-        Bước 2: Chọn sản phẩm
-      </Text>
-      <Text className="text-sm text-textGray mb-4">
-        {orderType === "lens_only"
-          ? "Chọn loại tròng kính theo đơn thuốc"
-          : "Chọn gọng kính và loại tròng kính (hàng đặt trước)"}
-      </Text>
-
-      {/* Frame Selection - only for frame_lens */}
-      {orderType === "frame_lens" && (
-        <>
-          <Text className="text-base font-semibold text-text mb-3">
-            Gọng kính
-          </Text>
-          {frames.map((frame) => (
-            <TouchableOpacity
-              key={frame.id}
-              className={`bg-white rounded-2xl mb-3 overflow-hidden border-2 ${
-                selectedFrame === frame.id
-                  ? "border-primary"
-                  : "border-transparent"
-              }`}
-              onPress={() => setSelectedFrame(frame.id)}
-            >
-              <Image source={{ uri: frame.image }} className="w-full h-32" />
-              <View className="p-4 flex-row items-center justify-between">
-                <View className="flex-1">
-                  <Text className="text-base font-bold text-text mb-1">
-                    {frame.name}
-                  </Text>
-                  <Text className="text-lg font-bold text-primary">
-                    {`${frame.price.toLocaleString("vi-VN")}đ`}
-                  </Text>
-                  {frame.inStock ? (
-                    <View className="flex-row items-center mt-1">
-                      <View className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
-                      <Text className="text-xs text-green-600">
-                        Có sẵn tại cửa hàng
-                      </Text>
-                    </View>
-                  ) : (
-                    <View className="mt-1">
-                      <View className="flex-row items-center">
-                        <Ionicons
-                          name="time-outline"
-                          size={14}
-                          color="#F59E0B"
-                        />
-                        <Text className="text-xs text-amber-600 ml-1">
-                          Cần đặt trước - {frame.estimatedArrival}
-                        </Text>
-                      </View>
-                      <View className="flex-row items-center mt-0.5">
-                        <Ionicons
-                          name="alert-circle-outline"
-                          size={14}
-                          color="#EF4444"
-                        />
-                        <Text className="text-xs text-red-600 ml-1 font-semibold">
-                          Bắt buộc thanh toán toàn bộ
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                  <Text className="text-xs text-textGray mt-1">
-                    🛡️ {frame.warranty}
-                  </Text>
-                </View>
-                <View
-                  className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                    selectedFrame === frame.id
-                      ? "border-primary bg-primary"
-                      : "border-border"
-                  }`}
-                >
-                  {selectedFrame === frame.id && (
-                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </>
-      )}
-
-      {/* Lens Selection */}
-      <Text className="text-base font-semibold text-text mt-4 mb-3">
-        Loại tròng kính
-      </Text>
-      <View className="bg-blue-50 rounded-xl p-4 mb-3 flex-row">
-        <Ionicons name="information-circle-outline" size={20} color="#2E86AB" />
-        <View className="flex-1 ml-2">
-          <Text className="text-xs text-blue-800 font-bold">Lưu ý:</Text>
-          <Text className="text-xs text-blue-800">
-            Tròng kính được làm theo đơn thuốc của bạn. Shop sẽ hẹn lịch nhận
-            hàng sau khi tròng hoàn thành.
-          </Text>
-        </View>
-      </View>
-
-      {lensTypes.map((lens) => (
-        <TouchableOpacity
-          key={lens.id}
-          className={`bg-white rounded-2xl p-4 mb-3 border-2 ${
-            selectedLens === lens.id ? "border-primary" : "border-transparent"
-          }`}
-          onPress={() => setSelectedLens(lens.id)}
-        >
-          <View className="flex-row items-start justify-between mb-3">
-            <View className="flex-1">
-              <View className="flex-row items-center mb-2">
-                <Text className="text-base font-bold text-text">
-                  {lens.name}
-                </Text>
-                {lens.recommended && (
-                  <View className="bg-accent px-2 py-0.5 rounded-full ml-2">
-                    <Text className="text-xs text-white font-semibold">
-                      Khuyên dùng
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text className="text-lg font-bold text-primary mb-1">
-                {`${lens.price.toLocaleString("vi-VN")}đ`}
-              </Text>
-              {lens.inStock ? (
-                <View className="flex-row items-center">
-                  <Ionicons name="time-outline" size={14} color="#10B981" />
-                  <Text className="text-xs text-green-600 ml-1">
-                    Thời gian làm: {lens.minimumWaitTime}
-                  </Text>
-                </View>
-              ) : (
-                <View>
-                  <View className="flex-row items-center">
-                    <Ionicons name="time-outline" size={14} color="#F59E0B" />
-                    <Text className="text-xs text-amber-600 ml-1">
-                      Cần đặt trước - {lens.minimumWaitTime}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center mt-0.5">
-                    <Ionicons
-                      name="alert-circle-outline"
-                      size={14}
-                      color="#EF4444"
-                    />
-                    <Text className="text-xs text-red-600 ml-1 font-semibold">
-                      Bắt buộc thanh toán toàn bộ
-                    </Text>
-                  </View>
-                </View>
-              )}
-              <Text className="text-xs text-textGray mt-1">
-                🛡️ {lens.warranty}
-              </Text>
-            </View>
-            <View
-              className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                selectedLens === lens.id
-                  ? "border-primary bg-primary"
-                  : "border-border"
-              }`}
-            >
-              {selectedLens === lens.id && (
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-              )}
-            </View>
-          </View>
-
-          <View className="gap-1">
-            {lens.features.map((feature, index) => (
-              <View key={index} className="flex-row items-center">
-                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                <Text className="text-sm text-textGray ml-2">{feature}</Text>
-              </View>
-            ))}
-          </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-
-  const renderStep3 = () => (
-    <View>
-      <Text className="text-lg font-bold text-text mb-2">
-        Bước 3: Thông tin nhận hàng
-      </Text>
-      <Text className="text-sm text-textGray mb-4">
-        {`Shop sẽ chủ động liên hệ để hẹn lịch khi ${orderType === "lens_only" ? "tròng kính" : "sản phẩm"} đã sẵn sàng`}
-      </Text>
-
-      {/* Wait Time Info */}
-      {getWaitTimeInfo() && (
-        <View className="bg-blue-50 rounded-xl p-4 mb-4 flex-row">
-          <Ionicons name="time-outline" size={24} color="#2E86AB" />
-          <View className="flex-1 ml-3">
-            <Text className="font-bold text-blue-800 mb-1">
-              Thời gian dự kiến:
-            </Text>
-            <Text className="text-sm text-blue-700">{getWaitTimeInfo()}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Unavailable Products Warning */}
-      {hasUnavailableProducts() && (
-        <View className="bg-amber-50 rounded-xl p-4 mb-4 flex-row">
-          <Ionicons name="alert-circle-outline" size={24} color="#F59E0B" />
-          <View className="flex-1 ml-3">
-            <Text className="font-bold text-amber-800 mb-1">
-              Sản phẩm cần đặt trước:
-            </Text>
-            <Text className="text-sm text-amber-700">
-              {`Một hoặc nhiều sản phẩm không có sẵn tại cửa hàng và cần đợi shop lấy từ nhà cung cấp. Sau khi đặt hàng, bạn có thể:
-• Đợi shop lấy hàng về
-• Hoặc đổi sang sản phẩm có sẵn khác`}
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Important Note */}
-      <View className="bg-red-50 rounded-xl p-4 mb-5 flex-row">
-        <Ionicons name="alert-circle" size={24} color="#EF4444" />
-        <Text className="flex-1 text-sm text-red-800 ml-2">
-          <Text className="font-bold">Lưu ý quan trọng:{"\n"}</Text>
-          {`• Shop sẽ chủ động liên hệ để hẹn lịch nhận hàng
-• Bạn BẮT BUỘC phải lên cửa hàng để nhận hàng và kiểm tra
-${orderType === "frame_lens" ? "• Cần test kính và điều chỉnh gọng cho phù hợp\n" : ""}• Bảo hành chỉ được nhận tại cửa hàng (không nhận online)`}
-        </Text>
-      </View>
-
-      {/* Store Info */}
-      <View className="bg-white rounded-2xl p-4 mb-4">
-        <View className="flex-row items-center mb-3">
-          <Ionicons name="storefront" size={20} color="#FF6B6B" />
-          <Text className="text-base font-semibold text-text ml-2">
-            Cửa hàng nhận hàng
-          </Text>
-        </View>
-        <Text className="text-base font-bold text-text mb-2">
-          {stores[0].name}
-        </Text>
-        <View className="flex-row items-start mb-1">
-          <Ionicons name="location-outline" size={16} color="#999999" />
-          <Text className="text-sm text-textGray ml-2 flex-1">
-            {stores[0].address}
-          </Text>
-        </View>
-        <View className="flex-row items-center">
-          <Ionicons name="call-outline" size={16} color="#999999" />
-          <Text className="text-sm text-textGray ml-2">{stores[0].phone}</Text>
-        </View>
-      </View>
-
-      {/* Contact Info */}
-      <View className="bg-white rounded-2xl p-4">
-        <Text className="text-base font-semibold text-text mb-3">
-          Thông tin liên hệ của bạn
-        </Text>
-        <View className="bg-background rounded-xl p-3 mb-2">
-          <Text className="text-xs text-textGray mb-1">Họ tên</Text>
-          <Text className="text-sm text-text font-semibold">Nguyễn Văn A</Text>
-        </View>
-        <View className="bg-background rounded-xl p-3 mb-2">
-          <Text className="text-xs text-textGray mb-1">Số điện thoại</Text>
-          <Text className="text-sm text-text font-semibold">0123456789</Text>
-        </View>
-        <View className="bg-green-50 rounded-xl p-3 flex-row">
-          <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-          <Text className="flex-1 text-xs text-green-700 ml-2">
-            Shop sẽ gọi điện cho bạn để hẹn lịch nhận hàng khi sản phẩm đã sẵn
-            sàng
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderStep4 = () => {
-    const fullPaymentRequired = isFullPaymentRequired();
-
+  if (loading) {
     return (
-      <View>
-        <Text className="text-lg font-bold text-text mb-2">
-          Bước 4: Hình thức thanh toán
-        </Text>
-        <Text className="text-sm text-textGray mb-4">
-          {fullPaymentRequired
-            ? "Thanh toán toàn bộ (bắt buộc do sản phẩm cần đặt từ nhà cung cấp)"
-            : "Chọn hình thức thanh toán phù hợp"}
-        </Text>
-
-        {fullPaymentRequired && (
-          <View className="bg-amber-50 rounded-xl p-4 mb-4 flex-row">
-            <Ionicons name="information-circle" size={24} color="#F59E0B" />
-            <View className="flex-1 ml-2">
-              <Text className="text-sm text-amber-800 font-bold">Lưu ý:</Text>
-              <Text className="text-sm text-amber-800">
-                Sản phẩm bạn chọn không có sẵn và cần đặt từ nhà cung cấp. Vì
-                vậy, bạn cần thanh toán toàn bộ trước.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Payment Type Selection */}
-        {!fullPaymentRequired && (
-          <TouchableOpacity
-            className={`bg-white rounded-2xl p-4 mb-3 border-2 ${
-              paymentType === "deposit"
-                ? "border-primary"
-                : "border-transparent"
-            }`}
-            onPress={() => setPaymentType("deposit")}
-          >
-            <View className="flex-row items-start justify-between mb-2">
-              <View className="flex-1">
-                <View className="flex-row items-center mb-1">
-                  <Text className="text-base font-bold text-text">
-                    Đặt cọc 50%
-                  </Text>
-                  <View className="bg-accent px-2 py-0.5 rounded-full ml-2">
-                    <Text className="text-xs text-white font-semibold">
-                      Phổ biến
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-lg font-bold text-primary mb-2">
-                  {`${getDepositAmount().toLocaleString("vi-VN")}đ`}
-                </Text>
-                <Text className="text-sm text-textGray">
-                  Thanh toán phần còn lại khi nhận kính tại cửa hàng
-                </Text>
-              </View>
-              <View
-                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                  paymentType === "deposit"
-                    ? "border-primary bg-primary"
-                    : "border-border"
-                }`}
-              >
-                {paymentType === "deposit" && (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                )}
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          className={`bg-white rounded-2xl p-4 mb-4 border-2 ${
-            paymentType === "full" || fullPaymentRequired
-              ? "border-primary"
-              : "border-transparent"
-          }`}
-          onPress={() => !fullPaymentRequired && setPaymentType("full")}
-          disabled={fullPaymentRequired}
-        >
-          <View className="flex-row items-start justify-between mb-2">
-            <View className="flex-1">
-              <View className="flex-row items-center mb-1">
-                <Text className="text-base font-bold text-text">
-                  Thanh toán toàn bộ
-                </Text>
-                {fullPaymentRequired && (
-                  <View className="bg-red-500 px-2 py-0.5 rounded-full ml-2">
-                    <Text className="text-xs text-white font-semibold">
-                      Bắt buộc
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text className="text-lg font-bold text-primary mb-2">
-                {`${getTotalAmount().toLocaleString("vi-VN")}đ`}
-              </Text>
-              <Text className="text-sm text-textGray">
-                Thanh toán toàn bộ trước, không cần thanh toán thêm
-              </Text>
-            </View>
-            <View
-              className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                paymentType === "full"
-                  ? "border-primary bg-primary"
-                  : "border-border"
-              }`}
-            >
-              {paymentType === "full" && (
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-              )}
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {/* Order Summary */}
-        <View className="bg-white rounded-2xl p-4">
-          <Text className="text-base font-bold text-text mb-3">
-            Tổng quan đơn hàng
-          </Text>
-
-          {selectedFrame && (
-            <View className="flex-row justify-between items-center py-2 border-b border-border">
-              <Text className="text-sm text-text">Gọng kính</Text>
-              <Text className="text-sm font-semibold text-text">
-                {`${frames
-                  .find((f) => f.id === selectedFrame)
-                  ?.price.toLocaleString("vi-VN")}đ`}
-              </Text>
-            </View>
-          )}
-
-          {orderType === "frame_lens" && selectedLens && (
-            <View className="flex-row justify-between items-center py-2 border-b border-border">
-              <Text className="text-sm text-text">Tròng kính</Text>
-              <Text className="text-sm font-semibold text-text">
-                {`${lensTypes
-                  .find((l) => l.id === selectedLens)
-                  ?.price.toLocaleString("vi-VN")}đ`}
-              </Text>
-            </View>
-          )}
-
-          <View className="flex-row justify-between items-center pt-3 mb-3">
-            <Text className="text-base font-bold text-text">Tổng cộng</Text>
-            <Text className="text-xl font-bold text-primary">
-              {`${getTotalAmount().toLocaleString("vi-VN")}đ`}
-            </Text>
-          </View>
-
-          {orderType === "frame_lens" && paymentType === "deposit" && (
-            <View className="bg-accent/10 rounded-lg p-3">
-              <View className="flex-row justify-between items-center mb-1">
-                <Text className="text-sm font-semibold text-text">
-                  Thanh toán ngay
-                </Text>
-                <Text className="text-sm font-bold text-primary">
-                  {`${getDepositAmount().toLocaleString("vi-VN")}đ`}
-                </Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <Text className="text-sm text-textGray">
-                  Thanh toán khi nhận hàng
-                </Text>
-                <Text className="text-sm font-semibold text-textGray">
-                  {`${(getTotalAmount() - getDepositAmount()).toLocaleString(
-                    "vi-VN",
-                  )}đ`}
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
+      <View className="flex-1 bg-background items-center justify-center">
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color="#2E86AB" />
+        <Text className="text-textGray mt-4">Đang tải...</Text>
       </View>
     );
-  };
-
-  const maxSteps = 4;
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -904,80 +216,228 @@ ${orderType === "frame_lens" ? "• Cần test kính và điều chỉnh gọng 
 
       {/* Header */}
       <View className="bg-white pt-12 pb-4 px-5 border-b border-border">
-        <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-row items-center">
-            <TouchableOpacity
-              className="mr-3"
-              onPress={() => navigation.goBack()}
-            >
-              <Ionicons name="arrow-back" size={24} color="#333333" />
-            </TouchableOpacity>
+        <View className="flex-row items-center">
+          <TouchableOpacity
+            className="mr-3"
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#333333" />
+          </TouchableOpacity>
+          <View className="flex-1">
             <Text className="text-xl font-bold text-text">
               Đặt kính theo đơn thuốc
+            </Text>
+            <Text className="text-sm text-textGray mt-1">
+              Upload đơn thuốc và nhận tư vấn
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Instructions */}
+        <View className="bg-blue-50 mx-4 mt-4 p-4 rounded-xl border border-blue-200">
+          <View className="flex-row items-start">
+            <Ionicons name="information-circle" size={20} color="#2196F3" />
+            <View className="flex-1 ml-2">
+              <Text className="text-sm font-semibold text-blue-900">
+                Quy trình đặt kính
+              </Text>
+              <Text className="text-xs text-blue-700 mt-1">
+                1. Upload ảnh đơn thuốc{"\n"}
+                2. Tư vấn viên sẽ gọi điện tư vấn{"\n"}
+                3. Nhận báo giá và thanh toán{"\n"}
+                4. Nhận kính tại cửa hàng
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Form */}
+        <View className="bg-white mt-4 px-5 py-5">
+          {/* Store Selection */}
+          <View className="mb-5">
+            <Text className="text-sm font-semibold text-text mb-2">
+              Cửa hàng nhận kính <Text className="text-red-500">*</Text>
+            </Text>
+            {Array.isArray(stores) && stores.length > 0 ? (
+              <>
+                {stores.map((store) => (
+                  <TouchableOpacity
+                    key={store.id}
+                    className={`flex-row items-center p-4 border rounded-xl mb-2 ${
+                      formData.storeId === store.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-background"
+                    }`}
+                    onPress={() =>
+                      setFormData((prev) => ({ ...prev, storeId: store.id }))
+                    }
+                  >
+                    <View
+                      className={`w-5 h-5 rounded-full border-2 mr-3 items-center justify-center ${
+                        formData.storeId === store.id
+                          ? "border-primary"
+                          : "border-border"
+                      }`}
+                    >
+                      {formData.storeId === store.id && (
+                        <View className="w-3 h-3 rounded-full bg-primary" />
+                      )}
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm font-semibold text-text">
+                        {store.name}
+                      </Text>
+                      <Text className="text-xs text-textGray mt-1">
+                        {store.address}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : (
+              <View className="p-4 border border-border bg-background rounded-xl">
+                <Text className="text-sm text-textGray text-center">
+                  Không có cửa hàng nào khả dụng
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Consultation Type */}
+          <View className="mb-5">
+            <Text className="text-sm font-semibold text-text mb-2">
+              Hình thức tư vấn <Text className="text-red-500">*</Text>
+            </Text>
+            {Object.entries(CONSULTATION_TYPES).map(([key, value]) => (
+              <TouchableOpacity
+                key={key}
+                className={`flex-row items-center p-4 border rounded-xl mb-2 ${
+                  formData.consultationType === key
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-background"
+                }`}
+                onPress={() =>
+                  setFormData((prev) => ({ ...prev, consultationType: key }))
+                }
+              >
+                <View
+                  className={`w-5 h-5 rounded-full border-2 mr-3 items-center justify-center ${
+                    formData.consultationType === key
+                      ? "border-primary"
+                      : "border-border"
+                  }`}
+                >
+                  {formData.consultationType === key && (
+                    <View className="w-3 h-3 rounded-full bg-primary" />
+                  )}
+                </View>
+                <Ionicons
+                  name={value.icon}
+                  size={20}
+                  color={
+                    formData.consultationType === key ? "#2E86AB" : "#999999"
+                  }
+                />
+                <Text className="text-sm text-text ml-2">{value.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Phone */}
+          <View className="mb-5">
+            <Text className="text-sm font-semibold text-text mb-2">
+              Số điện thoại <Text className="text-red-500">*</Text>
+            </Text>
+            <TextInput
+              className="bg-background rounded-xl px-4 py-3 text-sm text-text"
+              placeholder="Nhập số điện thoại liên hệ"
+              keyboardType="phone-pad"
+              value={formData.phone}
+              onChangeText={(text) =>
+                setFormData((prev) => ({ ...prev, phone: text }))
+              }
+            />
+          </View>
+
+          {/* Symptoms */}
+          <View className="mb-5">
+            <Text className="text-sm font-semibold text-text mb-2">
+              Triệu chứng/Ghi chú
+            </Text>
+            <TextInput
+              className="bg-background rounded-xl px-4 py-3 text-sm text-text"
+              placeholder="Mô tả triệu chứng hoặc ghi chú (nếu có)"
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              value={formData.symptoms}
+              onChangeText={(text) =>
+                setFormData((prev) => ({ ...prev, symptoms: text }))
+              }
+            />
+          </View>
+
+          {/* Images */}
+          <View className="mb-5">
+            <Text className="text-sm font-semibold text-text mb-2">
+              Ảnh đơn thuốc (1-3 ảnh)
+            </Text>
+
+            <View className="flex-row flex-wrap">
+              {formData.images.map((image, index) => (
+                <View key={index} className="relative mr-2 mb-2">
+                  <Image
+                    source={{ uri: image.uri }}
+                    className="w-24 h-24 rounded-xl"
+                  />
+                  <TouchableOpacity
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 items-center justify-center"
+                    onPress={() => removeImage(index)}
+                  >
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {formData.images.length < 3 && (
+                <TouchableOpacity
+                  className="w-24 h-24 rounded-xl border-2 border-dashed border-border items-center justify-center bg-background"
+                  onPress={pickImage}
+                >
+                  <Ionicons name="camera-outline" size={32} color="#999999" />
+                  <Text className="text-xs text-textGray mt-1">Thêm ảnh</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Text className="text-xs text-textGray mt-2">
+              * Chụp rõ nét, đầy đủ thông tin đơn thuốc
             </Text>
           </View>
         </View>
 
-        {/* Progress Steps */}
-        <View className="flex-row items-center justify-between">
-          {Array.from({ length: maxSteps }, (_, i) => i + 1).map((num) => (
-            <View key={num} className="flex-row items-center flex-1">
-              <View
-                className={`w-8 h-8 rounded-full items-center justify-center ${
-                  step >= num ? "bg-primary" : "bg-border"
-                }`}
-              >
-                <Text
-                  className={`text-sm font-bold ${
-                    step >= num ? "text-white" : "text-textGray"
-                  }`}
-                >
-                  {num}
-                </Text>
-              </View>
-              {num < maxSteps && (
-                <View
-                  className={`flex-1 h-1 mx-2 ${
-                    step > num ? "bg-primary" : "bg-border"
-                  }`}
-                />
-              )}
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Content */}
-      <ScrollView
-        className="flex-1 px-5 py-5"
-        showsVerticalScrollIndicator={false}
-      >
-        {step === 1 && renderStep1()}
-        {step === 2 && renderStep2()}
-        {step === 3 && renderStep3()}
-        {step === 4 && renderStep4()}
+        <View className="h-32" />
       </ScrollView>
 
-      {/* Bottom Bar */}
-      <View className="bg-white border-t border-border px-5 py-4">
-        <View className="flex-row gap-3">
-          {step > 1 && (
-            <TouchableOpacity
-              className="flex-1 bg-background rounded-xl py-4 items-center"
-              onPress={() => setStep(step - 1)}
-            >
-              <Text className="text-text font-bold text-base">Quay lại</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            className="flex-1 bg-primary rounded-xl py-4 items-center"
-            onPress={handleNext}
-          >
-            <Text className="text-white font-bold text-base">
-              {step === maxSteps ? "Xác nhận thanh toán" : "Tiếp theo"}
+      {/* Submit Button */}
+      <View className="absolute bottom-0 left-0 right-0 bg-white px-5 py-4 border-t border-border">
+        <TouchableOpacity
+          className={`rounded-xl py-4 items-center ${
+            submitting ? "bg-gray-400" : "bg-primary"
+          }`}
+          onPress={handleSubmit}
+          disabled={submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text className="text-white font-semibold text-base">
+              Gửi yêu cầu tư vấn
             </Text>
-          </TouchableOpacity>
-        </View>
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );

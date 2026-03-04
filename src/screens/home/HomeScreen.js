@@ -41,27 +41,27 @@ export default function HomeScreen({ navigation }) {
           setUser(userResult.data);
         }
       };
-      
+
       reloadUserProfile();
-    }, [])
+    }, []),
   );
 
   const loadHomeData = async () => {
     try {
       setLoading(true);
-      
+
       // Load user profile
       const userResult = await getProfile();
       if (userResult.success) {
         setUser(userResult.data);
       }
-      
+
       // Load categories
       const categoriesResult = await getCategories({ limit: 6 });
       if (categoriesResult.success) {
         setCategories(categoriesResult.data);
       }
-      
+
       // Load featured products (first 10 products)
       const productsResult = await getProducts({ limit: 10 });
       if (productsResult.success) {
@@ -103,7 +103,7 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     if (banners.length === 0) return;
-    
+
     const interval = setInterval(() => {
       setActiveBannerIndex((prevIndex) => {
         const nextIndex = (prevIndex + 1) % banners.length;
@@ -132,14 +132,16 @@ export default function HomeScreen({ navigation }) {
   // Get product image
   const getProductImage = (product) => {
     if (product.images && product.images.length > 0) {
-      const primaryImage = product.images.find(img => img.isPrimary);
+      const primaryImage = product.images.find((img) => img.isPrimary);
       return primaryImage?.imageUrl || product.images[0]?.imageUrl;
     }
-    
+
     const typeImages = {
-      FRAME: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400&h=300&fit=crop",
+      FRAME:
+        "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400&h=300&fit=crop",
       LENS: "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=300&fit=crop",
-      SERVICE: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&h=300&fit=crop",
+      SERVICE:
+        "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&h=300&fit=crop",
     };
     return typeImages[product.type] || typeImages.FRAME;
   };
@@ -148,9 +150,9 @@ export default function HomeScreen({ navigation }) {
     <TouchableOpacity
       className="items-center w-20"
       onPress={() =>
-        navigation.navigate("ProductCatalog", { 
+        navigation.navigate("ProductCatalog", {
           categoryId: item.id,
-          categoryName: item.name 
+          categoryName: item.name,
         })
       }
     >
@@ -165,11 +167,13 @@ export default function HomeScreen({ navigation }) {
 
   const renderProduct = ({ item }) => {
     const price = formatPrice(item.price);
-    
+
     return (
       <TouchableOpacity
         className="w-40 bg-white rounded-xl overflow-hidden shadow-md"
-        onPress={() => navigation.navigate("ProductDetail", { productId: item.id })}
+        onPress={() =>
+          navigation.navigate("ProductDetail", { productId: item.id })
+        }
       >
         <Image
           source={{ uri: getProductImage(item) }}
@@ -196,7 +200,9 @@ export default function HomeScreen({ navigation }) {
             </Text>
           </View>
           <View className="flex-row items-center">
-            <Text className="text-xs text-textGray">{item.category?.name || ""}</Text>
+            <Text className="text-xs text-textGray">
+              {item.category?.name || ""}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -265,11 +271,15 @@ export default function HomeScreen({ navigation }) {
         <View className="flex-row justify-between items-center mb-4">
           <TouchableOpacity
             className="flex-row items-center"
-            onPress={() => navigation.navigate("MainApp", { screen: "ProfileTab" })}
+            onPress={() =>
+              navigation.navigate("MainApp", { screen: "ProfileTab" })
+            }
           >
             <Image
               source={{
-                uri: user?.avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+                uri:
+                  user?.avatarUrl ||
+                  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
               }}
               className="w-12 h-12 rounded-full mr-3"
             />
@@ -362,6 +372,55 @@ export default function HomeScreen({ navigation }) {
             </View>
             <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
           </TouchableOpacity>
+
+          {/* Quick Actions Row */}
+          <View className="flex-row gap-3">
+            {/* View Prescription Requests */}
+            <TouchableOpacity
+              className="flex-1 bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+              onPress={() => navigation.navigate("Appointments")}
+            >
+              <View className="flex-row items-center mb-2">
+                <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-3">
+                  <Ionicons name="time-outline" size={20} color="#2E86AB" />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className="text-sm font-bold text-text"
+                    numberOfLines={1}
+                  >
+                    Yêu cầu của tôi
+                  </Text>
+                  <Text className="text-xs text-textGray" numberOfLines={1}>
+                    Xem tình trạng
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Virtual Try-On */}
+            <TouchableOpacity
+              className="flex-1 bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+              onPress={() => navigation.navigate("VirtualTryOn")}
+            >
+              <View className="flex-row items-center mb-2">
+                <View className="w-10 h-10 rounded-full bg-purple-100 items-center justify-center mr-3">
+                  <Ionicons name="camera-outline" size={20} color="#9333EA" />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className="text-sm font-bold text-text"
+                    numberOfLines={1}
+                  >
+                    Thử kính AR
+                  </Text>
+                  <Text className="text-xs text-textGray" numberOfLines={1}>
+                    Thử ngay
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Categories */}
@@ -385,7 +444,9 @@ export default function HomeScreen({ navigation }) {
             />
           ) : (
             <View className="px-5 py-4">
-              <Text className="text-textGray text-center">Đang tải danh mục...</Text>
+              <Text className="text-textGray text-center">
+                Đang tải danh mục...
+              </Text>
             </View>
           )}
         </View>
@@ -395,9 +456,13 @@ export default function HomeScreen({ navigation }) {
           <View className="flex-row justify-between items-center px-5 mb-3">
             <View className="flex-row items-center gap-2">
               <Ionicons name="star" size={24} color="#F18F01" />
-              <Text className="text-lg font-bold text-text">Sản phẩm nổi bật</Text>
+              <Text className="text-lg font-bold text-text">
+                Sản phẩm nổi bật
+              </Text>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate("ProductCatalog", {})}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("ProductCatalog", {})}
+            >
               <Text className="text-sm text-primary font-semibold">
                 Xem tất cả
               </Text>
@@ -414,7 +479,9 @@ export default function HomeScreen({ navigation }) {
             />
           ) : (
             <View className="px-5 py-4">
-              <Text className="text-textGray text-center">Không có sản phẩm</Text>
+              <Text className="text-textGray text-center">
+                Không có sản phẩm
+              </Text>
             </View>
           )}
         </View>

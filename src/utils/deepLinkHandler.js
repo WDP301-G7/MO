@@ -101,7 +101,6 @@ export const handleDeepLink = (state) => {
     switch (route.name) {
       case "OrderSuccess":
         // Xử lý payment success
-        console.log("Payment Success:", route.params);
         break;
 
       case "OrderDetail":
@@ -110,12 +109,10 @@ export const handleDeepLink = (state) => {
 
       case "ProductDetail":
         // Lấy chi tiết sản phẩm
-        console.log("Opening Product Detail:", route.params.productId);
         break;
 
       case "Checkout":
         // Đi đến checkout
-        console.log("Going to Checkout:", route.params);
         break;
 
       default:

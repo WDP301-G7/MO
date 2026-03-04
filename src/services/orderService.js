@@ -2,19 +2,44 @@ import api from "./api";
 import { API_ENDPOINTS } from "../constants/api";
 
 /**
- * Get customer's orders
+ * Get customer's orders with pagination
+ * @param {number} page - Page number (default: 1)
+ * @param {number} limit - Items per page (default: 10)
  * @returns {Promise<Object>}
  */
-export const getMyOrders = async () => {
+export const getMyOrders = async (page = 1, limit = 10) => {
   try {
-    const response = await api.get(API_ENDPOINTS.ORDERS.MY_ORDERS);
+    const response = await api.get(
+      `${API_ENDPOINTS.ORDERS.MY_ORDERS}?page=${page}&limit=${limit}`,
+    );
+
+    // Handle different response structures
+    let ordersData = [];
+    let paginationInfo = null;
+
+    if (response.data.data) {
+      // Check if data.data is array directly (simple case)
+      if (Array.isArray(response.data.data)) {
+        ordersData = response.data.data;
+        paginationInfo = response.data.meta || response.data.pagination;
+      }
+      // Check if data.data has nested data.data (paginated response)
+      else if (response.data.data.data) {
+        ordersData = response.data.data.data;
+        // Backend returns pagination info in "meta" object, not "pagination"
+        paginationInfo =
+          response.data.data.meta || response.data.data.pagination;
+      }
+    }
 
     return {
       success: true,
-      data: response.data.data || [],
+      data: ordersData,
+      pagination: paginationInfo,
       message: response.data.message,
     };
   } catch (error) {
+    console.error("getMyOrders error:", error.response?.data || error);
     return {
       success: false,
       message:

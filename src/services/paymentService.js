@@ -12,11 +12,11 @@ import { API_ENDPOINTS } from "../constants/api";
  * POST /api/payments/:orderId/create
  *
  * @param {string} orderId - Order ID
- * @param {number} amount - Payment amount (not used, backend gets from order)
- * @returns {Promise} - {success, data: {paymentUrl, paymentId}, message}
+ * @returns {Promise} - {success, data: {paymentUrl, paymentId, orderId, amount}, message}
  */
-export const createVNPayPayment = async (orderId, amount) => {
+export const createVNPayPayment = async (orderId) => {
   try {
+    // Replace :orderId in endpoint path
     const endpoint = API_ENDPOINTS.PAYMENTS.CREATE.replace(":orderId", orderId);
     const response = await api.post(endpoint);
 
@@ -26,6 +26,7 @@ export const createVNPayPayment = async (orderId, amount) => {
       message: response.data.message || "Tạo thanh toán thành công",
     };
   } catch (error) {
+    console.error("Create VNPay payment error:", error.response?.data || error);
     return {
       success: false,
       message:

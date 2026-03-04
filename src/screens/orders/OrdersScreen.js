@@ -18,7 +18,7 @@ import {
   getOrderStatusColor,
   formatPrice,
 } from "../../services/orderService";
-import { OrdersContext } from "../../navigation/MainTabNavigator";
+import { OrdersContext } from "../../contexts/OrdersContext";
 
 export default function OrdersScreen({ navigation, route }) {
   const context = useContext(OrdersContext);
@@ -28,6 +28,9 @@ export default function OrdersScreen({ navigation, route }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     loadOrders();
@@ -40,38 +43,79 @@ export default function OrdersScreen({ navigation, route }) {
     }, []),
   );
 
-  const loadOrders = async () => {
+  const loadOrders = async (page = 1, isLoadMore = false) => {
     try {
-      setLoading(true);
-      const result = await getMyOrders();
+      if (isLoadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const result = await getMyOrders(page, 10);
 
       if (result.success) {
-        // API returns data nested in result.data.data
-        const ordersData = Array.isArray(result.data?.data)
-          ? result.data.data
-          : [];
-        setOrders(ordersData);
+        const ordersData = Array.isArray(result.data) ? result.data : [];
 
-        // Cập nhật số lượng đơn hàng cho tab badge
-        setOrdersCount(ordersData.length);
+        if (isLoadMore) {
+          // Append to existing orders
+          setOrders((prev) => [...prev, ...ordersData]);
+        } else {
+          // Replace orders (refresh)
+          setOrders(ordersData);
+          setCurrentPage(1);
+        }
+
+        // Check if there are more pages - support different field names
+        if (result.pagination) {
+          const currentPage =
+            result.pagination.page || result.pagination.currentPage || page;
+          const totalPages =
+            result.pagination.totalPages || result.pagination.pageCount;
+          const totalItems = result.pagination.total;
+
+          // More pages exist if currentPage < totalPages
+          const morePages = totalPages ? currentPage < totalPages : false;
+          setHasMore(morePages);
+
+          // Update badge with total count
+          setOrdersCount(totalItems || ordersData.length);
+        } else {
+          setHasMore(false);
+          setOrdersCount(ordersData.length);
+        }
       } else {
         console.error("Failed to load orders:", result.message);
-        setOrders([]);
-        setOrdersCount(0);
+        if (!isLoadMore) {
+          setOrders([]);
+          setOrdersCount(0);
+        }
       }
     } catch (error) {
       console.error("Error loading orders:", error);
-      setOrders([]);
-      setOrdersCount(0);
+      if (!isLoadMore) {
+        setOrders([]);
+        setOrdersCount(0);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadOrders();
+    setCurrentPage(1);
+    setHasMore(true);
+    await loadOrders(1, false);
     setRefreshing(false);
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      loadOrders(nextPage, true);
+    }
   };
 
   const tabs = [
@@ -323,9 +367,7 @@ export default function OrdersScreen({ navigation, route }) {
               {formatDate(item.createdAt)}
             </Text>
             <View className="flex-row items-center">
-              <Text className="text-xs text-textGray mr-2">
-                Thanh toán:
-              </Text>
+              <Text className="text-xs text-textGray mr-2">Thanh toán:</Text>
               <Text className="text-lg font-bold text-text">
                 {`${formatPrice(item.totalAmount).toLocaleString("vi-VN")}\u0111`}
               </Text>
@@ -438,6 +480,24 @@ export default function OrdersScreen({ navigation, route }) {
               onRefresh={handleRefresh}
               colors={["#2E86AB"]}
             />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? (
+              <View className="py-4 items-center">
+                <ActivityIndicator size="small" color="#2E86AB" />
+                <Text className="text-xs text-textGray mt-2">
+                  Đang tải thêm...
+                </Text>
+              </View>
+            ) : !hasMore && filteredOrders.length > 0 ? (
+              <View className="py-4 items-center">
+                <Text className="text-xs text-textGray">
+                  Đã hiển thị tất cả đơn hàng
+                </Text>
+              </View>
+            ) : null
           }
         />
       ) : (

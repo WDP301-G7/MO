@@ -184,20 +184,19 @@ export default function LensOrderScreen({ navigation, route }) {
       // Navigate đến VNPayPaymentScreen với thông tin order
       navigation.navigate("VNPayPayment", {
         orderData: {
-          orderType: orderTypeForBackend, // Backend enum: IN_STOCK, PRE_ORDER, PRESCRIPTION
           items: [
             {
               productId: selectedFrame.id,
               quantity: 1,
-              price: selectedFrame.price.toString(),
+              price: selectedFrame.price.toString(), // Backend expects string
             },
             {
               productId: selectedLens.id,
               quantity: 1,
-              price: selectedLens.price.toString(),
+              price: selectedLens.price.toString(), // Backend expects string
             },
           ],
-          shippingAddress: "Lắp tại cửa hàng",
+          shippingAddress: null, // In-store pickup
           phoneNumber: userData?.phone || null,
           paymentMethod: "VNPAY",
           note: "Đơn hàng tròng + gọng kính (không cần đơn thuốc)",
