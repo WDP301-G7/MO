@@ -31,6 +31,12 @@ export const API_ENDPOINTS = {
     CREATE: "/orders",
     DETAIL: "/orders/:id",
     CANCEL: "/orders/:id/cancel",
+    PRESCRIPTION: "/orders/:id/prescription",
+  },
+  PRESCRIPTION_REQUESTS: {
+    LIST: "/prescription-requests",
+    CREATE: "/prescription-requests",
+    DETAIL: "/prescription-requests/:id",
   },
   PAYMENTS: {
     CREATE: "/payments/:orderId/create",
@@ -38,5 +44,9 @@ export const API_ENDPOINTS = {
     BY_ORDER: "/payments/order/:orderId",
     VNPAY_RETURN: "/payments/vnpay/return",
     VNPAY_IPN: "/payments/vnpay/ipn",
+  },
+  STORES: {
+    LIST: "/stores",
+    DETAIL: "/stores/:id",
   },
 };

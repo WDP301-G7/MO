@@ -30,14 +30,21 @@ export default function VNPayPaymentScreen({ navigation, route }) {
     paymentAmount,
     requireDeposit,
     orderType,
+    paymentUrl, // Direct payment URL from OrderDetailScreen
   } = route.params || {};
 
   const [loading, setLoading] = useState(true);
-  const [vnpayUrl, setVnpayUrl] = useState(null);
+  const [vnpayUrl, setVnpayUrl] = useState(paymentUrl || null);
   const [error, setError] = useState(null);
   const [createdOrderId, setCreatedOrderId] = useState(orderId);
 
   useEffect(() => {
+    // If paymentUrl is provided, use it directly
+    if (paymentUrl) {
+      setLoading(false);
+      return;
+    }
+
     // Check if we have orderData (new flow) or orderId (existing flow)
     if (!orderId && !orderData) {
       Alert.alert("Lỗi", "Thiếu thông tin đơn hàng", [
@@ -63,7 +70,10 @@ export default function VNPayPaymentScreen({ navigation, route }) {
 
       let orderIdToUse = orderId;
 
-      // If we have orderData, create the order first (new flow)
+      // If we have orderData, create the order first
+      // NOTE: Với đơn hàng IN_STOCK/PRE_ORDER không có đơn thuốc,
+      // backend cần hỗ trợ flow: tạo order tạm (PENDING_PAYMENT) → sau khi payment success → confirm order
+      // Hoặc backend cần API mới: tạo payment với orderData → sau khi payment success → tạo order
       if (orderData && !orderId) {
         const orderResult = await createOrder(orderData);
 
@@ -81,6 +91,11 @@ export default function VNPayPaymentScreen({ navigation, route }) {
           if (errorMsg.includes("Insufficient stock")) {
             userMessage =
               "Sản phẩm đã hết hàng hoặc không đủ số lượng. Vui lòng chọn sản phẩm khác.";
+          } else if (
+            errorMsg.includes("validation") ||
+            errorMsg.includes("required")
+          ) {
+            userMessage = "Thông tin đơn hàng không hợp lệ: " + errorMsg;
           }
 
           Alert.alert("Không thể tạo đơn hàng", userMessage, [
@@ -94,8 +109,7 @@ export default function VNPayPaymentScreen({ navigation, route }) {
       }
 
       const amountToUse = paymentAmount || amount || totalAmount;
-
-      const result = await createVNPayPayment(orderIdToUse, amountToUse);
+      const result = await createVNPayPayment(orderIdToUse);
 
       if (result.success && result.data?.paymentUrl) {
         setVnpayUrl(result.data.paymentUrl);

@@ -17,22 +17,50 @@ import {
   cancelOrder,
   formatOrderStatus,
   getOrderStatusColor,
+  getOrderStatusIcon,
   formatPrice,
 } from "../../services/orderService";
+import { getOrderPrescription } from "../../services/prescriptionService";
+import { createVNPayPayment } from "../../services/paymentService";
 
 export default function OrderDetailScreen({ navigation, route }) {
   const { orderId } = route.params;
   const [order, setOrder] = useState(null);
+  const [prescription, setPrescription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState("");
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     if (orderId) {
       loadOrderDetails();
     }
   }, [orderId]);
+
+  // Countdown timer for expiry
+  useEffect(() => {
+    if (!order?.expiresAt) return;
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const expiry = new Date(order.expiresAt).getTime();
+      const diff = expiry - now;
+
+      if (diff <= 0) {
+        setTimeRemaining("Đã hết hạn");
+        clearInterval(interval);
+      } else {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        setTimeRemaining(`Còn ${hours}h ${minutes}m để thanh toán`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [order?.expiresAt]);
 
   const loadOrderDetails = async () => {
     try {
@@ -48,7 +76,38 @@ export default function OrderDetailScreen({ navigation, route }) {
             return sum + formatPrice(item.unitPrice) * item.quantity;
           }, 0);
           orderData.totalAmount = calculatedTotal.toString();
-          console.log("Calculated totalAmount:", calculatedTotal);
+        }
+
+        // Load prescription data if orderType is PRESCRIPTION
+        if (orderData.orderType === "PRESCRIPTION") {
+          // First try to get prescription from order data
+          if (orderData.prescription) {
+            setPrescription(orderData.prescription);
+          } else {
+            // Fallback to separate API call if not included
+            const prescResult = await getOrderPrescription(orderId);
+            if (prescResult.success) {
+              setPrescription(prescResult.data.prescription);
+            }
+          }
+        }
+
+        // Calculate appointment date based on createdAt + max leadTimeDays from products
+        if (orderData.orderItems) {
+          const leadTimes = orderData.orderItems.map(
+            (item) => item.product?.leadTimeDays || 0,
+          );
+
+          const maxLeadTime = Math.max(...leadTimes, 0);
+
+          if (maxLeadTime > 0) {
+            const createdDate = new Date(orderData.createdAt);
+            const appointmentDate = new Date(createdDate);
+            appointmentDate.setDate(appointmentDate.getDate() + maxLeadTime);
+
+            // Always use calculated date for preorder items
+            orderData.appointmentDate = appointmentDate.toISOString();
+          }
         }
 
         setOrder(orderData);
@@ -65,6 +124,28 @@ export default function OrderDetailScreen({ navigation, route }) {
       navigation.goBack();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    try {
+      setPaymentLoading(true);
+
+      const result = await createVNPayPayment(orderId);
+
+      if (result.success && result.data.paymentUrl) {
+        // Navigate to VNPay WebView
+        navigation.navigate("VNPayPayment", {
+          paymentUrl: result.data.paymentUrl,
+          orderId: orderId,
+        });
+      } else {
+        Alert.alert("Lỗi", result.message || "Không thể tạo thanh toán");
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi tạo thanh toán");
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -227,7 +308,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                 style={{ backgroundColor: getOrderStatusColor(order.status) }}
               >
                 <Ionicons
-                  name={order.appointment ? "location" : "car-outline"}
+                  name={getOrderStatusIcon(order.status)}
                   size={28}
                   color="#FFFFFF"
                 />
@@ -257,9 +338,11 @@ export default function OrderDetailScreen({ navigation, route }) {
               className="mx-5 mt-4 p-4 rounded-2xl"
               style={{
                 backgroundColor:
-                  order.orderType === "prescription"
+                  order.orderType === "PRESCRIPTION"
                     ? "#A23B7220"
-                    : order.orderType === "lens_with_frame"
+                    : order.orderType === "LENS_WITH_FRAME" ||
+                        order.orderType === "IN_STOCK" ||
+                        order.orderType === "PRE_ORDER"
                       ? "#F18F0120"
                       : "#2E86AB20",
               }}
@@ -267,17 +350,21 @@ export default function OrderDetailScreen({ navigation, route }) {
               <View className="flex-row items-center">
                 <Ionicons
                   name={
-                    order.orderType === "prescription"
+                    order.orderType === "PRESCRIPTION"
                       ? "medical"
-                      : order.orderType === "lens_with_frame"
+                      : order.orderType === "LENS_WITH_FRAME" ||
+                          order.orderType === "IN_STOCK" ||
+                          order.orderType === "PRE_ORDER"
                         ? "eye"
                         : "disc"
                   }
                   size={20}
                   color={
-                    order.orderType === "prescription"
+                    order.orderType === "PRESCRIPTION"
                       ? "#A23B72"
-                      : order.orderType === "lens_with_frame"
+                      : order.orderType === "LENS_WITH_FRAME" ||
+                          order.orderType === "IN_STOCK" ||
+                          order.orderType === "PRE_ORDER"
                         ? "#F18F01"
                         : "#2E86AB"
                   }
@@ -286,20 +373,22 @@ export default function OrderDetailScreen({ navigation, route }) {
                   className="text-sm font-bold ml-2"
                   style={{
                     color:
-                      order.orderType === "prescription"
+                      order.orderType === "PRESCRIPTION"
                         ? "#A23B72"
-                        : order.orderType === "lens_with_frame"
+                        : order.orderType === "LENS_WITH_FRAME"
                           ? "#F18F01"
                           : "#2E86AB",
                   }}
                 >
-                  {order.orderType === "prescription"
+                  {order.orderType === "PRESCRIPTION"
                     ? order.prescriptionType === "lens_only"
                       ? "Đơn thuốc - Chỉ tròng"
                       : "Đơn thuốc - Gọng + Tròng"
-                    : order.orderType === "lens_with_frame"
-                      ? "Tròng + Gọng (Lắp tại cửa hàng)"
-                      : "Chỉ mua tròng kính"}
+                    : order.orderType === "LENS_WITH_FRAME" ||
+                        order.orderType === "IN_STOCK" ||
+                        order.orderType === "PRE_ORDER"
+                      ? "Gọng + Tròng (Lắp tại cửa hàng)"
+                      : "Đơn hàng thường"}
                 </Text>
               </View>
 
@@ -309,7 +398,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                   className="mt-3 pt-3 border-t"
                   style={{
                     borderColor:
-                      order.orderType === "prescription"
+                      order.orderType === "PRESCRIPTION"
                         ? "#A23B7230"
                         : "#F18F0130",
                   }}
@@ -320,15 +409,17 @@ export default function OrderDetailScreen({ navigation, route }) {
                   <View className="flex-row items-center mb-1">
                     <Ionicons name="calendar" size={16} color="#666" />
                     <Text className="text-sm font-semibold text-text ml-2">
-                      {`${order.appointmentDate} - ${order.appointmentTime}`}
+                      {formatDate(order.appointmentDate)}
                     </Text>
                   </View>
-                  <View className="flex-row items-center">
-                    <Ionicons name="location" size={16} color="#666" />
-                    <Text className="text-sm text-textGray ml-2">
-                      {order.store}
-                    </Text>
-                  </View>
+                  {order.store && (
+                    <View className="flex-row items-center">
+                      <Ionicons name="location" size={16} color="#666" />
+                      <Text className="text-sm text-textGray ml-2">
+                        {order.store}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -435,6 +526,113 @@ export default function OrderDetailScreen({ navigation, route }) {
               ))}
           </View>
 
+          {/* Prescription Info - Only for PRESCRIPTION orders */}
+          {order.orderType === "PRESCRIPTION" && prescription && (
+            <View className="bg-white mx-5 mt-4 p-4 rounded-2xl">
+              <View className="flex-row items-center mb-3">
+                <Ionicons name="medical-outline" size={20} color="#2E86AB" />
+                <Text className="text-base font-bold text-text ml-2">
+                  Thông tin đơn thuốc
+                </Text>
+              </View>
+
+              <View className="bg-gray-50 rounded-xl p-4">
+                {/* Right Eye */}
+                <View className="mb-3">
+                  <Text className="text-sm font-bold text-text mb-2">
+                    Mắt phải (OD)
+                  </Text>
+                  <View className="flex-row justify-between">
+                    <View className="flex-1">
+                      <Text className="text-xs text-textGray">SPH (Cầu)</Text>
+                      <Text className="text-sm font-semibold text-text">
+                        {prescription.rightEyeSphere || "-"}
+                      </Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-xs text-textGray">CYL (Trụ)</Text>
+                      <Text className="text-sm font-semibold text-text">
+                        {prescription.rightEyeCylinder || "-"}
+                      </Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-xs text-textGray">AXIS (Trục)</Text>
+                      <Text className="text-sm font-semibold text-text">
+                        {prescription.rightEyeAxis || "-"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Left Eye */}
+                <View className="mb-3">
+                  <Text className="text-sm font-bold text-text mb-2">
+                    Mắt trái (OS)
+                  </Text>
+                  <View className="flex-row justify-between">
+                    <View className="flex-1">
+                      <Text className="text-xs text-textGray">SPH (Cầu)</Text>
+                      <Text className="text-sm font-semibold text-text">
+                        {prescription.leftEyeSphere || "-"}
+                      </Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-xs text-textGray">CYL (Trụ)</Text>
+                      <Text className="text-sm font-semibold text-text">
+                        {prescription.leftEyeCylinder || "-"}
+                      </Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-xs text-textGray">AXIS (Trục)</Text>
+                      <Text className="text-sm font-semibold text-text">
+                        {prescription.leftEyeAxis || "-"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* PD */}
+                {prescription.pupillaryDistance && (
+                  <View className="mb-3">
+                    <Text className="text-xs text-textGray">
+                      Khoảng cách đồng tử (PD)
+                    </Text>
+                    <Text className="text-sm font-semibold text-text">
+                      {prescription.pupillaryDistance} mm
+                    </Text>
+                  </View>
+                )}
+
+                {/* Notes */}
+                {prescription.notes && (
+                  <View className="mt-2 p-3 bg-blue-50 rounded-lg">
+                    <Text className="text-xs text-blue-900">
+                      <Text className="font-bold">Ghi chú: </Text>
+                      {prescription.notes}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Expiry Countdown - For WAITING_CUSTOMER status */}
+          {order.status === "WAITING_CUSTOMER" &&
+            order.paymentStatus === "UNPAID" &&
+            timeRemaining && (
+              <View className="bg-orange-50 mx-5 mt-4 p-4 rounded-2xl border border-orange-200">
+                <View className="flex-row items-center">
+                  <Ionicons name="time-outline" size={20} color="#F97316" />
+                  <Text className="text-sm font-bold text-orange-700 ml-2">
+                    {timeRemaining}
+                  </Text>
+                </View>
+                <Text className="text-xs text-orange-600 mt-2">
+                  Vui lòng thanh toán trước khi hết hạn để giữ báo giá
+                </Text>
+              </View>
+            )}
+
           {/* Payment Info */}
           <View className="bg-white mx-5 mt-4 p-4 rounded-2xl">
             <View className="flex-row items-center mb-3">
@@ -508,31 +706,34 @@ export default function OrderDetailScreen({ navigation, route }) {
                       order.paymentStatus === "PAID"
                         ? "text-green-500"
                         : order.paymentStatus === "DEPOSITED"
-                        ? "text-amber-500"
-                        : "text-red-500"
+                          ? "text-amber-500"
+                          : "text-red-500"
                     }`}
                   >
                     {order.paymentStatus === "PAID"
                       ? "Đã thanh toán"
                       : order.paymentStatus === "DEPOSITED"
-                      ? "Đã đặt cọc"
-                      : "Chưa thanh toán"}
+                        ? "Đã đặt cọc"
+                        : "Chưa thanh toán"}
                   </Text>
                 </View>
-                {order.paymentStatus === "PAID" && order.payments?.[0]?.paidAt && (
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-sm text-textGray">Thời gian:</Text>
-                    <Text className="text-sm text-text">
-                      {new Date(order.payments[0].paidAt).toLocaleString("vi-VN")}
-                    </Text>
-                  </View>
-                )}
+                {order.paymentStatus === "PAID" &&
+                  order.payments?.[0]?.paidAt && (
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-sm text-textGray">Thời gian:</Text>
+                      <Text className="text-sm text-text">
+                        {new Date(order.payments[0].paidAt).toLocaleString(
+                          "vi-VN",
+                        )}
+                      </Text>
+                    </View>
+                  )}
               </>
             )}
           </View>
 
           {/* Price Summary */}
-          <View className="bg-white mx-5 mt-4 p-4 rounded-2xl">
+          <View className="bg-white mx-5 mt-4 mb-6 px-5 py-5 rounded-2xl">
             <View className="flex-row items-center justify-between pt-3 border-t border-border">
               <Text className="text-base font-bold text-text">Tổng cộng:</Text>
               <Text className="text-xl font-bold text-primary">
@@ -542,11 +743,32 @@ export default function OrderDetailScreen({ navigation, route }) {
           </View>
 
           {/* Action Buttons */}
-          <View className="mx-5 my-6 gap-3">
-            {/* Payment Button for Unpaid Orders */}
+          <View className="px-5 mb-8 gap-4">
+            {/* Payment Button for Prescription Orders (WAITING_CUSTOMER) */}
+            {order.paymentStatus === "UNPAID" &&
+              order.status === "WAITING_CUSTOMER" && (
+                <TouchableOpacity
+                  className="bg-primary rounded-xl py-4 items-center flex-row justify-center shadow-sm"
+                  onPress={handlePayment}
+                  disabled={paymentLoading}
+                >
+                  {paymentLoading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="card" size={20} color="#FFFFFF" />
+                      <Text className="text-white font-bold text-base ml-2">
+                        Thanh toán ngay
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+            {/* Payment Button for Regular Unpaid Orders */}
             {order.paymentStatus === "UNPAID" && order.status === "NEW" && (
               <TouchableOpacity
-                className="w-full bg-green-500 rounded-xl py-4 items-center flex-row justify-center"
+                className="bg-green-500 rounded-xl py-4 items-center flex-row justify-center shadow-sm"
                 onPress={() =>
                   navigation.navigate("CheckoutScreenVNPay", {
                     orderId: order.id,
@@ -564,7 +786,7 @@ export default function OrderDetailScreen({ navigation, route }) {
 
             {(order.status === "Hoàn thành" || order.status === "Đã giao") && (
               <TouchableOpacity
-                className="w-full bg-primary rounded-xl py-4 items-center"
+                className="bg-primary rounded-xl py-4 items-center shadow-sm"
                 onPress={() =>
                   navigation.navigate("ReturnRequest", { order: order })
                 }

@@ -1,20 +1,9 @@
-import React, { createContext, useState, useContext } from "react";
+import React, { useContext } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
 import { View, Text } from "react-native";
-
-// Context để quản lý số lượng đơn hàng
-export const OrdersContext = createContext();
-
-export function OrdersProvider({ children }) {
-  const [ordersCount, setOrdersCount] = useState(0);
-  return (
-    <OrdersContext.Provider value={{ ordersCount, setOrdersCount }}>
-      {children}
-    </OrdersContext.Provider>
-  );
-}
+import { OrdersContext, OrdersProvider } from "../contexts/OrdersContext";
 
 // Import screens
 import HomeScreen from "../screens/home/HomeScreen";
@@ -35,6 +24,8 @@ import ReviewsScreen from "../screens/reviews/ReviewsScreen";
 import CheckoutScreen from "../screens/checkout/CheckoutScreen";
 import OrderDetailScreen from "../screens/orders/OrderDetailScreen";
 import OrderSuccessScreen from "../screens/orders/OrderSuccessScreen";
+import VNPayPaymentScreen from "../screens/checkout/VNPayPaymentScreen";
+import OrderSuccessScreenVNPay from "../screens/orders/OrderSuccessScreenVNPay";
 import ReturnRequestScreen from "../screens/return/ReturnRequestScreen";
 import ReturnHistoryScreen from "../screens/return/ReturnHistoryScreen";
 import VouchersScreen from "../screens/vouchers/VouchersScreen";
@@ -69,7 +60,12 @@ function HomeStack() {
       <Stack.Screen name="VirtualTryOn" component={VirtualTryOnScreen} />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+      <Stack.Screen
+        name="OrderSuccessVNPay"
+        component={OrderSuccessScreenVNPay}
+      />
       <Stack.Screen name="Appointments" component={AppointmentsScreen} />
       <Stack.Screen name="StoreMap" component={StoreMapScreen} />
     </Stack.Navigator>
@@ -93,6 +89,11 @@ function CategoriesStack() {
       <Stack.Screen name="VirtualTryOn" component={VirtualTryOnScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+      <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
+      <Stack.Screen
+        name="OrderSuccessVNPay"
+        component={OrderSuccessScreenVNPay}
+      />
       <Stack.Screen name="Appointments" component={AppointmentsScreen} />
       <Stack.Screen name="StoreMap" component={StoreMapScreen} />
     </Stack.Navigator>
@@ -105,7 +106,12 @@ function CartStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+      <Stack.Screen
+        name="OrderSuccessVNPay"
+        component={OrderSuccessScreenVNPay}
+      />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <Stack.Screen name="LensOrder" component={LensOrderScreen} />
       <Stack.Screen
@@ -129,6 +135,7 @@ function OrdersStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Orders" component={OrdersScreen} />
       <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+      <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
       <Stack.Screen name="ReturnRequest" component={ReturnRequestScreen} />
       <Stack.Screen name="ReturnHistory" component={ReturnHistoryScreen} />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
@@ -180,6 +187,11 @@ function ProfileStack() {
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+      <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
+      <Stack.Screen
+        name="OrderSuccessVNPay"
+        component={OrderSuccessScreenVNPay}
+      />
       <Stack.Screen name="Appointments" component={AppointmentsScreen} />
       <Stack.Screen name="StoreMap" component={StoreMapScreen} />
     </Stack.Navigator>

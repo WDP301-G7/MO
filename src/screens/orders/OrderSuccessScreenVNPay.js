@@ -105,7 +105,9 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
 
         <TouchableOpacity
           className="w-full bg-primary py-4 rounded-xl items-center mb-3"
-          onPress={() => navigation.navigate("Orders")}
+          onPress={() =>
+            navigation.navigate("MainApp", { screen: "OrdersTab" })
+          }
         >
           <Text className="text-white font-bold text-base">Xem đơn hàng</Text>
         </TouchableOpacity>
@@ -194,14 +196,18 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
         <View className="w-full gap-3">
           <TouchableOpacity
             className="w-full bg-primary py-4 rounded-xl items-center"
-            onPress={() => navigation.navigate("Orders")}
+            onPress={() =>
+              navigation.navigate("MainApp", { screen: "OrdersTab" })
+            }
           >
             <Text className="text-white font-bold text-base">Xem đơn hàng</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             className="w-full bg-background border-2 border-primary py-4 rounded-xl items-center"
-            onPress={() => navigation.navigate("Home")}
+            onPress={() =>
+              navigation.navigate("MainApp", { screen: "HomeTab" })
+            }
           >
             <Text className="text-primary font-bold text-base">
               Quay về trang chủ

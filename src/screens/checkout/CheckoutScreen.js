@@ -132,8 +132,6 @@ export default function CheckoutScreen({ navigation, route }) {
         note: note || undefined, // Don't send null, use undefined to omit field
       };
 
-      console.log("Order data being sent:", JSON.stringify(orderData, null, 2));
-
       const result = await createOrder(orderData);
 
       if (result.success) {

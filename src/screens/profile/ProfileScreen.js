@@ -12,7 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { logout, getCurrentUser, getProfile } from "../../services/authService";
-import { OrdersContext } from "../../navigation/MainTabNavigator";
+import { OrdersContext } from "../../contexts/OrdersContext";
 import { getMyOrders } from "../../services/orderService";
 
 export default function ProfileScreen({ navigation }) {
@@ -21,8 +21,12 @@ export default function ProfileScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [orderStats, setOrderStats] = useState({
-    pending: 0,
+    new: 0,
+    confirmed: 0,
+    waitingCustomer: 0,
+    waitingProduct: 0,
     processing: 0,
+    ready: 0,
     completed: 0,
     cancelled: 0,
   });
@@ -91,13 +95,19 @@ export default function ProfileScreen({ navigation }) {
       const result = await getMyOrders();
       if (result.success) {
         const orders = Array.isArray(result.data?.data) ? result.data.data : [];
-        
-        // Dem so luong don hang theo nhom trang thai (theo flow thuc te)
+
+        // Đếm số lượng đơn hàng theo từng status riêng biệt
         const stats = {
-          pending: orders.filter(o => ["NEW", "CONFIRMED"].includes(o.status)).length,
-          processing: orders.filter(o => ["WAITING_PRODUCT", "WAITING_CUSTOMER", "PROCESSING", "READY"].includes(o.status)).length,
-          completed: orders.filter(o => o.status === "COMPLETED").length,
-          cancelled: orders.filter(o => o.status === "CANCELLED").length,
+          new: orders.filter((o) => o.status === "NEW").length,
+          confirmed: orders.filter((o) => o.status === "CONFIRMED").length,
+          waitingCustomer: orders.filter((o) => o.status === "WAITING_CUSTOMER")
+            .length,
+          waitingProduct: orders.filter((o) => o.status === "WAITING_PRODUCT")
+            .length,
+          processing: orders.filter((o) => o.status === "PROCESSING").length,
+          ready: orders.filter((o) => o.status === "READY").length,
+          completed: orders.filter((o) => o.status === "COMPLETED").length,
+          cancelled: orders.filter((o) => o.status === "CANCELLED").length,
         };
         setOrderStats(stats);
       }
@@ -128,35 +138,75 @@ export default function ProfileScreen({ navigation }) {
   const stats = [
     {
       id: 1,
-      label: "Chờ xác nhận",
-      count: orderStats.pending,
-      icon: "time-outline",
-      color: "#F18F01",
+      label: "Mới tạo",
+      count: orderStats.new,
+      icon: "document-text-outline",
+      color: "#3B82F6",
       screen: "Orders",
+      filter: 1,
     },
     {
       id: 2,
-      label: "Đang giao",
-      count: orderStats.processing,
-      icon: "car-outline",
-      color: "#2E86AB",
+      label: "Đã xác nhận",
+      count: orderStats.confirmed,
+      icon: "checkmark-circle-outline",
+      color: "#8B5CF6",
       screen: "Orders",
+      filter: 2,
     },
     {
       id: 3,
-      label: "Hoàn thành",
-      count: orderStats.completed,
-      icon: "checkmark-circle-outline",
-      color: "#10B981",
+      label: "Chờ khách",
+      count: orderStats.waitingCustomer,
+      icon: "person-outline",
+      color: "#EC4899",
       screen: "Orders",
+      filter: 3,
     },
     {
       id: 4,
+      label: "Chờ hàng",
+      count: orderStats.waitingProduct,
+      icon: "cube-outline",
+      color: "#F59E0B",
+      screen: "Orders",
+      filter: 4,
+    },
+    {
+      id: 5,
+      label: "Đang xử lý",
+      count: orderStats.processing,
+      icon: "sync-outline",
+      color: "#F97316",
+      screen: "Orders",
+      filter: 5,
+    },
+    {
+      id: 6,
+      label: "Sẵn sàng",
+      count: orderStats.ready,
+      icon: "gift-outline",
+      color: "#10B981",
+      screen: "Orders",
+      filter: 6,
+    },
+    {
+      id: 7,
+      label: "Hoàn thành",
+      count: orderStats.completed,
+      icon: "checkmark-done-outline",
+      color: "#059669",
+      screen: "Orders",
+      filter: 7,
+    },
+    {
+      id: 8,
       label: "Đã hủy",
       count: orderStats.cancelled,
       icon: "close-circle-outline",
       color: "#EF4444",
       screen: "Orders",
+      filter: 8,
     },
   ];
 
@@ -203,9 +253,9 @@ export default function ProfileScreen({ navigation }) {
     },
     {
       id: 6,
-      title: "Lịch hẹn của tôi",
-      subtitle: "Xem lịch hẹn nhận hàng tại cửa hàng",
-      icon: "calendar-outline",
+      title: "Yêu cầu tư vấn đơn thuốc",
+      subtitle: "Xem yêu cầu đặt kính theo đơn thuốc",
+      icon: "document-text-outline",
       screen: "Appointments",
       color: "#2E86AB",
     },
@@ -374,16 +424,26 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         {/* Order Stats */}
-        <View className="px-5 pt-6 pb-3">
-          <Text className="text-base font-bold text-text mb-3">
+        <View className="pt-6 pb-3">
+          <Text className="text-base font-bold text-text mb-3 px-5">
             Đơn hàng của tôi
           </Text>
-          <View className="flex-row justify-between">
-            {stats.map((stat) => (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20 }}
+          >
+            {stats.map((stat, index) => (
               <TouchableOpacity
                 key={stat.id}
-                className="flex-1 bg-white rounded-xl p-3 items-center mx-1 shadow-sm"
-                onPress={() => navigation.navigate(stat.screen)}
+                className="bg-white rounded-xl p-3 items-center shadow-sm"
+                style={{
+                  width: 85,
+                  marginRight: index < stats.length - 1 ? 10 : 0,
+                }}
+                onPress={() =>
+                  navigation.navigate(stat.screen, { filter: stat.filter })
+                }
               >
                 <View
                   className="w-11 h-11 rounded-full items-center justify-center mb-2"
@@ -396,13 +456,13 @@ export default function ProfileScreen({ navigation }) {
                 </Text>
                 <Text
                   className="text-[10px] text-textGray text-center mt-0.5"
-                  numberOfLines={1}
+                  numberOfLines={2}
                 >
                   {stat.label}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         {/* Menu Items */}
