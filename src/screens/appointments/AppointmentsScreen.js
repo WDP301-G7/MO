@@ -16,25 +16,54 @@ import {
   getMyPrescriptionRequests,
   PRESCRIPTION_STATUS,
 } from "../../services/prescriptionService";
+import { getCurrentUser } from "../../services/authService";
 
 export default function AppointmentsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [requests, setRequests] = useState([]);
   const [selectedTab, setSelectedTab] = useState(0);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const tabs = [
     { id: 0, label: "Đang xử lý", statuses: ["PENDING", "CONTACTING"] },
-    { id: 1, label: "Chờ thanh toán", statuses: ["QUOTED"] },
-    { id: 2, label: "Đã xác nhận", statuses: ["ACCEPTED", "SCHEDULED"] },
-    { id: 3, label: "Đã đóng", statuses: ["EXPIRED", "LOST"] },
+    {
+      id: 1,
+      label: "Chờ thanh toán",
+      statuses: ["QUOTED"],
+      filterByRequest: true,
+    },
+    {
+      id: 2,
+      label: "Đã xác nhận",
+      statuses: ["ACCEPTED", "SCHEDULED"],
+      filterByRequest: true,
+    },
+    {
+      id: 3,
+      label: "Hoàn thành",
+      statuses: ["COMPLETED"],
+      filterByOrder: true,
+    },
+    {
+      id: 4,
+      label: "Đã đóng",
+      statuses: ["EXPIRED", "LOST"],
+      filterByRequest: true,
+    },
   ];
 
   useFocusEffect(
     useCallback(() => {
+      loadCurrentUser();
       loadRequests();
     }, []),
   );
+
+  const loadCurrentUser = async () => {
+    const user = await getCurrentUser();
+    setCurrentUser(user);
+  };
 
   const loadRequests = async (isRefresh = false) => {
     try {
@@ -47,7 +76,16 @@ export default function AppointmentsScreen({ navigation }) {
       const result = await getMyPrescriptionRequests();
 
       if (result.success) {
-        setRequests(result.data || []);
+        // Filter chỉ lấy đơn của user hiện tại
+        const user = await getCurrentUser();
+        if (user && user.id) {
+          const userRequests = (result.data || []).filter(
+            (req) => req.customerId === user.id,
+          );
+          setRequests(userRequests);
+        } else {
+          setRequests(result.data || []);
+        }
       } else {
         Alert.alert("Lỗi", result.message);
       }
@@ -65,6 +103,20 @@ export default function AppointmentsScreen({ navigation }) {
 
   const filterRequests = () => {
     const currentTab = tabs[selectedTab];
+    // Ensure requests is an array before filtering
+    if (!Array.isArray(requests)) {
+      return [];
+    }
+
+    // Tab "Hoàn thành" filter theo order.status thay vì request.status
+    if (currentTab.filterByOrder) {
+      return requests.filter(
+        (request) =>
+          request.order && currentTab.statuses.includes(request.order.status),
+      );
+    }
+
+    // Các tab khác filter theo request.status
     return requests.filter((request) =>
       currentTab.statuses.includes(request.status),
     );
@@ -82,7 +134,12 @@ export default function AppointmentsScreen({ navigation }) {
   };
 
   const renderRequest = ({ item }) => {
-    const statusInfo = PRESCRIPTION_STATUS[item.status] || {};
+    // Ưu tiên hiển thị trạng thái order nếu order đã hoàn thành
+    let displayStatus = item.status;
+    if (item.order && item.order.status === "COMPLETED") {
+      displayStatus = "COMPLETED";
+    }
+    const statusInfo = PRESCRIPTION_STATUS[displayStatus] || {};
 
     return (
       <TouchableOpacity
@@ -176,7 +233,7 @@ export default function AppointmentsScreen({ navigation }) {
           </View>
 
           {/* Actions */}
-          {item.status === "QUOTED" && item.orderId && (
+          {displayStatus === "QUOTED" && item.orderId && (
             <TouchableOpacity
               className="bg-primary rounded-xl py-3 items-center"
               onPress={() =>
@@ -192,7 +249,9 @@ export default function AppointmentsScreen({ navigation }) {
             </TouchableOpacity>
           )}
 
-          {(item.status === "ACCEPTED" || item.status === "SCHEDULED") &&
+          {(displayStatus === "ACCEPTED" ||
+            displayStatus === "SCHEDULED" ||
+            displayStatus === "COMPLETED") &&
             item.orderId && (
               <TouchableOpacity
                 className="bg-primary rounded-xl py-3 items-center"

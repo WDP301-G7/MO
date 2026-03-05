@@ -7,6 +7,10 @@ import { isLoggedIn } from "./src/services/authService";
 import { linking, handleDeepLink } from "./src/utils/deepLinkHandler";
 import { configureGoogleSignIn } from "./src/services/googleAuthService";
 
+// Import Providers
+import { OrdersProvider } from "./src/contexts/OrdersContext";
+import { ReturnsProvider } from "./src/contexts/ReturnsContext";
+
 // Import Auth screens
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import RegisterScreen from "./src/screens/auth/RegisterScreen";
@@ -36,6 +40,7 @@ import VirtualTryOnScreen from "./src/screens/virtual-tryon/VirtualTryOnScreen";
 import ReviewsScreen from "./src/screens/reviews/ReviewsScreen";
 import ReturnRequestScreen from "./src/screens/return/ReturnRequestScreen";
 import ReturnHistoryScreen from "./src/screens/return/ReturnHistoryScreen";
+import ReturnDetailScreen from "./src/screens/return/ReturnDetailScreen";
 import AddressManagementScreen from "./src/screens/address/AddressManagementScreen";
 import EditProfileScreen from "./src/screens/profile/EditProfileScreen";
 import FavoritesScreen from "./src/screens/favorites/FavoritesScreen";
@@ -80,87 +85,116 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer
-        linking={linking}
-        fallback={<ActivityIndicator color="#2E86AB" size="large" />}
-        onStateChange={(state) => {
-          // Xử lý deeplink từ backend
-          if (state) {
-            handleDeepLink(state);
-          }
-        }}
-      >
-        <Stack.Navigator
-          initialRouteName={userLoggedIn ? "MainApp" : "Login"}
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          {/* Auth Screens */}
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen
-            name="ForgotPassword"
-            component={ForgotPasswordScreen}
-          />
+      <OrdersProvider>
+        <ReturnsProvider>
+          <NavigationContainer
+            linking={linking}
+            fallback={<ActivityIndicator color="#2E86AB" size="large" />}
+            onStateChange={(state) => {
+              // Xử lý deeplink từ backend
+              if (state) {
+                handleDeepLink(state);
+              }
+            }}
+          >
+            <Stack.Navigator
+              initialRouteName={userLoggedIn ? "MainApp" : "Login"}
+              screenOptions={{
+                headerShown: false,
+              }}
+            >
+              {/* Auth Screens */}
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+              <Stack.Screen
+                name="ForgotPassword"
+                component={ForgotPasswordScreen}
+              />
 
-          {/* Main App with Tab Navigator */}
-          <Stack.Screen name="MainApp" component={MainTabNavigator} />
+              {/* Main App with Tab Navigator */}
+              <Stack.Screen name="MainApp" component={MainTabNavigator} />
 
-          {/* Other Screens (accessed from tabs) */}
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen
-            name="ProductCatalog"
-            component={ProductCatalogScreen}
-          />
-          <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
-          <Stack.Screen name="LensOrder" component={LensOrderScreen} />
-          <Stack.Screen name="Cart" component={CartScreen} />
-          <Stack.Screen name="Checkout" component={CheckoutScreen} />
-          <Stack.Screen
-            name="CheckoutScreenVNPay"
-            component={CheckoutScreenVNPay}
-          />
-          <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="Orders" component={OrdersScreen} />
-          <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
-          <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
-          <Stack.Screen
-            name="OrderSuccessVNPay"
-            component={OrderSuccessScreenVNPay}
-          />
-          <Stack.Screen name="Search" component={SearchScreen} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
-          <Stack.Screen name="Vouchers" component={VouchersScreen} />
-          <Stack.Screen name="Support" component={SupportScreen} />
-          <Stack.Screen name="Categories" component={CategoriesScreen} />
-          <Stack.Screen
-            name="PrescriptionOrder"
-            component={PrescriptionOrderScreen}
-          />
-          <Stack.Screen name="VirtualTryOn" component={VirtualTryOnScreen} />
-          <Stack.Screen name="Reviews" component={ReviewsScreen} />
-          <Stack.Screen name="ReturnRequest" component={ReturnRequestScreen} />
-          <Stack.Screen name="ReturnHistory" component={ReturnHistoryScreen} />
-          <Stack.Screen
-            name="AddressManagement"
-            component={AddressManagementScreen}
-          />
-          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-          <Stack.Screen name="Favorites" component={FavoritesScreen} />
-          <Stack.Screen name="MyReviews" component={MyReviewsScreen} />
-          <Stack.Screen
-            name="ChangePassword"
-            component={ChangePasswordScreen}
-          />
-          <Stack.Screen
-            name="NotificationSettings"
-            component={NotificationSettingsScreen}
-          />
-          <Stack.Screen name="Terms" component={TermsAndPoliciesScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
+              {/* Other Screens (accessed from tabs) */}
+              <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen
+                name="ProductCatalog"
+                component={ProductCatalogScreen}
+              />
+              <Stack.Screen
+                name="ProductDetail"
+                component={ProductDetailScreen}
+              />
+              <Stack.Screen name="LensOrder" component={LensOrderScreen} />
+              <Stack.Screen name="Cart" component={CartScreen} />
+              <Stack.Screen name="Checkout" component={CheckoutScreen} />
+              <Stack.Screen
+                name="CheckoutScreenVNPay"
+                component={CheckoutScreenVNPay}
+              />
+              <Stack.Screen
+                name="VNPayPayment"
+                component={VNPayPaymentScreen}
+              />
+              <Stack.Screen name="Profile" component={ProfileScreen} />
+              <Stack.Screen name="Orders" component={OrdersScreen} />
+              <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+              <Stack.Screen
+                name="OrderSuccess"
+                component={OrderSuccessScreen}
+              />
+              <Stack.Screen
+                name="OrderSuccessVNPay"
+                component={OrderSuccessScreenVNPay}
+              />
+              <Stack.Screen name="Search" component={SearchScreen} />
+              <Stack.Screen
+                name="Notifications"
+                component={NotificationsScreen}
+              />
+              <Stack.Screen name="Vouchers" component={VouchersScreen} />
+              <Stack.Screen name="Support" component={SupportScreen} />
+              <Stack.Screen name="Categories" component={CategoriesScreen} />
+              <Stack.Screen
+                name="PrescriptionOrder"
+                component={PrescriptionOrderScreen}
+              />
+              <Stack.Screen
+                name="VirtualTryOn"
+                component={VirtualTryOnScreen}
+              />
+              <Stack.Screen name="Reviews" component={ReviewsScreen} />
+              <Stack.Screen
+                name="ReturnRequest"
+                component={ReturnRequestScreen}
+              />
+              <Stack.Screen
+                name="ReturnHistory"
+                component={ReturnHistoryScreen}
+              />
+              <Stack.Screen
+                name="ReturnDetail"
+                component={ReturnDetailScreen}
+              />
+              <Stack.Screen
+                name="AddressManagement"
+                component={AddressManagementScreen}
+              />
+              <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+              <Stack.Screen name="Favorites" component={FavoritesScreen} />
+              <Stack.Screen name="MyReviews" component={MyReviewsScreen} />
+              <Stack.Screen
+                name="ChangePassword"
+                component={ChangePasswordScreen}
+              />
+              <Stack.Screen
+                name="NotificationSettings"
+                component={NotificationSettingsScreen}
+              />
+              <Stack.Screen name="Terms" component={TermsAndPoliciesScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </ReturnsProvider>
+      </OrdersProvider>
     </SafeAreaProvider>
   );
 }

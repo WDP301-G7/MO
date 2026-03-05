@@ -46,7 +46,6 @@ const ADDRESSES = [
 export default function CheckoutScreenVNPay({ navigation, route }) {
   const {
     productType = "normal",
-    requireDeposit = false,
     requiresStore = false,
     appointmentDate = null,
     appointmentTime = null,
@@ -60,7 +59,6 @@ export default function CheckoutScreenVNPay({ navigation, route }) {
 
   const [selectedAddress, setSelectedAddress] = useState(ADDRESSES[0]);
   const [selectedPayment, setSelectedPayment] = useState("vnpay");
-  const [paymentOption, setPaymentOption] = useState("full");
   const [note, setNote] = useState("");
   const [addressModalVisible, setAddressModalVisible] = useState(false);
 
@@ -83,8 +81,7 @@ export default function CheckoutScreenVNPay({ navigation, route }) {
   const shipping = 30000;
   const discount = 100000;
   const fullAmount = subtotal + shipping - discount;
-  const depositAmount = Math.round(fullAmount * 0.5);
-  const total = paymentOption === "deposit" ? depositAmount : fullAmount;
+  const total = fullAmount;
 
   /**
    * Handle Place Order
@@ -117,7 +114,6 @@ export default function CheckoutScreenVNPay({ navigation, route }) {
           orderId: orderIdToUse,
           totalAmount: total,
           paidAmount: total,
-          paymentOption,
           orderType: requiresStore ? "store_pickup" : "normal",
           storeName: requiresStore ? storeName : null,
         });
@@ -197,7 +193,6 @@ export default function CheckoutScreenVNPay({ navigation, route }) {
             paymentMethod: deeplinkParams.searchParams.get("paymentMethod"),
             totalAmount: total,
             paidAmount: total,
-            paymentOption,
           });
         } else {
           // Payment failed

@@ -115,9 +115,7 @@ export default function OrderSuccessScreen({ navigation, route }) {
           </TouchableOpacity>
           <TouchableOpacity
             className="bg-white border-2 border-primary rounded-xl py-4 items-center"
-            onPress={() =>
-              navigation.navigate("MainApp", { screen: "OrdersTab" })
-            }
+            onPress={() => navigation.navigate("Orders")}
           >
             <Text className="text-primary font-bold text-base">
               Xem đơn hàng của tôi
@@ -125,9 +123,12 @@ export default function OrderSuccessScreen({ navigation, route }) {
           </TouchableOpacity>
           <TouchableOpacity
             className="bg-white border-2 border-border rounded-xl py-4 items-center"
-            onPress={() =>
-              navigation.navigate("MainApp", { screen: "HomeTab" })
-            }
+            onPress={() => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Home" }],
+              });
+            }}
           >
             <Text className="text-textGray font-bold text-base">
               Tiếp tục mua sắm

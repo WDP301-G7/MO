@@ -43,7 +43,6 @@ const ADDRESSES = [
 export default function CheckoutScreenPaymentExample({ navigation, route }) {
   const {
     productType = "normal",
-    requireDeposit = false,
     requiresStore = false,
     appointmentDate = null,
     appointmentTime = null,
@@ -53,7 +52,6 @@ export default function CheckoutScreenPaymentExample({ navigation, route }) {
 
   const [selectedAddress, setSelectedAddress] = useState(ADDRESSES[0]);
   const [selectedPayment, setSelectedPayment] = useState("cod");
-  const [paymentOption, setPaymentOption] = useState("full");
   const [note, setNote] = useState("");
   const [addressModalVisible, setAddressModalVisible] = useState(false);
 
@@ -72,8 +70,7 @@ export default function CheckoutScreenPaymentExample({ navigation, route }) {
   const shipping = 30000;
   const discount = 100000;
   const fullAmount = subtotal + shipping - discount;
-  const depositAmount = Math.round(fullAmount * 0.5);
-  const total = paymentOption === "deposit" ? depositAmount : fullAmount;
+  const total = fullAmount;
 
   /**
    * Handle Payment Process
@@ -286,79 +283,6 @@ export default function CheckoutScreenPaymentExample({ navigation, route }) {
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* Payment Option (Full/Deposit) - nếu require deposit */}
-        {requireDeposit && (
-          <View className="bg-white p-5 mt-4">
-            <View className="flex-row items-center gap-2 mb-4">
-              <Ionicons name="cash" size={20} color="#2E86AB" />
-              <Text className="text-base font-bold text-text">
-                Hình thức thanh toán
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              className={`flex-row items-center p-4 rounded-xl mb-3 border-2 ${
-                paymentOption === "full"
-                  ? "border-primary bg-blue-50"
-                  : "border-border"
-              }`}
-              onPress={() => setPaymentOption("full")}
-            >
-              <View
-                className={`w-6 h-6 rounded-full border-2 ${
-                  paymentOption === "full"
-                    ? "border-primary bg-primary"
-                    : "border-border"
-                }`}
-              >
-                {paymentOption === "full" && (
-                  <View className="flex-1 items-center justify-center">
-                    <Ionicons name="checkmark" size={16} color="white" />
-                  </View>
-                )}
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="font-semibold text-text">
-                  Thanh toán toàn bộ
-                </Text>
-                <Text className="text-sm text-textGray">
-                  {fullAmount.toLocaleString()}đ
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center p-4 rounded-xl border-2 ${
-                paymentOption === "deposit"
-                  ? "border-primary bg-blue-50"
-                  : "border-border"
-              }`}
-              onPress={() => setPaymentOption("deposit")}
-            >
-              <View
-                className={`w-6 h-6 rounded-full border-2 ${
-                  paymentOption === "deposit"
-                    ? "border-primary bg-primary"
-                    : "border-border"
-                }`}
-              >
-                {paymentOption === "deposit" && (
-                  <View className="flex-1 items-center justify-center">
-                    <Ionicons name="checkmark" size={16} color="white" />
-                  </View>
-                )}
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="font-semibold text-text">Đặt cọc 50%</Text>
-                <Text className="text-sm text-textGray">
-                  {depositAmount.toLocaleString()}đ (còn{" "}
-                  {remainingAmount.toLocaleString()}đ khi nhận hàng)
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Order Note */}
         <View className="bg-white p-5 mt-4">

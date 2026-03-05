@@ -261,8 +261,8 @@ export default function ProfileScreen({ navigation }) {
     },
     {
       id: 7,
-      title: "Lịch sử đổi trả",
-      subtitle: "Xem lịch sử yêu cầu đổi trả",
+      title: "Lịch sử đổi trả và bảo hành",
+      subtitle: "Xem lịch sử yêu cầu đổi trả và bảo hành",
       icon: "time-outline",
       screen: "ReturnHistory",
       color: "#10B981",

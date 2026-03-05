@@ -22,12 +22,14 @@ import {
 } from "../../services/orderService";
 import { getOrderPrescription } from "../../services/prescriptionService";
 import { createVNPayPayment } from "../../services/paymentService";
+import { getMyReturns } from "../../services/returnService";
 
 export default function OrderDetailScreen({ navigation, route }) {
   const { orderId } = route.params;
   const [order, setOrder] = useState(null);
   const [prescription, setPrescription] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [existingReturns, setExistingReturns] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
@@ -111,6 +113,21 @@ export default function OrderDetailScreen({ navigation, route }) {
         }
 
         setOrder(orderData);
+
+        // Check if there are existing return requests for this order
+        try {
+          const returnsResult = await getMyReturns(1, 100); // Fetch up to 100 returns
+          if (returnsResult.success && returnsResult.data) {
+            // Filter returns for this specific order
+            const orderReturns = returnsResult.data.filter(
+              (ret) => ret.orderId === orderId,
+            );
+            setExistingReturns(orderReturns);
+          }
+        } catch (error) {
+          console.error("Error loading returns:", error);
+          // Don't block order display if returns fetch fails
+        }
       } else {
         Alert.alert(
           "Lỗi",
@@ -138,6 +155,8 @@ export default function OrderDetailScreen({ navigation, route }) {
         navigation.navigate("VNPayPayment", {
           paymentUrl: result.data.paymentUrl,
           orderId: orderId,
+          totalAmount: parseFloat(order.totalAmount),
+          orderType: order.orderType,
         });
       } else {
         Alert.alert("Lỗi", result.message || "Không thể tạo thanh toán");
@@ -180,6 +199,84 @@ export default function OrderDetailScreen({ navigation, route }) {
     } finally {
       setCancelling(false);
     }
+  };
+
+  // Check if order is eligible for return/exchange/warranty
+  const canReturnExchange = () => {
+    if (!order) return { canReturn: false, reason: "" };
+
+    // Normalize status for comparison (trim and uppercase)
+    const normalizedStatus = (order.status || "").trim().toUpperCase();
+
+    // Only COMPLETED orders can be returned/exchanged
+    if (normalizedStatus !== "COMPLETED") {
+      return {
+        canReturn: false,
+        reason: `Chỉ đơn hàng đã hoàn thành mới có thể đổi/trả/bảo hành`,
+      };
+    }
+
+    // Check if order has prescription
+    const isPrescriptionOrder =
+      order.orderType === "PRESCRIPTION" || prescription;
+
+    // Check if there's already an active return request for this order
+    const activeReturn = existingReturns.find(
+      (ret) =>
+        ret.status === "PENDING" ||
+        ret.status === "APPROVED" ||
+        ret.status === "PROCESSING",
+    );
+
+    if (activeReturn) {
+      return {
+        canReturn: false,
+        reason: "Đơn hàng đã có yêu cầu đổi/trả đang xử lý",
+        existingReturnId: activeReturn.id,
+      };
+    }
+
+    // Calculate days since order completed
+    const completedDate = new Date(order.updatedAt || order.createdAt);
+    const now = new Date();
+    const daysDiff = Math.floor((now - completedDate) / (1000 * 60 * 60 * 24));
+
+    // Return/Exchange deadline: 7 days (not for prescription)
+    // Warranty deadline: 15 days (for all orders)
+    const returnDeadline = 7;
+    const warrantyDeadline = 15;
+
+    if (daysDiff > warrantyDeadline) {
+      return {
+        canReturn: false,
+        reason: "Đơn hàng đã quá hạn bảo hành (15 ngày)",
+      };
+    }
+
+    // Prescription orders: Only WARRANTY allowed
+    if (isPrescriptionOrder) {
+      return {
+        canReturn: true,
+        reason: "",
+        message:
+          "Sản phẩm theo toa không được phép đổi/trả, chỉ có thể yêu cầu bảo hành",
+        warrantyOnly: true,
+        isPrescription: true,
+      };
+    }
+
+    // Non-prescription orders
+    if (daysDiff > returnDeadline) {
+      return {
+        canReturn: true,
+        reason: "",
+        message:
+          "Đơn hàng đã quá hạn trả hàng/đổi hàng (7 ngày), chỉ có thể yêu cầu bảo hành",
+        warrantyOnly: true,
+      };
+    }
+
+    return { canReturn: true, reason: "", daysLeft: returnDeadline - daysDiff };
   };
 
   // Format date helper
@@ -422,33 +519,6 @@ export default function OrderDetailScreen({ navigation, route }) {
                   )}
                 </View>
               )}
-
-              {/* Deposit Info */}
-              {order.paymentType === "deposit" && order.depositAmount && (
-                <View className="mt-3 pt-3 border-t border-purple-200">
-                  <Text className="text-xs text-textGray mb-2">
-                    Thông tin thanh toán:
-                  </Text>
-                  <View className="flex-row justify-between mb-1">
-                    <Text className="text-sm text-textGray">Đã cọc (30%):</Text>
-                    <Text className="text-sm font-bold text-green-600">
-                      {`${(order.depositAmount || 0).toLocaleString("vi-VN")}đ`}
-                    </Text>
-                  </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-sm text-textGray">
-                      Còn lại khi nhận:
-                    </Text>
-                    <Text className="text-sm font-bold text-primary">
-                      {(
-                        formatPrice(order.totalAmount || 0) -
-                        (order.depositAmount || 0)
-                      ).toLocaleString("vi-VN")}
-                      đ
-                    </Text>
-                  </View>
-                </View>
-              )}
             </View>
           )}
 
@@ -642,93 +712,33 @@ export default function OrderDetailScreen({ navigation, route }) {
               </Text>
             </View>
 
-            {order.paymentType === "deposit" ? (
-              <>
-                <View className="bg-purple-50 rounded-lg p-3 mb-3">
-                  <Text className="text-sm font-bold text-purple-900 mb-2">
-                    💳 Thanh toán cọc trước
-                  </Text>
-                  <View className="flex-row justify-between mb-1">
-                    <Text className="text-xs text-purple-700">
-                      Đã cọc (30%):
-                    </Text>
-                    <Text className="text-sm font-bold text-green-600">
-                      {`${(order.depositAmount || 0).toLocaleString("vi-VN")}đ`}
-                    </Text>
-                  </View>
-                  <View className="flex-row justify-between mb-1">
-                    <Text className="text-xs text-purple-700">Còn lại:</Text>
-                    <Text className="text-sm font-bold text-amber-600">
-                      {`${(
-                        (order.totalAmount || 0) - (order.depositAmount || 0)
-                      ).toLocaleString("vi-VN")}đ`}
-                    </Text>
-                  </View>
-                  <View className="mt-2 pt-2 border-t border-purple-200">
-                    <Text className="text-xs text-purple-600">
-                      ℹ️ Thanh toán phần còn lại khi nhận hàng
-                    </Text>
-                  </View>
-                </View>
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-sm text-textGray">
-                    Phương thức cọc:
-                  </Text>
-                  <Text className="text-sm font-semibold text-text">
-                    Chuyển khoản
-                  </Text>
-                </View>
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-sm text-textGray">Trạng thái:</Text>
-                  <Text className="text-sm font-semibold text-green-500">
-                    Đã thanh toán cọc
-                  </Text>
-                </View>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-sm text-textGray">Thời gian cọc:</Text>
-                  <Text className="text-sm text-text">
-                    {order.payment?.time || order.createdAt}
-                  </Text>
-                </View>
-              </>
-            ) : (
-              <>
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-sm text-textGray">Phương thức:</Text>
-                  <Text className="text-sm font-semibold text-text">
-                    {order.payments?.[0]?.method || "Chưa thanh toán"}
-                  </Text>
-                </View>
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-sm text-textGray">Trạng thái:</Text>
-                  <Text
-                    className={`text-sm font-semibold ${
-                      order.paymentStatus === "PAID"
-                        ? "text-green-500"
-                        : order.paymentStatus === "DEPOSITED"
-                          ? "text-amber-500"
-                          : "text-red-500"
-                    }`}
-                  >
-                    {order.paymentStatus === "PAID"
-                      ? "Đã thanh toán"
-                      : order.paymentStatus === "DEPOSITED"
-                        ? "Đã đặt cọc"
-                        : "Chưa thanh toán"}
-                  </Text>
-                </View>
-                {order.paymentStatus === "PAID" &&
-                  order.payments?.[0]?.paidAt && (
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm text-textGray">Thời gian:</Text>
-                      <Text className="text-sm text-text">
-                        {new Date(order.payments[0].paidAt).toLocaleString(
-                          "vi-VN",
-                        )}
-                      </Text>
-                    </View>
-                  )}
-              </>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm text-textGray">Phương thức:</Text>
+              <Text className="text-sm font-semibold text-text">
+                {order.payments?.[0]?.method || "Chưa thanh toán"}
+              </Text>
+            </View>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm text-textGray">Trạng thái:</Text>
+              <Text
+                className={`text-sm font-semibold ${
+                  order.paymentStatus === "PAID"
+                    ? "text-green-500"
+                    : "text-red-500"
+                }`}
+              >
+                {order.paymentStatus === "PAID"
+                  ? "Đã thanh toán"
+                  : "Chưa thanh toán"}
+              </Text>
+            </View>
+            {order.paymentStatus === "PAID" && order.payments?.[0]?.paidAt && (
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-textGray">Thời gian:</Text>
+                <Text className="text-sm text-text">
+                  {new Date(order.payments[0].paidAt).toLocaleString("vi-VN")}
+                </Text>
+              </View>
             )}
           </View>
 
@@ -741,6 +751,31 @@ export default function OrderDetailScreen({ navigation, route }) {
               </Text>
             </View>
           </View>
+
+          {/* Return/Exchange Deadline Notice */}
+          {order.status === "COMPLETED" &&
+            canReturnExchange().canReturn &&
+            canReturnExchange().daysLeft !== undefined && (
+              <View className="mx-5 mb-4 bg-blue-50 rounded-xl p-4 flex-row items-start">
+                <Ionicons name="time-outline" size={20} color="#2196F3" />
+                <View className="flex-1 ml-3">
+                  <Text className="text-sm font-semibold text-blue-700 mb-1">
+                    Thời hạn đổi/trả hàng
+                  </Text>
+                  <Text className="text-xs text-blue-600">
+                    Còn {canReturnExchange().daysLeft} ngày để yêu cầu đổi/trả
+                    hàng hoặc{" "}
+                    {15 -
+                      Math.floor(
+                        (new Date() -
+                          new Date(order.updatedAt || order.createdAt)) /
+                          (1000 * 60 * 60 * 24),
+                      )}{" "}
+                    ngày để yêu cầu bảo hành
+                  </Text>
+                </View>
+              </View>
+            )}
 
           {/* Action Buttons */}
           <View className="px-5 mb-8 gap-4">
@@ -784,17 +819,83 @@ export default function OrderDetailScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
 
-            {(order.status === "Hoàn thành" || order.status === "Đã giao") && (
+            {/* Return/Exchange Button */}
+            {canReturnExchange().canReturn && (
               <TouchableOpacity
-                className="bg-primary rounded-xl py-4 items-center shadow-sm"
-                onPress={() =>
-                  navigation.navigate("ReturnRequest", { order: order })
-                }
+                className="bg-green-600 rounded-xl py-4 items-center flex-row justify-center shadow-sm"
+                onPress={() => {
+                  const eligibility = canReturnExchange();
+                  if (eligibility.message) {
+                    Alert.alert("Thông báo", eligibility.message, [
+                      { text: "Hủy", style: "cancel" },
+                      {
+                        text: "Tiếp tục",
+                        onPress: () =>
+                          navigation.navigate("ReturnRequest", {
+                            orderId: order.id,
+                            warrantyOnly: eligibility.warrantyOnly || false,
+                            isPrescription: eligibility.isPrescription || false,
+                          }),
+                      },
+                    ]);
+                  } else {
+                    navigation.navigate("ReturnRequest", {
+                      orderId: order.id,
+                      warrantyOnly: eligibility.warrantyOnly || false,
+                      isPrescription: eligibility.isPrescription || false,
+                    });
+                  }
+                }}
               >
-                <Text className="text-white font-bold text-base">
-                  Yêu cầu trả hàng
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={20}
+                  color="#FFFFFF"
+                />
+                <Text className="text-white font-bold text-base ml-2">
+                  {canReturnExchange().warrantyOnly
+                    ? "Bảo hành"
+                    : "Đổi/Trả/Bảo hành"}
                 </Text>
               </TouchableOpacity>
+            )}
+
+            {/* Show reason why cannot return - always show if cannot return */}
+            {!canReturnExchange().canReturn && canReturnExchange().reason && (
+              <View className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <View className="flex-row items-start">
+                  <Ionicons name="alert-circle" size={20} color="#F59E0B" />
+                  <View className="flex-1 ml-2">
+                    <Text className="text-amber-800 text-sm font-semibold mb-1">
+                      Không thể đổi/trả/bảo hành
+                    </Text>
+                    <Text className="text-amber-700 text-xs">
+                      {canReturnExchange().reason}
+                    </Text>
+
+                    {/* Show link to existing return if available */}
+                    {canReturnExchange().existingReturnId && (
+                      <TouchableOpacity
+                        className="mt-3 flex-row items-center"
+                        onPress={() =>
+                          navigation.navigate("ReturnDetail", {
+                            returnId: canReturnExchange().existingReturnId,
+                          })
+                        }
+                      >
+                        <Text className="text-blue-600 text-xs font-semibold">
+                          Xem chi tiết yêu cầu đổi/trả
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color="#2563EB"
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </View>
             )}
             <View className="flex-row gap-3">
               <TouchableOpacity

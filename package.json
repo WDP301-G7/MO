@@ -19,6 +19,7 @@
     "expo": "~54.0.31",
     "expo-auth-session": "^7.0.10",
     "expo-crypto": "^15.0.8",
+    "expo-image-manipulator": "^55.0.9",
     "expo-image-picker": "~17.0.10",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "^15.0.10",

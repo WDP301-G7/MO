@@ -17,7 +17,6 @@ import { getProfile } from "../../services/authService";
 export default function CheckoutScreen({ navigation, route }) {
   const {
     productType = "normal",
-    requireDeposit = false,
     requiresStore = false,
     appointmentDate = null,
     appointmentTime = null,
@@ -32,7 +31,6 @@ export default function CheckoutScreen({ navigation, route }) {
   const [cartItems, setCartItems] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState("cod");
-  const [paymentOption, setPaymentOption] = useState("full");
   const [note, setNote] = useState("");
   const [addressModalVisible, setAddressModalVisible] = useState(false);
 
@@ -95,12 +93,7 @@ export default function CheckoutScreen({ navigation, route }) {
   const discount = 0;
   const fullAmount = subtotal + shipping - discount;
 
-  // Deposit is 30% for preorder/prescription
-  const depositAmount = requireDeposit ? Math.round(fullAmount * 0.3) : 0;
-  const remainingAmount = requireDeposit ? fullAmount - depositAmount : 0;
-
-  const total =
-    requireDeposit && paymentOption === "deposit" ? depositAmount : fullAmount;
+  const total = fullAmount;
 
   const handlePlaceOrder = async () => {
     // Validation
@@ -346,100 +339,6 @@ export default function CheckoutScreen({ navigation, route }) {
           ))}
         </View>
 
-        {/* Payment Option - Deposit or Full */}
-        {!requireDeposit && (
-          <View className="bg-white p-5 mt-2">
-            <View className="flex-row items-center gap-2 mb-4">
-              <Ionicons name="cash" size={20} color="#2E86AB" />
-              <Text className="text-base font-bold text-text">
-                Hình thức thanh toán
-              </Text>
-            </View>
-
-            {/* Full Payment Option */}
-            <TouchableOpacity
-              className={`bg-background rounded-xl p-4 mb-3 border-2 ${
-                paymentOption === "full"
-                  ? "border-primary"
-                  : "border-transparent"
-              }`}
-              onPress={() => setPaymentOption("full")}
-            >
-              <View className="flex-row justify-between items-center">
-                <View className="flex-1">
-                  <Text className="text-base font-bold text-text mb-1">
-                    Thanh toán đủ
-                  </Text>
-                  <Text className="text-sm text-textGray">
-                    {`Thanh toán toàn bộ ${fullAmount.toLocaleString()}đ`}
-                  </Text>
-                </View>
-                <View
-                  className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                    paymentOption === "full"
-                      ? "border-primary"
-                      : "border-border"
-                  }`}
-                >
-                  {paymentOption === "full" && (
-                    <View className="w-3 h-3 rounded-full bg-primary" />
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* Deposit Option */}
-            <TouchableOpacity
-              className={`bg-background rounded-xl p-4 border-2 ${
-                paymentOption === "deposit"
-                  ? "border-primary"
-                  : "border-transparent"
-              }`}
-              onPress={() => setPaymentOption("deposit")}
-            >
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-1">
-                  <Text className="text-base font-bold text-text mb-1">
-                    Đặt cọc trước
-                  </Text>
-                  <Text className="text-sm text-textGray mb-2">
-                    {`Cọc 50% - ${depositAmount.toLocaleString()}đ`}
-                  </Text>
-                  <View className="bg-blue-50 rounded-lg p-3">
-                    <Text className="text-xs text-primary font-semibold">
-                      {`💡 Thanh toán ${remainingAmount.toLocaleString()}đ còn lại khi nhận hàng`}
-                    </Text>
-                  </View>
-                </View>
-                <View
-                  className={`w-6 h-6 rounded-full border-2 items-center justify-center ml-3 ${
-                    paymentOption === "deposit"
-                      ? "border-primary"
-                      : "border-border"
-                  }`}
-                >
-                  {paymentOption === "deposit" && (
-                    <View className="w-3 h-3 rounded-full bg-primary" />
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {requireDeposit && (
-          <View className="bg-white p-5 mt-2">
-            <View className="bg-blue-50 rounded-xl p-4 border-l-4 border-primary">
-              <View className="flex-row items-start">
-                <Ionicons name="information-circle" size={20} color="#2E86AB" />
-                <Text className="text-sm text-primary font-semibold ml-2 flex-1">
-                  Sản phẩm này yêu cầu thanh toán đủ trước khi giao hàng
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         {/* Note */}
         <View className="bg-white p-5 mt-2">
           <View className="flex-row items-center gap-2 mb-4">
@@ -485,41 +384,12 @@ export default function CheckoutScreen({ navigation, route }) {
           </View>
           <View className="h-px bg-border my-3" />
 
-          {paymentOption === "deposit" && !requireDeposit && (
-            <>
-              <View className="flex-row justify-between items-center mb-2">
-                <Text className="text-sm text-textGray">Tổng đơn hàng</Text>
-                <Text className="text-sm font-semibold text-text">
-                  {`${fullAmount.toLocaleString("vi-VN")}đ`}
-                </Text>
-              </View>
-              <View className="flex-row justify-between items-center mb-2">
-                <Text className="text-sm text-primary font-semibold">
-                  Cần thanh toán ngay (50%)
-                </Text>
-                <Text className="text-base font-bold text-primary">
-                  {`${depositAmount.toLocaleString("vi-VN")}đ`}
-                </Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <Text className="text-xs text-textGray">
-                  Còn lại khi nhận hàng
-                </Text>
-                <Text className="text-xs text-textGray">
-                  {`${remainingAmount.toLocaleString("vi-VN")}đ`}
-                </Text>
-              </View>
-            </>
-          )}
-
-          {(paymentOption === "full" || requireDeposit) && (
-            <View className="flex-row justify-between items-center">
-              <Text className="text-base font-bold text-text">Tổng cộng</Text>
-              <Text className="text-xl font-bold text-primary">
-                {`${fullAmount.toLocaleString("vi-VN")}đ`}
-              </Text>
-            </View>
-          )}
+          <View className="flex-row justify-between items-center">
+            <Text className="text-base font-bold text-text">Tổng cộng</Text>
+            <Text className="text-xl font-bold text-primary">
+              {`${fullAmount.toLocaleString("vi-VN")}đ`}
+            </Text>
+          </View>
         </View>
 
         <View className="h-25" />

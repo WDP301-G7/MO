@@ -26,9 +26,7 @@ export default function VNPayPaymentScreen({ navigation, route }) {
     amount,
     orderData,
     totalAmount,
-    depositAmount,
     paymentAmount,
-    requireDeposit,
     orderType,
     paymentUrl, // Direct payment URL from OrderDetailScreen
   } = route.params || {};
@@ -151,10 +149,13 @@ export default function VNPayPaymentScreen({ navigation, route }) {
         const result = await handleVNPayReturn(params);
 
         if (result.success) {
+          const amountPaid = paymentAmount || amount || totalAmount;
           // Navigate to success screen
           navigation.replace("OrderSuccessVNPay", {
             orderId: createdOrderId || orderId,
-            amount: paymentAmount || amount || totalAmount,
+            amount: amountPaid,
+            paidAmount: amountPaid,
+            totalAmount: totalAmount || amountPaid,
             transactionId:
               result.data?.transactionId || params.vnp_TransactionNo,
             paymentMethod: "VNPAY",

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,74 +6,244 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { getOrderById } from "../../services/orderService";
+import { useReturns } from "../../contexts/ReturnsContext";
+import ReturnTypeSelector from "../../components/returns/ReturnTypeSelector";
+import ProductConditionSelector from "../../components/returns/ProductConditionSelector";
+import ImageUploader from "../../components/returns/ImageUploader";
+import { RETURN_REASONS } from "../../services/returnService";
 
 export default function ReturnRequestScreen({ navigation, route }) {
-  const [selectedReason, setSelectedReason] = useState(null);
-  const [selectedRefundMethod, setSelectedRefundMethod] = useState("original");
+  const {
+    orderId,
+    warrantyOnly = false,
+    isPrescription = false,
+  } = route.params || {};
+  const { createReturn } = useReturns();
+
+  // State
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [order, setOrder] = useState(null);
+  const [returnType, setReturnType] = useState(
+    warrantyOnly ? "WARRANTY" : "RETURN",
+  );
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedImages, setSelectedImages] = useState([]);
+  const [images, setImages] = useState([]);
 
-  const order = {
-    id: "ORD-2024-001",
-    product: {
-      name: "Gọng kính Rayban RB5154",
-      image:
-        "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=200&h=200&fit=crop",
-      variant: "Đen - Size M",
-      price: 3500000,
-      quantity: 1,
-    },
-    orderDate: "15/01/2024",
-    deliveryDate: "20/01/2024",
-  };
-
-  const returnReasons = [
-    { id: 1, title: "Sản phẩm bị lỗi/hư hỏng", icon: "alert-circle-outline" },
-    { id: 2, title: "Giao sai sản phẩm", icon: "swap-horizontal-outline" },
-    { id: 3, title: "Không vừa/không đúng mô tả", icon: "resize-outline" },
-    { id: 4, title: "Đổi ý, không muốn mua nữa", icon: "close-circle-outline" },
-    { id: 5, title: "Nhận được sản phẩm giả", icon: "warning-outline" },
-    { id: 6, title: "Lý do khác", icon: "ellipsis-horizontal-outline" },
-  ];
-
-  const refundMethods = [
-    {
-      id: "original",
-      title: "Hoàn về phương thức thanh toán gốc",
-      subtitle: "2-5 ngày làm việc",
-      icon: "card-outline",
-    },
-    {
-      id: "wallet",
-      title: "Hoàn vào ví EyewearStore",
-      subtitle: "Ngay lập tức",
-      icon: "wallet-outline",
-    },
-    {
-      id: "credit",
-      title: "Nhận mã giảm giá",
-      subtitle: "Nhận thêm 10% giá trị đơn hàng",
-      icon: "pricetag-outline",
-    },
-  ];
-
-  const handleSubmit = () => {
-    if (!selectedReason) {
-      alert("Vui lòng chọn lý do trả hàng");
-      return;
+  // Fetch order detail
+  useEffect(() => {
+    if (orderId) {
+      fetchOrderDetail();
     }
-    alert("Yêu cầu trả hàng đã được gửi! Chúng tôi sẽ xử lý trong 24h.");
-    navigation.goBack();
+  }, [orderId]);
+
+  const fetchOrderDetail = async () => {
+    try {
+      setLoading(true);
+      const result = await getOrderById(orderId);
+      if (result.success) {
+        setOrder(result.data);
+      } else {
+        Alert.alert("Lỗi", result.message);
+        navigation.goBack();
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể tải thông tin đơn hàng");
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePickImage = () => {
-    // Simulate image picking
-    const newImage = `https://images.unsplash.com/photo-${Date.now()}?w=200&h=200&fit=crop`;
-    setSelectedImages([...selectedImages, newImage]);
+  // Toggle item selection
+  const toggleItemSelection = (orderItem) => {
+    const existingIndex = selectedItems.findIndex(
+      (item) => item.orderItemId === orderItem.id,
+    );
+
+    if (existingIndex >= 0) {
+      // Remove item
+      setSelectedItems(
+        selectedItems.filter((_, index) => index !== existingIndex),
+      );
+    } else {
+      // Add item with default values
+      setSelectedItems([
+        ...selectedItems,
+        {
+          orderItemId: orderItem.id,
+          productId: orderItem.productId,
+          quantity: orderItem.quantity,
+          condition: "GOOD",
+          exchangeProductId: null,
+          orderItem: orderItem, // Keep reference for display
+        },
+      ]);
+    }
   };
+
+  // Update item condition
+  const updateItemCondition = (orderItemId, condition) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.orderItemId === orderItemId ? { ...item, condition } : item,
+      ),
+    );
+  };
+
+  // Update item quantity
+  const updateItemQuantity = (orderItemId, quantity) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.orderItemId === orderItemId ? { ...item, quantity } : item,
+      ),
+    );
+  };
+
+  // Filter applicable reasons based on return type
+  const getApplicableReasons = () => {
+    return RETURN_REASONS.filter((r) => r.applicable.includes(returnType));
+  };
+
+  // Validate form
+  const validateForm = () => {
+    if (selectedItems.length === 0) {
+      Alert.alert("Lỗi", "Vui lòng chọn ít nhất 1 sản phẩm để đổi/trả");
+      return false;
+    }
+
+    if (!reason.trim()) {
+      Alert.alert("Lỗi", "Vui lòng chọn lý do đổi/trả");
+      return false;
+    }
+
+    if (reason.trim().length < 10) {
+      Alert.alert("Lỗi", "Lý do phải có ít nhất 10 ký tự");
+      return false;
+    }
+
+    return true;
+  };
+
+  // Submit form
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    Alert.alert(
+      "Xác nhận",
+      `Bạn có chắc muốn tạo yêu cầu ${
+        returnType === "RETURN"
+          ? "trả hàng"
+          : returnType === "EXCHANGE"
+            ? "đổi hàng"
+            : "bảo hành"
+      }?`,
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Xác nhận",
+          onPress: async () => {
+            try {
+              setSubmitting(true);
+
+              // Prepare items (remove orderItem reference and null values)
+              const items = selectedItems.map((item) => {
+                const itemData = {
+                  orderItemId: item.orderItemId,
+                  productId: item.productId,
+                  quantity: item.quantity,
+                  condition: item.condition,
+                };
+
+                // Only include exchangeProductId for EXCHANGE type and if it has value
+                if (returnType === "EXCHANGE" && item.exchangeProductId) {
+                  itemData.exchangeProductId = item.exchangeProductId;
+                }
+
+                return itemData;
+              });
+
+              const params = {
+                orderId,
+                type: returnType,
+                reason: reason.trim(),
+                description: description.trim() || undefined,
+                items,
+                images,
+              };
+
+              const result = await createReturn(params);
+
+              if (result.success) {
+                Alert.alert(
+                  "Thành công",
+                  result.message || "Tạo yêu cầu đổi/trả thành công",
+                  [
+                    {
+                      text: "OK",
+                      onPress: () => {
+                        navigation.navigate("ReturnHistory");
+                      },
+                    },
+                  ],
+                );
+              } else {
+                Alert.alert("Lỗi", result.message);
+              }
+            } catch (error) {
+              Alert.alert("Lỗi", error.message || "Không thể tạo yêu cầu");
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const formatCurrency = (amount) => {
+    if (!amount) return "0 ₫";
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(amount);
+  };
+
+  if (loading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" color="#F18F01" />
+        <Text className="text-sm text-textGray mt-4">
+          Đang tải thông tin đơn hàng...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!order) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center px-8">
+        <Ionicons name="alert-circle-outline" size={80} color="#CCCCCC" />
+        <Text className="text-lg font-bold text-text mt-4 text-center">
+          Không tìm thấy đơn hàng
+        </Text>
+        <TouchableOpacity
+          className="bg-primary rounded-xl px-6 py-3 mt-6"
+          onPress={() => navigation.goBack()}
+        >
+          <Text className="text-white font-bold">Quay lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -88,7 +258,14 @@ export default function ReturnRequestScreen({ navigation, route }) {
           >
             <Ionicons name="arrow-back" size={24} color="#333333" />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-text">Yêu cầu trả hàng</Text>
+          <Text className="text-xl font-bold text-text">
+            Yêu cầu{" "}
+            {returnType === "RETURN"
+              ? "trả hàng"
+              : returnType === "EXCHANGE"
+                ? "đổi hàng"
+                : "bảo hành"}
+          </Text>
         </View>
       </View>
 
@@ -98,81 +275,197 @@ export default function ReturnRequestScreen({ navigation, route }) {
           <Text className="text-sm font-bold text-text mb-3">
             Thông tin đơn hàng
           </Text>
-          <View className="flex-row">
-            <Image
-              source={{ uri: order.product.image }}
-              className="w-20 h-20 rounded-lg"
-            />
-            <View className="flex-1 ml-3">
-              <Text className="text-sm font-bold text-text mb-1">
-                {order.product.name}
-              </Text>
-              <Text className="text-xs text-textGray mb-1">
-                {order.product.variant}
-              </Text>
-              <Text className="text-sm font-bold text-primary">
-                {`${order.product.price.toLocaleString()}đ`}
-              </Text>
-            </View>
-          </View>
-          <View className="border-t border-border mt-3 pt-3">
+          <View className="bg-background rounded-lg p-3">
             <View className="flex-row justify-between mb-1">
               <Text className="text-xs text-textGray">Mã đơn hàng:</Text>
               <Text className="text-xs font-semibold text-text">
                 {order.id}
               </Text>
             </View>
+            <View className="flex-row justify-between mb-1">
+              <Text className="text-xs text-textGray">Trạng thái:</Text>
+              <Text className="text-xs font-semibold text-green-600">
+                {order.status}
+              </Text>
+            </View>
             <View className="flex-row justify-between">
-              <Text className="text-xs text-textGray">Ngày giao hàng:</Text>
-              <Text className="text-xs font-semibold text-text">
-                {order.deliveryDate}
+              <Text className="text-xs text-textGray">Tổng tiền:</Text>
+              <Text className="text-xs font-semibold text-primary">
+                {formatCurrency(order.totalAmount)}
               </Text>
             </View>
           </View>
         </View>
 
+        {/* Return Type Selection */}
+        <View className="bg-white px-5 py-4 mb-2">
+          <Text className="text-sm font-bold text-text mb-1">
+            Loại yêu cầu <Text className="text-red-500">*</Text>
+          </Text>
+          {warrantyOnly ? (
+            <View className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <View className="flex-row items-start">
+                <Ionicons name="information-circle" size={20} color="#F59E0B" />
+                <View className="flex-1 ml-2">
+                  <Text className="text-amber-800 text-sm font-semibold mb-1">
+                    Chỉ có thể yêu cầu bảo hành
+                  </Text>
+                  <Text className="text-amber-700 text-xs">
+                    {isPrescription
+                      ? "Sản phẩm theo toa không được phép đổi/trả, chỉ có thể yêu cầu bảo hành."
+                      : "Đơn hàng đã quá hạn đổi/trả (7 ngày), chỉ có thể yêu cầu bảo hành."}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <ReturnTypeSelector value={returnType} onChange={setReturnType} />
+          )}
+        </View>
+
+        {/* Product Selection */}
+        <View className="bg-white px-5 py-4 mb-2">
+          <Text className="text-sm font-bold text-text mb-3">
+            Chọn sản phẩm <Text className="text-red-500">*</Text>
+          </Text>
+          {order.orderItems?.map((orderItem) => {
+            const isSelected = selectedItems.some(
+              (item) => item.orderItemId === orderItem.id,
+            );
+            const selectedItem = selectedItems.find(
+              (item) => item.orderItemId === orderItem.id,
+            );
+
+            return (
+              <View
+                key={orderItem.id}
+                className={`mb-3 border-2 rounded-xl overflow-hidden ${
+                  isSelected ? "border-primary" : "border-border"
+                }`}
+              >
+                <TouchableOpacity
+                  className="flex-row p-3"
+                  onPress={() => toggleItemSelection(orderItem)}
+                >
+                  <Image
+                    source={{
+                      uri:
+                        orderItem.product?.images?.[0]?.imageUrl ||
+                        "https://via.placeholder.com/60",
+                    }}
+                    className="w-16 h-16 rounded-lg bg-background"
+                    resizeMode="cover"
+                  />
+                  <View className="flex-1 ml-3">
+                    <Text
+                      className="text-sm font-bold text-text"
+                      numberOfLines={2}
+                    >
+                      {orderItem.product?.name || "Sản phẩm"}
+                    </Text>
+                    <Text className="text-xs text-textGray mt-1">
+                      Số lượng: {orderItem.quantity}
+                    </Text>
+                    <Text className="text-sm font-bold text-primary mt-1">
+                      {formatCurrency(orderItem.unitPrice)}
+                    </Text>
+                  </View>
+                  <View
+                    className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+                      isSelected ? "border-primary bg-primary" : "border-border"
+                    }`}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                {/* Product Condition (when selected) */}
+                {isSelected && (
+                  <View className="px-3 pb-3 border-t border-border pt-3">
+                    <Text className="text-xs font-semibold text-text mb-2">
+                      Tình trạng sản phẩm:
+                    </Text>
+                    <ProductConditionSelector
+                      value={selectedItem?.condition || "GOOD"}
+                      onChange={(condition) =>
+                        updateItemCondition(orderItem.id, condition)
+                      }
+                    />
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          {order.orderItems?.length === 0 && (
+            <Text className="text-center text-textGray py-4">
+              Không có sản phẩm trong đơn hàng
+            </Text>
+          )}
+        </View>
+
         {/* Return Reasons */}
         <View className="bg-white px-5 py-4 mb-2">
           <Text className="text-sm font-bold text-text mb-3">
-            Lý do trả hàng <Text className="text-red-500">*</Text>
+            Lý do{" "}
+            {returnType === "RETURN"
+              ? "trả hàng"
+              : returnType === "EXCHANGE"
+                ? "đổi hàng"
+                : "bảo hành"}{" "}
+            <Text className="text-red-500">*</Text>
           </Text>
-          {returnReasons.map((reason) => (
+          {getApplicableReasons().map((reasonOption) => (
             <TouchableOpacity
-              key={reason.id}
+              key={reasonOption.id}
               className={`flex-row items-center p-3 mb-2 rounded-xl border-2 ${
-                selectedReason === reason.id
+                reason === reasonOption.value
                   ? "border-primary bg-primary/5"
                   : "border-border bg-background"
               }`}
-              onPress={() => setSelectedReason(reason.id)}
+              onPress={() => setReason(reasonOption.value)}
             >
               <Ionicons
-                name={reason.icon}
+                name={reasonOption.icon}
                 size={24}
-                color={selectedReason === reason.id ? "#2E86AB" : "#999999"}
+                color={reason === reasonOption.value ? "#F18F01" : "#999999"}
               />
               <Text
                 className={`flex-1 text-sm ml-3 ${
-                  selectedReason === reason.id
+                  reason === reasonOption.value
                     ? "text-primary font-semibold"
                     : "text-text"
                 }`}
               >
-                {reason.title}
+                {reasonOption.value}
               </Text>
               <View
                 className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
-                  selectedReason === reason.id
+                  reason === reasonOption.value
                     ? "border-primary bg-primary"
                     : "border-border"
                 }`}
               >
-                {selectedReason === reason.id && (
+                {reason === reasonOption.value && (
                   <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                 )}
               </View>
             </TouchableOpacity>
           ))}
+
+          {/* Custom reason input */}
+          {reason === "Lý do khác" && (
+            <TextInput
+              className="bg-background rounded-xl p-3 text-sm text-text mt-2"
+              placeholder="Nhập lý do cụ thể (ít nhất 10 ký tự)..."
+              value={description}
+              onChangeText={setReason}
+              multiline
+              numberOfLines={2}
+            />
+          )}
         </View>
 
         {/* Description */}
@@ -182,107 +475,24 @@ export default function ReturnRequestScreen({ navigation, route }) {
           </Text>
           <TextInput
             className="bg-background rounded-xl p-3 text-sm text-text min-h-24"
-            placeholder="Vui lòng mô tả chi tiết về lý do trả hàng..."
+            placeholder="Vui lòng mô tả chi tiết về lý do đổi/trả..."
             multiline
             textAlignVertical="top"
             value={description}
             onChangeText={setDescription}
+            maxLength={1000}
           />
+          <Text className="text-xs text-textGray mt-2">
+            {description.length}/1000 ký tự
+          </Text>
         </View>
 
         {/* Upload Images */}
         <View className="bg-white px-5 py-4 mb-2">
-          <Text className="text-sm font-bold text-text mb-3">
-            Hình ảnh minh chứng
+          <Text className="text-sm font-bold text-text mb-1">
+            Hình ảnh chứng minh
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {selectedImages.map((img, index) => (
-              <View key={index} className="mr-3 relative">
-                <Image source={{ uri: img }} className="w-20 h-20 rounded-lg" />
-                <TouchableOpacity
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full items-center justify-center"
-                  onPress={() =>
-                    setSelectedImages(
-                      selectedImages.filter((_, i) => i !== index),
-                    )
-                  }
-                >
-                  <Ionicons name="close" size={16} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            ))}
-            {selectedImages.length < 5 && (
-              <TouchableOpacity
-                className="w-20 h-20 border-2 border-dashed border-border rounded-lg items-center justify-center bg-background"
-                onPress={handlePickImage}
-              >
-                <Ionicons name="camera-outline" size={28} color="#999999" />
-                <Text className="text-xs text-textGray mt-1">Thêm ảnh</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-          <Text className="text-xs text-textGray mt-2">
-            Tối đa 5 ảnh, mỗi ảnh không quá 5MB
-          </Text>
-        </View>
-
-        {/* Refund Method */}
-        <View className="bg-white px-5 py-4 mb-2">
-          <Text className="text-sm font-bold text-text mb-3">
-            Phương thức hoàn tiền
-          </Text>
-          {refundMethods.map((method) => (
-            <TouchableOpacity
-              key={method.id}
-              className={`flex-row items-center p-3 mb-2 rounded-xl border-2 ${
-                selectedRefundMethod === method.id
-                  ? "border-primary bg-primary/5"
-                  : "border-border"
-              }`}
-              onPress={() => setSelectedRefundMethod(method.id)}
-            >
-              <View
-                className={`w-10 h-10 rounded-full items-center justify-center ${
-                  selectedRefundMethod === method.id
-                    ? "bg-primary"
-                    : "bg-background"
-                }`}
-              >
-                <Ionicons
-                  name={method.icon}
-                  size={20}
-                  color={
-                    selectedRefundMethod === method.id ? "#FFFFFF" : "#999999"
-                  }
-                />
-              </View>
-              <View className="flex-1 ml-3">
-                <Text
-                  className={`text-sm font-semibold ${
-                    selectedRefundMethod === method.id
-                      ? "text-primary"
-                      : "text-text"
-                  }`}
-                >
-                  {method.title}
-                </Text>
-                <Text className="text-xs text-textGray mt-0.5">
-                  {method.subtitle}
-                </Text>
-              </View>
-              <View
-                className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
-                  selectedRefundMethod === method.id
-                    ? "border-primary bg-primary"
-                    : "border-border"
-                }`}
-              >
-                {selectedRefundMethod === method.id && (
-                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
+          <ImageUploader images={images} onChange={setImages} maxImages={5} />
         </View>
 
         {/* Return Policy */}
@@ -290,14 +500,16 @@ export default function ReturnRequestScreen({ navigation, route }) {
           <View className="flex-row items-start mb-2">
             <Ionicons name="information-circle" size={20} color="#F18F01" />
             <Text className="text-sm font-bold text-text ml-2">
-              Chính sách trả hàng
+              Chính sách đổi/trả/bảo hành
             </Text>
           </View>
           <Text className="text-xs text-textGray leading-5">
-            {`• Sản phẩm còn nguyên tem, nhãn mác
-• Trong thời gian 7 ngày kể từ ngày nhận hàng
-• Không áp dụng với sản phẩm khuyến mãi
-• Phí vận chuyển hoàn trả do người mua chịu (trừ lỗi từ shop)`}
+            {returnType === "RETURN" &&
+              `• Sản phẩm còn nguyên tem, nhãn mác, chưa qua sử dụng\n• Trong thời gian 7 ngày kể từ khi đơn hàng hoàn thành\n• Không áp dụng với sản phẩm theo toa`}
+            {returnType === "EXCHANGE" &&
+              `• Sản phẩm còn nguyên tem, nhãn mác, chưa qua sử dụng\n• Trong thời gian 7 ngày kể từ khi đơn hàng hoàn thành\n• Thanh toán chênh lệch (nếu có)`}
+            {returnType === "WARRANTY" &&
+              `• Sản phẩm bị lỗi do nhà sản xuất\n• Trong thời gian 15 ngày kể từ khi đơn hàng hoàn thành\n• Thời gian xử lý: 3-5 ngày làm việc`}
           </Text>
         </View>
       </ScrollView>
@@ -305,10 +517,17 @@ export default function ReturnRequestScreen({ navigation, route }) {
       {/* Submit Button */}
       <View className="bg-white border-t border-border px-5 py-4">
         <TouchableOpacity
-          className="bg-primary rounded-xl py-4 items-center"
+          className={`rounded-xl py-4 items-center ${
+            submitting ? "bg-gray-400" : "bg-primary"
+          }`}
           onPress={handleSubmit}
+          disabled={submitting}
         >
-          <Text className="text-white font-bold text-base">Gửi yêu cầu</Text>
+          {submitting ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Text className="text-white font-bold text-base">Gửi yêu cầu</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
