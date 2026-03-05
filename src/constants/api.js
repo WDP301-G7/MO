@@ -49,4 +49,13 @@ export const API_ENDPOINTS = {
     LIST: "/stores",
     DETAIL: "/stores/:id",
   },
+  RETURNS: {
+    CREATE: "/returns",
+    MY_RETURNS: "/returns/my",
+    DETAIL: "/returns/:id",
+    DELETE: "/returns/:id",
+    UPLOAD_IMAGES: "/returns/:id/images",
+    DELETE_IMAGE: "/returns/:id/images/:imageId",
+    STATS: "/returns/stats",
+  },
 };

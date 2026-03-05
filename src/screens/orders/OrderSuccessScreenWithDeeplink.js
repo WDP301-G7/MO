@@ -195,7 +195,7 @@ export default function OrderSuccessScreenWithDeeplink({ navigation, route }) {
           <View className="flex-row items-center justify-between">
             <Text className="text-sm text-textGray">Tổng tiền:</Text>
             <Text className="text-xl font-bold text-primary">
-              {`${(amount || totalAmount).toLocaleString()}đ`}
+              {`${(amount || paidAmount || totalAmount).toLocaleString()}đ`}
             </Text>
           </View>
 
@@ -216,14 +216,21 @@ export default function OrderSuccessScreenWithDeeplink({ navigation, route }) {
         <View className="w-full gap-3">
           <TouchableOpacity
             className="w-full bg-primary py-4 rounded-xl items-center"
-            onPress={() => navigation.navigate("Orders")}
+            onPress={() =>
+              navigation.navigate("OrderDetail", { orderId: orderId })
+            }
           >
             <Text className="text-white font-bold text-base">Xem đơn hàng</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             className="w-full bg-background border-2 border-primary py-4 rounded-xl items-center"
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Home" }],
+              });
+            }}
           >
             <Text className="text-primary font-bold text-base">
               Quay về trang chủ

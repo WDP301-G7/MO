@@ -24,7 +24,6 @@ export default function LensOrderScreen({ navigation, route }) {
     selectedFrame?.id || null,
   );
   const [requireAppointment, setRequireAppointment] = useState(false);
-  const [paymentOption, setPaymentOption] = useState("full"); // "full" or "deposit"
 
   // API data states
   const [lensProducts, setLensProducts] = useState([]);
@@ -155,11 +154,8 @@ export default function LensOrderScreen({ navigation, route }) {
         }
       }
 
-      // Nếu có sản phẩm preorder thì bắt buộc thanh toán full
+      // Check if any product is preorder and require appointment
       const hasPreorder = lens?.isPreorder || frame?.isPreorder;
-      if (hasPreorder) {
-        setPaymentOption("full");
-      }
       setRequireAppointment(hasPreorder);
 
       setStep(2);
@@ -173,9 +169,6 @@ export default function LensOrderScreen({ navigation, route }) {
       }
 
       const totalAmount = getTotalAmount();
-      const depositAmount = Math.round(totalAmount * 0.5);
-      const paymentAmount =
-        paymentOption === "deposit" ? depositAmount : totalAmount;
 
       // Determine order type based on whether any product is preorder
       const hasPreorder = selectedLens?.isPreorder || selectedFrame?.isPreorder;
@@ -202,9 +195,7 @@ export default function LensOrderScreen({ navigation, route }) {
           note: "Đơn hàng tròng + gọng kính (không cần đơn thuốc)",
         },
         totalAmount: totalAmount,
-        depositAmount: paymentOption === "deposit" ? depositAmount : null,
-        paymentAmount: paymentAmount,
-        requireDeposit: paymentOption === "deposit",
+        paymentAmount: totalAmount,
         orderType: "lens_with_frame", // For UI tracking only
       });
     }
@@ -391,7 +382,6 @@ export default function LensOrderScreen({ navigation, route }) {
     const selectedFrame = frameProducts.find((f) => f.id === selectedFrameId);
     const hasPreorder = selectedLens?.isPreorder || selectedFrame?.isPreorder;
     const totalAmount = getTotalAmount();
-    const depositAmount = Math.round(totalAmount * 0.5);
 
     return (
       <View>
@@ -440,23 +430,7 @@ export default function LensOrderScreen({ navigation, route }) {
             Phương thức thanh toán
           </Text>
 
-          {hasPreorder && (
-            <View className="bg-yellow-50 rounded-xl p-3 mb-3 flex-row items-center">
-              <Ionicons name="information-circle" size={20} color="#F18F01" />
-              <Text className="flex-1 text-xs text-yellow-800 ml-2">
-                Sản phẩm đặt trước yêu cầu thanh toán toàn bộ
-              </Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            className={`border-2 rounded-xl p-4 mb-3 ${
-              paymentOption === "full"
-                ? "border-primary bg-primary/5"
-                : "border-border"
-            }`}
-            onPress={() => setPaymentOption("full")}
-          >
+          <View className="border-2 rounded-xl p-4 mb-3 border-primary bg-primary/5">
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 <Text className="text-base font-bold text-text mb-1">
@@ -466,52 +440,11 @@ export default function LensOrderScreen({ navigation, route }) {
                   {`${totalAmount.toLocaleString("vi-VN")}đ`}
                 </Text>
               </View>
-              <View
-                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                  paymentOption === "full"
-                    ? "border-primary bg-primary"
-                    : "border-border"
-                }`}
-              >
-                {paymentOption === "full" && (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                )}
+              <View className="w-6 h-6 rounded-full border-2 items-center justify-center border-primary bg-primary">
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               </View>
             </View>
-          </TouchableOpacity>
-
-          {!hasPreorder && (
-            <TouchableOpacity
-              className={`border-2 rounded-xl p-4 ${
-                paymentOption === "deposit"
-                  ? "border-primary bg-primary/5"
-                  : "border-border"
-              }`}
-              onPress={() => setPaymentOption("deposit")}
-            >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1">
-                  <Text className="text-base font-bold text-text mb-1">
-                    Thanh toán cọc (50%)
-                  </Text>
-                  <Text className="text-sm text-textGray">
-                    {`${depositAmount.toLocaleString("vi-VN")}đ - Còn lại khi nhận hàng`}
-                  </Text>
-                </View>
-                <View
-                  className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                    paymentOption === "deposit"
-                      ? "border-primary bg-primary"
-                      : "border-border"
-                  }`}
-                >
-                  {paymentOption === "deposit" && (
-                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
+          </View>
         </View>
 
         {/* Important Note */}

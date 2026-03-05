@@ -111,7 +111,9 @@ export default function ProductDetailScreen({ navigation, route }) {
           label: "Tình trạng",
           value: product.isPreorder
             ? `Đặt trước (${product.leadTimeDays || 7} ngày)`
-            : availableQuantity > 0 ? "Sẵn hàng" : "Hết hàng",
+            : availableQuantity > 0
+              ? "Sẵn hàng"
+              : "Hết hàng",
         },
       ]
     : [];
@@ -158,7 +160,6 @@ export default function ProductDetailScreen({ navigation, route }) {
 
     navigation.navigate("Checkout", {
       productType: isLens ? "lens_only" : "normal",
-      requireDeposit: product.isPreorder || false,
       requiresStore: isLens, // Tròng kính phải lắp tại cửa hàng
       fromProduct: true,
       product: {

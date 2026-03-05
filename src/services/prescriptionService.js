@@ -152,9 +152,14 @@ export const getMyPrescriptionRequests = async () => {
       );
     }
 
+    // Handle different response formats
+    // Backend might return: { data: { data: [...], pagination: {...} } } or { data: [...] }
+    const requestsData =
+      result.data?.data || result.data || result.requests || result;
+
     return {
       success: true,
-      data: result.data,
+      data: Array.isArray(requestsData) ? requestsData : [],
     };
   } catch (error) {
     return {
@@ -288,6 +293,12 @@ export const PRESCRIPTION_STATUS = {
     color: "#00BCD4",
     description: "Bạn có lịch hẹn tại cửa hàng",
     icon: "calendar-outline",
+  },
+  COMPLETED: {
+    label: "Hoàn thành",
+    color: "#4CAF50",
+    description: "Đơn hàng đã hoàn thành thành công",
+    icon: "checkmark-done-circle-outline",
   },
   EXPIRED: {
     label: "Đã hết hạn",

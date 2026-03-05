@@ -55,7 +55,6 @@ export default function CartScreen({ navigation }) {
       // Chỉ có tròng → CheckoutScreen nhưng phải đến cửa hàng lắp
       navigation.navigate("Checkout", {
         productType: "lens_only",
-        requireDeposit: false,
         requiresStore: true, // Tròng kính phải lắp tại cửa hàng
         cartItems: cartItems,
         subtotal: subtotal,
@@ -67,7 +66,6 @@ export default function CartScreen({ navigation }) {
       // Chỉ có gọng hoặc sản phẩm thông thường → CheckoutScreen giao hàng
       navigation.navigate("Checkout", {
         productType: "normal",
-        requireDeposit: false,
         requiresStore: false,
         cartItems: cartItems,
         subtotal: subtotal,
