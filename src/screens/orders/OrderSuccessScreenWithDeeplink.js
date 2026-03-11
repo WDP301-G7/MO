@@ -52,17 +52,8 @@ export default function OrderSuccessScreenWithDeeplink({ navigation, route }) {
       setIsVerifying(true);
       setErrorMessage(null);
 
-      console.log(
-        "Verifying payment for order:",
-        orderId,
-        "transaction:",
-        transactionId,
-      );
-
       // Gọi backend để verify payment status
       const response = await verifyPaymentStatus(orderId, transactionId);
-
-      console.log("Payment verification response:", response);
 
       if (response.success) {
         setPaymentVerified(true);
@@ -72,7 +63,6 @@ export default function OrderSuccessScreenWithDeeplink({ navigation, route }) {
         setPaymentVerified(false);
       }
     } catch (error) {
-      console.error("Payment verification error:", error);
       setErrorMessage("Lỗi kết nối: " + error.message);
       setPaymentVerified(false);
     } finally {

@@ -11,23 +11,39 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   getProductById,
   getProductImages,
   formatPrice,
 } from "../../services/productService";
 import { getProductAvailableQuantity } from "../../services/inventoryService";
+import {
+  getProductReviews,
+  getEligibleReviews,
+} from "../../services/reviewService";
+import { getCurrentUser } from "../../services/authService";
 
 const { width } = Dimensions.get("window");
 
 export default function ProductDetailScreen({ navigation, route }) {
   const productId = route.params?.productId || route.params?.id;
+  const orderItemId = route.params?.orderItemId;
+  const orderId = route.params?.orderId;
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [images, setImages] = useState([]);
   const [availableQuantity, setAvailableQuantity] = useState(0);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [hasMoreReviews, setHasMoreReviews] = useState(true);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [averageRating, setAverageRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [eligibleOrderItem, setEligibleOrderItem] = useState(null);
   // TODO: Remove these when variants/favorites APIs are available
   // const [selectedColor, setSelectedColor] = useState("");
   // const [selectedSize, setSelectedSize] = useState("");
@@ -37,7 +53,40 @@ export default function ProductDetailScreen({ navigation, route }) {
     if (productId) {
       loadProductDetails();
     }
+    loadCurrentUser();
   }, [productId]);
+
+  const loadCurrentUser = async () => {
+    try {
+      const user = await getCurrentUser();
+      if (user?.id) {
+        setCurrentUserId(user.id);
+      }
+    } catch (error) {
+      // Silent error
+    }
+  };
+
+  // Reload reviews and eligible status when screen is focused (e.g., after writing a review)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (productId) {
+        loadReviews(1);
+        loadEligibleOrderItem();
+      }
+    }, [productId]),
+  );
+
+  const loadEligibleOrderItem = async () => {
+    try {
+      const response = await getEligibleReviews();
+      const items = response?.data || [];
+      const match = items.find((item) => item.productId === productId);
+      setEligibleOrderItem(match || null);
+    } catch (error) {
+      // Silent error
+    }
+  };
 
   const loadProductDetails = async () => {
     try {
@@ -81,13 +130,85 @@ export default function ProductDetailScreen({ navigation, route }) {
         setImages([fallbackImage]);
       }
 
-      setAvailableQuantity(quantityResult.success ? quantityResult.data : 0);
+      setAvailableQuantity(
+        quantityResult.success && quantityResult.data?.totalAvailable
+          ? quantityResult.data.totalAvailable
+          : 0,
+      );
     } catch (error) {
-      console.error("Error loading product details:", error);
       Alert.alert("Lỗi", "Không thể tải thông tin sản phẩm");
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadReviews = async (page = 1) => {
+    try {
+      setReviewsLoading(true);
+      const response = await getProductReviews(productId, page, 5);
+
+      // API returns: {statusCode, message, data: {data: [...], meta: {...}}, error}
+      let reviewsData = [];
+      let meta = {};
+      let avgRating = 0;
+      let total = 0;
+
+      if (response?.data?.data && Array.isArray(response.data.data)) {
+        // Nested structure - standard API response
+        reviewsData = response.data.data;
+        meta = response.data.meta || {};
+        total = meta.total || 0;
+
+        // Calculate average rating from reviews data if not provided by backend
+        if (reviewsData.length > 0) {
+          const sumRatings = reviewsData.reduce(
+            (sum, review) => sum + (review.rating || 0),
+            0,
+          );
+          avgRating = parseFloat((sumRatings / reviewsData.length).toFixed(1));
+        }
+      } else if (response?.data && Array.isArray(response.data)) {
+        // Direct array structure
+        reviewsData = response.data;
+        meta = response.meta || {};
+        total = meta.total || reviewsData.length;
+
+        // Calculate average rating
+        if (reviewsData.length > 0) {
+          const sumRatings = reviewsData.reduce(
+            (sum, review) => sum + (review.rating || 0),
+            0,
+          );
+          avgRating = parseFloat((sumRatings / reviewsData.length).toFixed(1));
+        }
+      }
+
+      if (page === 1) {
+        setReviews(reviewsData);
+      } else {
+        setReviews((prev) => [...prev, ...reviewsData]);
+      }
+
+      setAverageRating(avgRating);
+      setTotalReviews(total);
+      setHasMoreReviews(meta.page < meta.totalPages);
+      setReviewsPage(page);
+    } catch (error) {
+      // Don't show alert, just log the error
+      if (page === 1) {
+        setReviews([]);
+        setAverageRating(0);
+        setTotalReviews(0);
+      }
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN");
   };
   // TODO: Colors and sizes should come from backend product variants
   // Temporarily hidden until backend API is available
@@ -106,7 +227,6 @@ export default function ProductDetailScreen({ navigation, route }) {
                 : "Dịch vụ",
         },
         { label: "Thương hiệu", value: product.brand || "Chưa cập nhật" },
-        { label: "Tồn kho", value: `${availableQuantity} sản phẩm` },
         {
           label: "Tình trạng",
           value: product.isPreorder
@@ -118,33 +238,24 @@ export default function ProductDetailScreen({ navigation, route }) {
       ]
     : [];
 
-  const handleAddToCart = () => {
-    if (!product) return;
+  // Derived: check if the current user already has a review for this product
+  const userHasReviewed =
+    currentUserId && reviews.some((r) => r.customerId === currentUserId);
 
-    // Check if out of stock
-    if (availableQuantity === 0) {
-      Alert.alert("Thông báo", "Sản phẩm hiện đã hết hàng");
-      return;
-    }
-
-    // Nếu là tròng kính, chuyển đến màn hình đặt tròng + gọng
-    if (product.type === "LENS") {
-      navigation.navigate("LensOrder", {
-        selectedLensFromProduct: {
-          id: product.id,
-          name: product.name,
-          price: formatPrice(product.price),
-          image:
-            images[0] ||
-            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400",
-        },
-      });
-      return;
-    }
-
-    Alert.alert("Thành công", "Đã thêm vào giỏ hàng");
-    navigation.navigate("Cart");
-  };
+  // Cart functionality removed - user goes directly to checkout
+  // const handleAddToCart = () => {
+  //   if (!product) return;
+  //   if (availableQuantity === 0) {
+  //     Alert.alert("Thông báo", "Sản phẩm hiện đã hết hàng");
+  //     return;
+  //   }
+  //   if (product.type === "LENS") {
+  //     navigation.navigate("LensOrder", {...});
+  //     return;
+  //   }
+  //   Alert.alert("Thành công", "Đã thêm vào giỏ hàng");
+  //   navigation.navigate("Cart");
+  // };
 
   const handleBuyNow = () => {
     if (!product) return;
@@ -223,6 +334,33 @@ export default function ProductDetailScreen({ navigation, route }) {
             style={{ width: width, height: width }}
             resizeMode="cover"
           />
+
+          {/* Image Thumbnails */}
+          {images.length > 1 && (
+            <View className="px-5 py-3">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2">
+                  {images.map((image, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setSelectedImage(index)}
+                      className={`border-2 rounded-lg overflow-hidden ${
+                        selectedImage === index
+                          ? "border-primary"
+                          : "border-border"
+                      }`}
+                    >
+                      <Image
+                        source={{ uri: image }}
+                        className="w-16 h-16"
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
           {/* TODO: Favorite button - need favorites API */}
         </View>
 
@@ -255,7 +393,31 @@ export default function ProductDetailScreen({ navigation, route }) {
             {product.name}
           </Text>
 
-          {/* TODO: Rating section - need reviews API */}
+          {/* Rating Summary */}
+          {totalReviews > 0 && (
+            <View className="flex-row items-center mb-3">
+              <View className="flex-row items-center mr-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons
+                    key={star}
+                    name={
+                      star <= Math.round(averageRating)
+                        ? "star"
+                        : "star-outline"
+                    }
+                    size={18}
+                    color="#FFD700"
+                  />
+                ))}
+              </View>
+              <Text className="text-sm font-semibold text-text mr-1">
+                {averageRating.toFixed(1)}
+              </Text>
+              <Text className="text-sm text-textGray">
+                ({totalReviews} đánh giá)
+              </Text>
+            </View>
+          )}
 
           {/* Price */}
           <View className="flex-row items-center mb-5">
@@ -306,27 +468,6 @@ export default function ProductDetailScreen({ navigation, route }) {
           </View>
 
           {/* Virtual Try-On */}
-          <TouchableOpacity
-            className="bg-gradient-to-r from-primary to-secondary rounded-2xl p-4 mb-5 flex-row items-center shadow-md"
-            style={{ backgroundColor: "#2E86AB" }}
-            onPress={() =>
-              navigation.navigate("VirtualTryOn", { productId: product.id })
-            }
-          >
-            <View className="w-14 h-14 rounded-full bg-white/20 items-center justify-center mr-4">
-              <Ionicons name="glasses-outline" size={28} color="#FFFFFF" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-lg font-bold text-white mb-1">
-                Thử kính ảo AR
-              </Text>
-              <Text className="text-sm text-white/80">
-                Xem kính vừa với khuôn mặt của bạn
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
           {/* Specifications */}
           <View className="mb-5">
             <Text className="text-lg font-bold text-text mb-3">
@@ -345,23 +486,242 @@ export default function ProductDetailScreen({ navigation, route }) {
             ))}
           </View>
 
-          {/* TODO: Reviews Section - need reviews API */}
+          {/* Reviews Section */}
+          {reviewsLoading && totalReviews === 0 && (
+            <View className="mb-5 py-6 items-center">
+              <ActivityIndicator size="small" color="#2E86AB" />
+              <Text className="text-sm text-textGray mt-2">
+                Đang tải đánh giá...
+              </Text>
+            </View>
+          )}
+
+          {!reviewsLoading && totalReviews > 0 && (
+            <View className="mb-5">
+              <View className="flex-row items-center justify-between mb-4">
+                <View>
+                  <Text className="text-lg font-bold text-text mb-1">
+                    Đánh giá sản phẩm
+                  </Text>
+                  <View className="flex-row items-center">
+                    <View className="flex-row items-center mr-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Ionicons
+                          key={star}
+                          name={
+                            star <= Math.round(averageRating)
+                              ? "star"
+                              : "star-outline"
+                          }
+                          size={16}
+                          color="#FFD700"
+                        />
+                      ))}
+                    </View>
+                    <Text className="text-sm text-textGray">
+                      {averageRating.toFixed(1)} ({totalReviews} đánh giá)
+                    </Text>
+                  </View>
+                </View>
+                {eligibleOrderItem && !userHasReviewed && (
+                  <TouchableOpacity
+                    className="bg-primary rounded-lg px-3 py-2 flex-row items-center"
+                    onPress={() =>
+                      navigation.navigate("WriteReview", {
+                        orderItem: {
+                          id: eligibleOrderItem.orderItemId,
+                          productId: productId,
+                          product: product,
+                        },
+                        isEdit: false,
+                      })
+                    }
+                  >
+                    <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+                    <Text className="text-white font-semibold text-xs ml-1">
+                      Viết đánh giá
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Reviews List */}
+              {reviews.map((review, index) => {
+                return (
+                  <View
+                    key={review.id}
+                    className="bg-background rounded-xl p-4 mb-3"
+                  >
+                    <View className="flex-row items-start mb-2">
+                      <View className="w-10 h-10 rounded-full bg-primary items-center justify-center mr-3">
+                        <Text className="text-white font-bold">
+                          {review.customer?.fullName?.charAt(0).toUpperCase() ||
+                            "U"}
+                        </Text>
+                      </View>
+                      <View className="flex-1">
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-sm font-semibold text-text">
+                            {review.customer?.fullName || "Khách hàng"}
+                          </Text>
+                          {currentUserId === review.customerId &&
+                            new Date(review.editableUntil) > new Date() && (
+                              <TouchableOpacity
+                                className="bg-background rounded-lg px-2 py-1 flex-row items-center"
+                                onPress={() =>
+                                  navigation.navigate("WriteReview", {
+                                    orderItem: {
+                                      id: review.orderItemId,
+                                      productId: review.productId,
+                                      product: review.product,
+                                    },
+                                    isEdit: true,
+                                    existingReview: review,
+                                  })
+                                }
+                              >
+                                <Ionicons
+                                  name="create-outline"
+                                  size={14}
+                                  color="#F18F01"
+                                />
+                                <Text className="text-primary font-semibold text-xs ml-1">
+                                  Sửa
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                        </View>
+                        <View className="flex-row items-center mt-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Ionicons
+                              key={star}
+                              name={
+                                star <= review.rating ? "star" : "star-outline"
+                              }
+                              size={14}
+                              color="#FFD700"
+                            />
+                          ))}
+                          <Text className="text-xs text-textGray ml-2">
+                            {formatDate(review.createdAt)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {review.comment && (
+                      <Text className="text-sm text-text leading-5 mb-2">
+                        {review.comment}
+                      </Text>
+                    )}
+
+                    {review.images && review.images.length > 0 && (
+                      <View className="flex-row gap-2">
+                        {review.images.slice(0, 3).map((img, idx) => {
+                          const uri =
+                            typeof img === "string" ? img : img?.imageUrl;
+                          if (!uri) return null;
+                          return (
+                            <Image
+                              key={idx}
+                              source={{ uri }}
+                              className="w-16 h-16 rounded-lg"
+                              resizeMode="cover"
+                            />
+                          );
+                        })}
+                        {review.images.length > 3 && (
+                          <View className="w-16 h-16 rounded-lg bg-gray-200 items-center justify-center">
+                            <Text className="text-xs text-textGray font-semibold">
+                              +{review.images.length - 3}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {review.replyContent && (
+                      <View className="mt-3 p-3 bg-blue-50 rounded-lg border-l-4 border-primary">
+                        <View className="flex-row items-center mb-1">
+                          <Ionicons
+                            name="storefront"
+                            size={14}
+                            color="#2E86AB"
+                          />
+                          <Text className="text-xs font-bold text-primary ml-1">
+                            Phản hồi từ cửa hàng
+                          </Text>
+                        </View>
+                        <Text className="text-sm text-text">
+                          {review.replyContent}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+
+              {/* Load More Button */}
+              {hasMoreReviews && (
+                <TouchableOpacity
+                  className="bg-white rounded-xl py-3 items-center border border-border"
+                  onPress={() => loadReviews(reviewsPage + 1)}
+                  disabled={reviewsLoading}
+                >
+                  {reviewsLoading ? (
+                    <ActivityIndicator size="small" color="#2E86AB" />
+                  ) : (
+                    <Text className="text-primary font-semibold">
+                      Xem thêm đánh giá
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {!reviewsLoading && totalReviews === 0 && (
+            <View className="mb-5">
+              <Text className="text-lg font-bold text-text mb-4">
+                Đánh giá sản phẩm
+              </Text>
+              <View className="bg-background rounded-xl p-6 items-center">
+                <Ionicons name="chatbox-outline" size={48} color="#CCCCCC" />
+                <Text className="text-sm text-textGray mt-2 mb-4">
+                  Chưa có đánh giá nào cho sản phẩm này
+                </Text>
+                {eligibleOrderItem && !userHasReviewed && (
+                  <TouchableOpacity
+                    className="bg-primary rounded-lg px-4 py-2.5 flex-row items-center"
+                    onPress={() =>
+                      navigation.navigate("WriteReview", {
+                        orderItem: {
+                          id: eligibleOrderItem.orderItemId,
+                          productId: productId,
+                          product: product,
+                        },
+                        isEdit: false,
+                      })
+                    }
+                  >
+                    <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+                    <Text className="text-white font-semibold text-sm ml-2">
+                      Viết đánh giá đầu tiên
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
         </View>
 
         <View className="h-32" />
       </ScrollView>
 
-      {/* Bottom Bar */}
-      <View className="absolute bottom-0 left-0 right-0 flex-row bg-white p-4 gap-3 shadow-lg">
+      {/* Bottom Bar - Buy Now Only */}
+      <View className="absolute bottom-0 left-0 right-0 bg-white p-4 shadow-lg">
         <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center bg-background rounded-xl py-3.5 border-2 border-primary gap-2"
-          onPress={handleAddToCart}
-        >
-          <Ionicons name="cart-outline" size={24} color="#2E86AB" />
-          <Text className="text-base font-bold text-primary">Thêm vào giỏ</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="flex-1 bg-primary rounded-xl py-4 items-center justify-center"
+          className="bg-primary rounded-xl py-4 items-center justify-center"
           onPress={handleBuyNow}
         >
           <Text className="text-base font-bold text-white">Mua ngay</Text>

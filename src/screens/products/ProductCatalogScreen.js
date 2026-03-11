@@ -59,7 +59,7 @@ export default function ProductCatalogScreen({ navigation, route }) {
         setPagination(result.pagination);
       }
     } catch (error) {
-      console.error("Error loading products:", error);
+      // Silent error
     } finally {
       setLoading(false);
       setLoadingMore(false);

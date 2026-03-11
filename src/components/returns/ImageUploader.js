@@ -35,7 +35,6 @@ export default function ImageUploader({
       });
       return manipResult;
     } catch (error) {
-      console.error("Image conversion error:", error);
       throw error;
     }
   };
@@ -86,7 +85,6 @@ export default function ImageUploader({
         onChange([...images, ...convertedImages]);
       }
     } catch (error) {
-      console.error("Pick image error:", error);
       Alert.alert("Lỗi", "Không thể xử lý ảnh. Vui lòng thử lại.");
     } finally {
       setProcessing(false);
@@ -135,7 +133,6 @@ export default function ImageUploader({
         onChange([...images, newImage]);
       }
     } catch (error) {
-      console.error("Take photo error:", error);
       Alert.alert("Lỗi", "Không thể xử lý ảnh. Vui lòng thử lại.");
     } finally {
       setProcessing(false);

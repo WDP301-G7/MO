@@ -170,7 +170,6 @@ export const parseDeepLink = (url) => {
 
     return { screenName, params };
   } catch (error) {
-    console.error("Error parsing deeplink:", error);
     return null;
   }
 };

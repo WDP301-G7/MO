@@ -26,7 +26,6 @@ export const createVNPayPayment = async (orderId) => {
       message: response.data.message || "Tạo thanh toán thành công",
     };
   } catch (error) {
-    console.error("Create VNPay payment error:", error.response?.data || error);
     return {
       success: false,
       message:
@@ -55,7 +54,6 @@ export const getPaymentDetails = async (paymentId) => {
       message: response.data.message,
     };
   } catch (error) {
-    console.error("Get payment details error:", error);
     return {
       success: false,
       message:
@@ -87,7 +85,6 @@ export const getPaymentByOrderId = async (orderId) => {
       message: response.data.message,
     };
   } catch (error) {
-    console.error("Get payment by order error:", error);
     return {
       success: false,
       message:
@@ -118,7 +115,6 @@ export const handleVNPayReturn = async (returnParams) => {
       message: response.data.message || "Thanh toán thành công",
     };
   } catch (error) {
-    console.error("VNPay return error:", error);
     return {
       success: false,
       message:

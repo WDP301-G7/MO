@@ -2,6 +2,17 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL, API_ENDPOINTS } from "../constants/api";
 
+// Import forceLogout to handle token expiration
+let forceLogout;
+// Lazy load to avoid circular dependency
+const getForceLogout = async () => {
+  if (!forceLogout) {
+    const authService = await import("./authService");
+    forceLogout = authService.forceLogout;
+  }
+  return forceLogout;
+};
+
 // Create axios instance
 const api = axios.create({
   baseURL: API_URL,
@@ -84,6 +95,11 @@ api.interceptors.response.use(
         await AsyncStorage.removeItem("userToken");
         await AsyncStorage.removeItem("refreshToken");
         await AsyncStorage.removeItem("userData");
+
+        // Trigger force logout
+        const logout = await getForceLogout();
+        await logout();
+
         return Promise.reject(error);
       }
 
@@ -107,10 +123,15 @@ api.interceptors.response.use(
         api.defaults.headers.Authorization = `Bearer ${newToken}`;
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
 
-        processQueue(null, newToken);
+        // Refresh failed, clear tokens and trigger logout
+        await AsyncStorage.removeItem("userToken");
+        await AsyncStorage.removeItem("refreshToken");
+        await AsyncStorage.removeItem("userData");
 
-        return api(originalRequest);
-      } catch (refreshError) {
+        // Trigger force logout to navigate to login screen
+        const logout = await getForceLogout();
+        await logout();
+
         processQueue(refreshError, null);
         // Refresh failed, clear tokens
         await AsyncStorage.removeItem("userToken");

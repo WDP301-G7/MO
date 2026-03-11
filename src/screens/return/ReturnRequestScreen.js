@@ -16,6 +16,7 @@ import { useReturns } from "../../contexts/ReturnsContext";
 import ReturnTypeSelector from "../../components/returns/ReturnTypeSelector";
 import ProductConditionSelector from "../../components/returns/ProductConditionSelector";
 import ImageUploader from "../../components/returns/ImageUploader";
+import ProductSelectorModal from "../../components/returns/ProductSelectorModal";
 import { RETURN_REASONS } from "../../services/returnService";
 
 export default function ReturnRequestScreen({ navigation, route }) {
@@ -37,6 +38,10 @@ export default function ReturnRequestScreen({ navigation, route }) {
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
   const [images, setImages] = useState([]);
+
+  // Product selector modal state
+  const [showProductSelector, setShowProductSelector] = useState(false);
+  const [selectingForOrderItemId, setSelectingForOrderItemId] = useState(null);
 
   // Fetch order detail
   useEffect(() => {
@@ -84,10 +89,45 @@ export default function ReturnRequestScreen({ navigation, route }) {
           quantity: orderItem.quantity,
           condition: "GOOD",
           exchangeProductId: null,
+          exchangeProduct: null, // Store selected product info
           orderItem: orderItem, // Keep reference for display
         },
       ]);
     }
+  };
+
+  // Update exchange product for an item
+  const updateExchangeProduct = (orderItemId, product) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.orderItemId === orderItemId
+          ? {
+              ...item,
+              exchangeProductId: product?.id || null,
+              exchangeProduct: product || null,
+            }
+          : item,
+      ),
+    );
+  };
+
+  // Open product selector for specific item
+  const openProductSelector = (orderItemId) => {
+    setSelectingForOrderItemId(orderItemId);
+    setShowProductSelector(true);
+  };
+
+  // Handle product selection from modal
+  const handleProductSelected = (product) => {
+    if (selectingForOrderItemId) {
+      updateExchangeProduct(selectingForOrderItemId, product);
+      setSelectingForOrderItemId(null);
+    }
+  };
+
+  // Calculate price difference for exchange
+  const calculatePriceDifference = (originalPrice, newPrice) => {
+    return newPrice - originalPrice;
   };
 
   // Update item condition
@@ -118,6 +158,20 @@ export default function ReturnRequestScreen({ navigation, route }) {
     if (selectedItems.length === 0) {
       Alert.alert("Lỗi", "Vui lòng chọn ít nhất 1 sản phẩm để đổi/trả");
       return false;
+    }
+
+    // Validate exchange products are selected for EXCHANGE type
+    if (returnType === "EXCHANGE") {
+      const missingExchangeProduct = selectedItems.find(
+        (item) => !item.exchangeProductId,
+      );
+      if (missingExchangeProduct) {
+        Alert.alert(
+          "Lỗi",
+          "Vui lòng chọn sản phẩm muốn đổi cho tất cả sản phẩm đã chọn",
+        );
+        return false;
+      }
     }
 
     if (!reason.trim()) {
@@ -185,7 +239,7 @@ export default function ReturnRequestScreen({ navigation, route }) {
               if (result.success) {
                 Alert.alert(
                   "Thành công",
-                  result.message || "Tạo yêu cầu đổi/trả thành công",
+                  result.message || "Tạo yêu cầu đổi/trả/bảo hành thành công",
                   [
                     {
                       text: "OK",
@@ -328,7 +382,7 @@ export default function ReturnRequestScreen({ navigation, route }) {
           <Text className="text-sm font-bold text-text mb-3">
             Chọn sản phẩm <Text className="text-red-500">*</Text>
           </Text>
-          {order.orderItems?.map((orderItem) => {
+          {order.orderItems?.map((orderItem, index) => {
             const isSelected = selectedItems.some(
               (item) => item.orderItemId === orderItem.id,
             );
@@ -338,7 +392,7 @@ export default function ReturnRequestScreen({ navigation, route }) {
 
             return (
               <View
-                key={orderItem.id}
+                key={`orderitem-${orderItem.id}-${index}`}
                 className={`mb-3 border-2 rounded-xl overflow-hidden ${
                   isSelected ? "border-primary" : "border-border"
                 }`}
@@ -393,6 +447,106 @@ export default function ReturnRequestScreen({ navigation, route }) {
                         updateItemCondition(orderItem.id, condition)
                       }
                     />
+
+                    {/* Exchange Product Selection (only for EXCHANGE type) */}
+                    {returnType === "EXCHANGE" && (
+                      <View className="mt-3 pt-3 border-t border-border">
+                        <Text className="text-xs font-semibold text-text mb-2">
+                          Đổi sang sản phẩm:
+                        </Text>
+                        {selectedItem?.exchangeProduct ? (
+                          <View className="bg-background rounded-lg p-3">
+                            <View className="flex-row">
+                              <Image
+                                source={{
+                                  uri:
+                                    selectedItem.exchangeProduct.images?.[0]
+                                      ?.imageUrl ||
+                                    "https://via.placeholder.com/50",
+                                }}
+                                className="w-12 h-12 rounded-lg bg-white"
+                                resizeMode="cover"
+                              />
+                              <View className="flex-1 ml-3">
+                                <Text
+                                  className="text-xs font-semibold text-text"
+                                  numberOfLines={2}
+                                >
+                                  {selectedItem.exchangeProduct.name}
+                                </Text>
+                                <Text className="text-xs font-bold text-primary mt-1">
+                                  {formatCurrency(
+                                    selectedItem.exchangeProduct.price,
+                                  )}
+                                </Text>
+                              </View>
+                              <TouchableOpacity
+                                className="p-2"
+                                onPress={() =>
+                                  updateExchangeProduct(orderItem.id, null)
+                                }
+                              >
+                                <Ionicons
+                                  name="close-circle"
+                                  size={20}
+                                  color="#999999"
+                                />
+                              </TouchableOpacity>
+                            </View>
+
+                            {/* Price Difference */}
+                            {(() => {
+                              const priceDiff = calculatePriceDifference(
+                                orderItem.unitPrice,
+                                selectedItem.exchangeProduct.price,
+                              );
+                              return priceDiff !== 0 ? (
+                                <View
+                                  className={`mt-2 p-2 rounded-lg ${
+                                    priceDiff > 0 ? "bg-red-50" : "bg-green-50"
+                                  }`}
+                                >
+                                  <Text
+                                    className={`text-xs font-semibold ${
+                                      priceDiff > 0
+                                        ? "text-red-600"
+                                        : "text-green-600"
+                                    }`}
+                                  >
+                                    {priceDiff > 0
+                                      ? `Bạn cần thanh toán thêm: ${formatCurrency(priceDiff)}`
+                                      : `Bạn sẽ được hoàn: ${formatCurrency(Math.abs(priceDiff))}`}
+                                  </Text>
+                                </View>
+                              ) : (
+                                <View className="mt-2 p-2 rounded-lg bg-blue-50">
+                                  <Text className="text-xs font-semibold text-blue-600">
+                                    Đổi ngang giá
+                                  </Text>
+                                </View>
+                              );
+                            })()}
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            className="bg-primary/10 border border-primary border-dashed rounded-xl p-3 flex-row items-center justify-center"
+                            onPress={() => openProductSelector(orderItem.id)}
+                          >
+                            <Ionicons
+                              name="add-circle-outline"
+                              size={20}
+                              color="#F18F01"
+                            />
+                            <Text className="text-primary font-semibold text-xs ml-2">
+                              Chọn sản phẩm muốn đổi
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                        <Text className="text-xs text-textGray mt-2">
+                          💡 Chọn sản phẩm cùng loại để đổi sang
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -417,9 +571,9 @@ export default function ReturnRequestScreen({ navigation, route }) {
                 : "bảo hành"}{" "}
             <Text className="text-red-500">*</Text>
           </Text>
-          {getApplicableReasons().map((reasonOption) => (
+          {getApplicableReasons().map((reasonOption, index) => (
             <TouchableOpacity
-              key={reasonOption.id}
+              key={`reason-${reasonOption.id}-${index}`}
               className={`flex-row items-center p-3 mb-2 rounded-xl border-2 ${
                 reason === reasonOption.value
                   ? "border-primary bg-primary/5"
@@ -530,6 +684,28 @@ export default function ReturnRequestScreen({ navigation, route }) {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Product Selector Modal */}
+      {selectingForOrderItemId && (
+        <ProductSelectorModal
+          visible={showProductSelector}
+          onClose={() => {
+            setShowProductSelector(false);
+            setSelectingForOrderItemId(null);
+          }}
+          onSelectProduct={handleProductSelected}
+          currentProductType={
+            selectedItems.find(
+              (item) => item.orderItemId === selectingForOrderItemId,
+            )?.orderItem?.product?.type || "FRAME"
+          }
+          currentProductId={
+            selectedItems.find(
+              (item) => item.orderItemId === selectingForOrderItemId,
+            )?.orderItem?.productId
+          }
+        />
+      )}
     </View>
   );
 }

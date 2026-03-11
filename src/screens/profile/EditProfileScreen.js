@@ -61,7 +61,6 @@ export default function EditProfileScreen({ navigation, route }) {
         Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
       }
     } catch (error) {
-      console.error("Error loading profile:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi tải thông tin");
     } finally {
       setLoading(false);
@@ -155,7 +154,6 @@ export default function EditProfileScreen({ navigation, route }) {
         Alert.alert("Lỗi", result.message || "Cập nhật thất bại");
       }
     } catch (error) {
-      console.error("Error updating profile:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi cập nhật thông tin");
     } finally {
       setSaving(false);

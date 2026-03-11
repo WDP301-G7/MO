@@ -43,7 +43,7 @@ export default function SearchScreen({ navigation }) {
       const { data } = await getProducts({ page: 1, limit: 4 });
       setTrendingProducts(data);
     } catch (error) {
-      console.error("Error loading trending products:", error);
+      // Silent error
     }
   };
 
@@ -72,7 +72,6 @@ export default function SearchScreen({ navigation }) {
       const { data } = await getProducts(params);
       setSearchResults(data);
     } catch (error) {
-      console.error("Error searching products:", error);
       setSearchResults([]);
     } finally {
       setLoading(false);

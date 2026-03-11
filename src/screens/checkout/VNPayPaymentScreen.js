@@ -77,10 +77,6 @@ export default function VNPayPaymentScreen({ navigation, route }) {
 
         if (!orderResult.success || !orderResult.data?.id) {
           const errorMsg = orderResult.message || "Không thể tạo đơn hàng";
-          console.error(
-            "Create order error - Full response:",
-            JSON.stringify(orderResult, null, 2),
-          );
 
           setError(errorMsg);
 
@@ -118,7 +114,6 @@ export default function VNPayPaymentScreen({ navigation, route }) {
         ]);
       }
     } catch (error) {
-      console.error("Init payment error:", error);
       setError(error.message);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi tạo thanh toán", [
         { text: "Quay lại", onPress: () => navigation.goBack() },
@@ -175,7 +170,6 @@ export default function VNPayPaymentScreen({ navigation, route }) {
           );
         }
       } catch (error) {
-        console.error("Handle return error:", error);
         Alert.alert(
           "Lỗi",
           "Không thể xác thực thanh toán. Vui lòng kiểm tra lại đơn hàng.",
@@ -269,7 +263,6 @@ export default function VNPayPaymentScreen({ navigation, route }) {
           )}
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
-            console.error("WebView error:", nativeEvent);
             Alert.alert("Lỗi", "Không thể tải trang thanh toán", [
               { text: "Thử lại", onPress: initPayment },
               { text: "Quay lại", onPress: () => navigation.goBack() },

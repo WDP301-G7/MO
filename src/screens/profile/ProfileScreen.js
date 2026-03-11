@@ -69,7 +69,6 @@ export default function ProfileScreen({ navigation }) {
         }
       }
     } catch (error) {
-      console.error("Error loading user data:", error);
       // Fallback to local storage
       const localUser = await getCurrentUser();
       if (localUser) {
@@ -92,9 +91,9 @@ export default function ProfileScreen({ navigation }) {
 
   const loadOrderStats = async () => {
     try {
-      const result = await getMyOrders();
+      const result = await getMyOrders(1, 100); // Load more orders to calculate accurate stats
       if (result.success) {
-        const orders = Array.isArray(result.data?.data) ? result.data.data : [];
+        const orders = Array.isArray(result.data) ? result.data : [];
 
         // Đếm số lượng đơn hàng theo từng status riêng biệt
         const stats = {
@@ -112,7 +111,7 @@ export default function ProfileScreen({ navigation }) {
         setOrderStats(stats);
       }
     } catch (error) {
-      console.error("Error loading order stats:", error);
+      // Silent error
     }
   };
 
@@ -236,14 +235,6 @@ export default function ProfileScreen({ navigation }) {
       color: "#F18F01",
     },
     {
-      id: 4,
-      title: "Yêu thích",
-      subtitle: "Sản phẩm đã lưu",
-      icon: "heart-outline",
-      screen: "Favorites",
-      color: "#EF4444",
-    },
-    {
       id: 5,
       title: "Đánh giá của tôi",
       subtitle: "Quản lý đánh giá sản phẩm",
@@ -274,14 +265,6 @@ export default function ProfileScreen({ navigation }) {
       icon: "lock-closed-outline",
       screen: "ChangePassword",
       color: "#6B7280",
-    },
-    {
-      id: 9,
-      title: "Cài đặt thông báo",
-      subtitle: "Quản lý thông báo nhận được",
-      icon: "notifications-outline",
-      screen: "NotificationSettings",
-      color: "#8B5CF6",
     },
     {
       id: 10,
@@ -378,12 +361,6 @@ export default function ProfileScreen({ navigation }) {
         <View className="bg-primary pt-12 pb-6 px-5">
           <View className="flex-row items-center justify-between mb-4">
             <Text className="text-2xl font-bold text-white">Tài khoản</Text>
-            <TouchableOpacity
-              className="w-10 h-10 rounded-full bg-white/20 items-center justify-center"
-              onPress={() => navigation.navigate("NotificationSettings")}
-            >
-              <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
           </View>
 
           {/* User Info Card */}

@@ -58,36 +58,21 @@ export const createReturnRequest = async (params) => {
     return {
       success: true,
       data: response.data.data,
-      message: response.data.message || "Tạo yêu cầu đổi/trả thành công",
+      message:
+        response.data.message || "Tạo yêu cầu đổi/trả/bảo hành thành công",
     };
   } catch (error) {
-    // Better error logging
-    console.error("createReturnRequest error details:");
-    console.error("- Status:", error.response?.status);
-    console.error("- Headers:", error.response?.headers);
-
     // Check if response is HTML (503 error from proxy/cache)
     const responseData = error.response?.data;
     if (
       typeof responseData === "string" &&
       responseData.includes("<!DOCTYPE html>")
     ) {
-      console.error("- Response: HTML error page (503 Backend Error)");
       return {
         success: false,
         message: "Server đang bảo trì hoặc quá tải. Vui lòng thử lại sau.",
         error: { type: "BACKEND_ERROR", status: error.response?.status },
       };
-    }
-
-    console.error("- Response data:", responseData);
-
-    // Log validation error details
-    if (responseData?.error?.details) {
-      console.error(
-        "- Validation details:",
-        JSON.stringify(responseData.error.details, null, 2),
-      );
     }
 
     return {
@@ -142,7 +127,6 @@ export const getMyReturns = async (
       message: response.data.message,
     };
   } catch (error) {
-    console.error("getMyReturns error:", error.response?.data || error);
     return {
       success: false,
       message: handleReturnApiError(error),
@@ -167,7 +151,6 @@ export const getReturnDetail = async (returnId) => {
       message: response.data.message,
     };
   } catch (error) {
-    console.error("getReturnDetail error:", error.response?.data || error);
     return {
       success: false,
       message: handleReturnApiError(error),
@@ -192,7 +175,6 @@ export const cancelReturnRequest = async (returnId) => {
       message: response.data.message || "Hủy yêu cầu thành công",
     };
   } catch (error) {
-    console.error("cancelReturnRequest error:", error.response?.data || error);
     return {
       success: false,
       message: handleReturnApiError(error),
@@ -244,7 +226,6 @@ export const uploadReturnImages = async (returnId, images) => {
       message: response.data.message || "Upload ảnh thành công",
     };
   } catch (error) {
-    console.error("uploadReturnImages error:", error.response?.data || error);
     return {
       success: false,
       message: handleReturnApiError(error),
@@ -273,7 +254,6 @@ export const deleteReturnImage = async (returnId, imageId) => {
       message: response.data.message || "Xóa ảnh thành công",
     };
   } catch (error) {
-    console.error("deleteReturnImage error:", error.response?.data || error);
     return {
       success: false,
       message: handleReturnApiError(error),
@@ -315,7 +295,6 @@ export const getCompletedOrders = async (page = 1, limit = 10) => {
       message: response.data.message,
     };
   } catch (error) {
-    console.error("getCompletedOrders error:", error.response?.data || error);
     return {
       success: false,
       message: handleReturnApiError(error),
@@ -347,16 +326,20 @@ export const handleReturnApiError = (error) => {
       case 400:
         // Business rule violations
         if (message?.includes("Order chưa hoàn thành")) {
-          return "Chỉ có thể đổi/trả đơn hàng đã hoàn thành";
+          return "Chỉ có thể đổi/trả/bảo hành đơn hàng đã hoàn thành";
         }
         if (message?.includes("đã quá hạn")) {
-          return "Đơn hàng đã quá hạn đổi/trả (7 ngày cho trả hàng, 15 ngày cho bảo hành)";
+          return "Đơn hàng đã quá hạn đổi/trả/bảo hành (7 ngày cho trả hàng, 15 ngày cho bảo hành)";
+        }
+        if (message?.includes("kính theo toa")) {
+          // Backend message about prescription orders
+          return message || "Không thể thực hiện yêu cầu cho đơn hàng theo toa";
         }
         if (message?.includes("không thể đổi/trả")) {
-          return "Sản phẩm này không được phép đổi/trả";
+          return message || "Sản phẩm này không được phép đổi/trả";
         }
         if (message?.includes("đã có yêu cầu")) {
-          return "Đơn hàng này đã có yêu cầu đổi/trả đang xử lý";
+          return "Đơn hàng này đã có yêu cầu đổi/trả/bảo hành đang xử lý";
         }
         return message || "Dữ liệu không hợp lệ";
 

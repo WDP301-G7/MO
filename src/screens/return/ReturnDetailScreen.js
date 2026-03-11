@@ -65,7 +65,7 @@ export default function ReturnDetailScreen({ navigation, route }) {
                 imagesMap[item.productId] = result.data.images[0].imageUrl;
               }
             } catch (error) {
-              console.error(`Failed to fetch product image:`, error);
+              // Silent error
             }
           }
         }),
@@ -138,26 +138,30 @@ export default function ReturnDetailScreen({ navigation, route }) {
 
   // Cancel return request
   const handleCancelReturn = async () => {
-    Alert.alert("Xác nhận hủy", "Bạn có chắc muốn hủy yêu cầu đổi/trả này?", [
-      { text: "Không", style: "cancel" },
-      {
-        text: "Hủy yêu cầu",
-        style: "destructive",
-        onPress: async () => {
-          const result = await cancelReturn(returnId);
-          if (result.success) {
-            Alert.alert("Thành công", result.message, [
-              {
-                text: "OK",
-                onPress: () => navigation.goBack(),
-              },
-            ]);
-          } else {
-            Alert.alert("Lỗi", result.message);
-          }
+    Alert.alert(
+      "Xác nhận hủy",
+      "Bạn có chắc muốn hủy yêu cầu đổi/trả/bảo hành này?",
+      [
+        { text: "Không", style: "cancel" },
+        {
+          text: "Hủy yêu cầu",
+          style: "destructive",
+          onPress: async () => {
+            const result = await cancelReturn(returnId);
+            if (result.success) {
+              Alert.alert("Thành công", result.message, [
+                {
+                  text: "OK",
+                  onPress: () => navigation.goBack(),
+                },
+              ]);
+            } else {
+              Alert.alert("Lỗi", result.message);
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const formatCurrency = (amount) => {
@@ -524,23 +528,20 @@ export default function ReturnDetailScreen({ navigation, route }) {
                 )}
 
               {currentReturn.type === "EXCHANGE" &&
-                currentReturn.priceDifference !== null && (
+                currentReturn.priceDifference !== null &&
+                currentReturn.priceDifference !== 0 && (
                   <>
                     {currentReturn.priceDifference > 0 ? (
                       <Text className="text-sm text-red-600 font-semibold">
                         Bạn cần thanh toán thêm:{" "}
                         {formatCurrency(currentReturn.priceDifference)}
                       </Text>
-                    ) : currentReturn.priceDifference < 0 ? (
+                    ) : (
                       <Text className="text-sm text-green-600 font-semibold">
                         Bạn sẽ được hoàn:{" "}
                         {formatCurrency(
                           Math.abs(currentReturn.priceDifference),
                         )}
-                      </Text>
-                    ) : (
-                      <Text className="text-sm text-blue-600">
-                        Không có chênh lệch giá
                       </Text>
                     )}
                     <Text

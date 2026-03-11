@@ -60,7 +60,6 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
         setPaymentVerified(false);
       }
     } catch (error) {
-      console.error("Payment verification error:", error);
       setErrorMessage("Lỗi kết nối: " + error.message);
       setPaymentVerified(false);
     } finally {

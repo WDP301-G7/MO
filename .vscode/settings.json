@@ -1,15 +1,19 @@
 {
-    "typescript.validate.enable": true,
-    "typescript.tsdk": "node_modules/typescript/lib",
+    "js/ts.validate.enabled": true,
+    "js/ts.tsdk.path": "node_modules/typescript/lib",
     "files.exclude": {
-        "**/node_modules/**": true
+        "**/node_modules": true
     },
     "search.exclude": {
         "**/node_modules": true
     },
-    "typescript.disableAutomaticTypeAcquisition": false,
-    "javascript.validate.enable": true,
-    "typescript.tsserver.maxTsServerMemory": 4096,
-    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
-    "javascript.preferences.importModuleSpecifierEnding": "minimal"
+    "js/ts.tsserver.automaticTypeAcquisition.enabled": true,
+    "js/ts.tsserver.maxMemory": 4096,
+    "js/ts.tsserver.experimental.enableProjectDiagnostics": false,
+    "js/ts.preferences.importModuleSpecifierEnding": "minimal",
+    "js/ts.tsserver.watchOptions": {
+        "excludeDirectories": [
+            "**/node_modules"
+        ]
+    }
 }

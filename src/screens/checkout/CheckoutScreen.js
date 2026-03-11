@@ -56,7 +56,7 @@ export default function CheckoutScreen({ navigation, route }) {
         }
       }
     } catch (error) {
-      console.error("Error loading user data:", error);
+      // Silent error
     }
   };
 
@@ -149,7 +149,6 @@ export default function CheckoutScreen({ navigation, route }) {
         );
       }
     } catch (error) {
-      console.error("Error creating order:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi đặt hàng. Vui lòng thử lại.");
     } finally {
       setLoading(false);

@@ -3,6 +3,35 @@ import api from "./api";
 import { API_ENDPOINTS } from "../constants/api";
 import { signInWithGoogle } from "./googleAuthService";
 
+// Simple event emitter for auth events (React Native compatible)
+class SimpleEventEmitter {
+  constructor() {
+    this.listeners = {};
+  }
+
+  on(event, callback) {
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event].push(callback);
+  }
+
+  removeListener(event, callback) {
+    if (!this.listeners[event]) return;
+    this.listeners[event] = this.listeners[event].filter(
+      (listener) => listener !== callback,
+    );
+  }
+
+  emit(event, data) {
+    if (!this.listeners[event]) return;
+    this.listeners[event].forEach((callback) => callback(data));
+  }
+}
+
+// Event emitter for auth events
+export const authEventEmitter = new SimpleEventEmitter();
+
 /**
  * Register new user
  * @param {Object} userData - User registration data
@@ -130,7 +159,6 @@ export const loginWithGoogle = async (promptAsync, request) => {
       requiresPhoneUpdate: !hasPhone, // Flag để biết cần update phone
     };
   } catch (error) {
-    console.error("Login with Google Error:", error);
     return {
       success: false,
       message:
@@ -143,9 +171,10 @@ export const loginWithGoogle = async (promptAsync, request) => {
 
 /**
  * Logout user
+ * @param {boolean} emitEvent - Whether to emit logout event (default: true)
  * @returns {Promise<Object>}
  */
-export const logout = async () => {
+export const logout = async (emitEvent = true) => {
   try {
     const token = await AsyncStorage.getItem("userToken");
 
@@ -163,6 +192,11 @@ export const logout = async () => {
     await AsyncStorage.removeItem("refreshToken");
     await AsyncStorage.removeItem("userData");
 
+    // Emit logout event to notify App component
+    if (emitEvent) {
+      authEventEmitter.emit("logout");
+    }
+
     return {
       success: true,
     };
@@ -171,6 +205,24 @@ export const logout = async () => {
       success: false,
       message: "Đăng xuất thất bại",
     };
+  }
+};
+
+/**
+ * Force logout when token expires (called from api.js)
+ * This is a silent logout without calling the logout API
+ */
+export const forceLogout = async () => {
+  try {
+    // Clear all auth data from AsyncStorage
+    await AsyncStorage.removeItem("userToken");
+    await AsyncStorage.removeItem("refreshToken");
+    await AsyncStorage.removeItem("userData");
+
+    // Emit logout event to notify App component
+    authEventEmitter.emit("logout");
+  } catch (error) {
+    // Silent error
   }
 };
 
