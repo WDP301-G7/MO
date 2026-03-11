@@ -51,7 +51,7 @@ export default function LensOrderScreen({ navigation, route }) {
         setFrameProducts(frameResult.data);
       }
     } catch (error) {
-      console.error("Error loading products:", error);
+      // Silent error
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function LensOrderScreen({ navigation, route }) {
         setUserData(result.data);
       }
     } catch (error) {
-      console.error("Error loading user data:", error);
+      // Silent error
     }
   };
 

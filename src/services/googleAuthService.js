@@ -127,7 +127,6 @@ export const signInWithGoogle = async (promptAsync, request) => {
         message: "Đăng nhập đã bị hủy",
       };
     } else if (result.type === "error") {
-      console.error("❌ Google OAuth Error:", result.error);
       return {
         success: false,
         message: "Lỗi: " + (result.error?.message || "Không xác định"),
@@ -140,7 +139,6 @@ export const signInWithGoogle = async (promptAsync, request) => {
       };
     }
   } catch (error) {
-    console.error("❌ Google Sign-In Error:", error);
     return {
       success: false,
       message: "Đăng nhập Google thất bại",

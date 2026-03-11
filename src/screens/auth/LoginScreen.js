@@ -101,7 +101,6 @@ export default function LoginScreen({ navigation }) {
         Alert.alert("Đăng nhập thất bại", result.message);
       }
     } catch (error) {
-      console.error("❌ Google Login Error:", error);
       Alert.alert("Lỗi", "Không thể mở Google Sign-In");
     } finally {
       setGoogleLoading(false);

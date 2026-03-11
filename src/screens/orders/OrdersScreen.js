@@ -25,6 +25,7 @@ export default function OrdersScreen({ navigation, route }) {
   const setOrdersCount = context?.setOrdersCount || (() => {}); // Fallback if context is undefined
   const initialFilter = route?.params?.filter || 0;
   const [selectedTab, setSelectedTab] = useState(initialFilter);
+  const [prescriptionFilter, setPrescriptionFilter] = useState("ALL"); // ALL, PRESCRIPTION, IN_STOCK
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,14 +85,12 @@ export default function OrdersScreen({ navigation, route }) {
           setOrdersCount(ordersData.length);
         }
       } else {
-        console.error("Failed to load orders:", result.message);
         if (!isLoadMore) {
           setOrders([]);
           setOrdersCount(0);
         }
       }
     } catch (error) {
-      console.error("Error loading orders:", error);
       if (!isLoadMore) {
         setOrders([]);
         setOrdersCount(0);
@@ -129,7 +128,7 @@ export default function OrdersScreen({ navigation, route }) {
     {
       id: 2,
       label: "Đã xác nhận",
-      icon: "checkmark-circle-outline",
+      icon: "checkmark-done-circle-outline",
       statuses: ["CONFIRMED"],
     },
     {
@@ -170,13 +169,32 @@ export default function OrdersScreen({ navigation, route }) {
     },
   ];
 
-  // Filter orders by selected tab
+  const prescriptionFilters = [
+    { id: "ALL", label: "Tất cả loại", icon: "apps-outline" },
+    { id: "PRESCRIPTION", label: "Theo toa", icon: "medical-outline" },
+    { id: "IN_STOCK", label: "Không toa", icon: "checkmark-circle-outline" },
+  ];
+
+  // Filter orders by selected tab and prescription filter
   const filteredOrders = Array.isArray(orders)
-    ? selectedTab === 0
-      ? orders
-      : orders.filter((order) =>
-          tabs[selectedTab].statuses.includes(order.status),
-        )
+    ? orders.filter((order) => {
+        // Filter by status
+        const tab = tabs[selectedTab];
+        let passStatusFilter = true;
+
+        if (selectedTab !== 0 && tab.statuses) {
+          passStatusFilter = tab.statuses.includes(order.status);
+        }
+
+        // Filter by prescription type
+        let passPrescriptionFilter = true;
+        if (prescriptionFilter !== "ALL") {
+          const orderType = (order.orderType || "").trim().toUpperCase();
+          passPrescriptionFilter = orderType === prescriptionFilter;
+        }
+
+        return passStatusFilter && passPrescriptionFilter;
+      })
     : [];
 
   // Format date helper
@@ -222,7 +240,8 @@ export default function OrdersScreen({ navigation, route }) {
         alert("Mua lại");
         break;
       case "review":
-        alert("Đánh giá sản phẩm");
+        // Navigate to OrderDetail where user can click products to review
+        navigation.navigate("OrderDetail", { orderId });
         break;
       case "contact":
         navigation.navigate("Support");
@@ -230,21 +249,34 @@ export default function OrdersScreen({ navigation, route }) {
     }
   };
 
-  const getOrderTypeLabel = (orderType, prescriptionType) => {
+  const getOrderTypeLabel = (order) => {
+    // Check if order has prescription (multiple ways to detect)
+    const hasPrescription =
+      order?.orderType?.toUpperCase() === "PRESCRIPTION" ||
+      order?.prescription ||
+      order?.prescriptionId;
+
+    if (hasPrescription) {
+      return {
+        label: "Theo toa",
+        color: "#A23B72",
+        icon: "medical-outline",
+      };
+    }
+
+    // For non-prescription orders
+    const orderType = order?.orderType?.toLowerCase();
     switch (orderType) {
-      case "prescription":
+      case "in_stock":
         return {
-          label:
-            prescriptionType === "lens_only"
-              ? "Đơn thuốc - Tròng"
-              : "Đơn thuốc - Full",
-          color: "#A23B72",
-          icon: "medical-outline",
+          label: "Không toa",
+          color: "#10B981",
+          icon: "checkmark-circle-outline",
         };
       case "lens_with_frame":
         return {
           label: "Gọng + Tròng",
-          color: "#F18F01",
+          color: "#2E86AB",
           icon: "eye-outline",
         };
       case "lens_only":
@@ -254,15 +286,17 @@ export default function OrdersScreen({ navigation, route }) {
           icon: "disc-outline",
         };
       default:
-        return null;
+        // Default badge for orders without specific type
+        return {
+          label: "Sản phẩm",
+          color: "#6B7280",
+          icon: "cart-outline",
+        };
     }
   };
 
   const renderOrderItem = ({ item }) => {
-    const orderTypeBadge = getOrderTypeLabel(
-      item.orderType,
-      item.prescriptionType,
-    );
+    const orderTypeBadge = getOrderTypeLabel(item);
 
     return (
       <TouchableOpacity
@@ -456,6 +490,42 @@ export default function OrdersScreen({ navigation, route }) {
                   {tab.label}
                 </Text>
               </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Prescription Type Filter Pills */}
+      <View className="bg-white px-5 py-3 border-b border-border">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="flex-row"
+        >
+          {prescriptionFilters.map((filter) => (
+            <TouchableOpacity
+              key={filter.id}
+              className={`mr-2 px-4 py-2 rounded-full flex-row items-center ${
+                prescriptionFilter === filter.id
+                  ? "bg-primary"
+                  : "bg-background"
+              }`}
+              onPress={() => setPrescriptionFilter(filter.id)}
+            >
+              <Ionicons
+                name={filter.icon}
+                size={16}
+                color={prescriptionFilter === filter.id ? "#FFFFFF" : "#666666"}
+              />
+              <Text
+                className={`text-sm font-semibold ml-1.5 ${
+                  prescriptionFilter === filter.id
+                    ? "text-white"
+                    : "text-textGray"
+                }`}
+              >
+                {filter.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>

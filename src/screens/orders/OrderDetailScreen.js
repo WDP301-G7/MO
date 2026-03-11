@@ -125,7 +125,6 @@ export default function OrderDetailScreen({ navigation, route }) {
             setExistingReturns(orderReturns);
           }
         } catch (error) {
-          console.error("Error loading returns:", error);
           // Don't block order display if returns fetch fails
         }
       } else {
@@ -136,7 +135,6 @@ export default function OrderDetailScreen({ navigation, route }) {
         navigation.goBack();
       }
     } catch (error) {
-      console.error("Error loading order details:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi tải thông tin đơn hàng");
       navigation.goBack();
     } finally {
@@ -194,7 +192,6 @@ export default function OrderDetailScreen({ navigation, route }) {
         Alert.alert("Lỗi", result.message || "Hủy đơn thất bại");
       }
     } catch (error) {
-      console.error("Error cancelling order:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi hủy đơn hàng");
     } finally {
       setCancelling(false);
@@ -231,7 +228,7 @@ export default function OrderDetailScreen({ navigation, route }) {
     if (activeReturn) {
       return {
         canReturn: false,
-        reason: "Đơn hàng đã có yêu cầu đổi/trả đang xử lý",
+        reason: "Đơn hàng đã có yêu cầu đổi/trả/bảo hành đang xử lý",
         existingReturnId: activeReturn.id,
       };
     }
@@ -557,42 +554,58 @@ export default function OrderDetailScreen({ navigation, route }) {
             </Text>
             {order.orderItems &&
               order.orderItems.map((orderItem, index) => (
-                <View
+                <TouchableOpacity
                   key={orderItem.id}
-                  className={`flex-row pb-4 ${
+                  className={`pb-4 ${
                     index < order.orderItems.length - 1
                       ? "border-b border-border mb-4"
                       : ""
                   }`}
+                  onPress={() =>
+                    navigation.navigate("ProductDetail", {
+                      productId: orderItem.productId,
+                      orderId: orderId,
+                      orderItemId: orderItem.id,
+                    })
+                  }
                 >
-                  <Image
-                    source={{
-                      uri:
-                        orderItem.product?.images?.[0]?.imageUrl ||
-                        "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
-                    }}
-                    className="w-20 h-20 rounded-lg"
-                  />
-                  <View className="flex-1 ml-3">
-                    <Text
-                      className="text-sm font-semibold text-text"
-                      numberOfLines={2}
-                    >
-                      {orderItem.product?.name || "Sản phẩm"}
-                    </Text>
-                    <Text className="text-xs text-textGray mt-1">
-                      {orderItem.product?.brand || ""}
-                    </Text>
-                    <View className="flex-row items-center justify-between mt-2">
-                      <Text className="text-xs text-textGray">
-                        x{orderItem.quantity}
+                  <View className="flex-row">
+                    <Image
+                      source={{
+                        uri:
+                          orderItem.product?.images?.[0]?.imageUrl ||
+                          "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
+                      }}
+                      className="w-20 h-20 rounded-lg"
+                    />
+                    <View className="flex-1 ml-3">
+                      <Text
+                        className="text-sm font-semibold text-text"
+                        numberOfLines={2}
+                      >
+                        {orderItem.product?.name || "Sản phẩm"}
                       </Text>
-                      <Text className="text-sm font-bold text-primary">
-                        {`${formatPrice(orderItem.unitPrice).toLocaleString("vi-VN")}đ`}
+                      <Text className="text-xs text-textGray mt-1">
+                        {orderItem.product?.brand || ""}
                       </Text>
+                      <View className="flex-row items-center justify-between mt-2">
+                        <Text className="text-xs text-textGray">
+                          x{orderItem.quantity}
+                        </Text>
+                        <Text className="text-sm font-bold text-primary">
+                          {`${formatPrice(orderItem.unitPrice).toLocaleString("vi-VN")}đ`}
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="ml-2 justify-center">
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color="#999999"
+                      />
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
           </View>
 
@@ -760,7 +773,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                 <Ionicons name="time-outline" size={20} color="#2196F3" />
                 <View className="flex-1 ml-3">
                   <Text className="text-sm font-semibold text-blue-700 mb-1">
-                    Thời hạn đổi/trả hàng
+                    Thời hạn đổi/trả/bảo hành
                   </Text>
                   <Text className="text-xs text-blue-600">
                     Còn {canReturnExchange().daysLeft} ngày để yêu cầu đổi/trả
@@ -988,7 +1001,6 @@ export default function OrderDetailScreen({ navigation, route }) {
       </View>
     );
   } catch (error) {
-    console.error("OrderDetailScreen render error:", error);
     return (
       <View className="flex-1 bg-background items-center justify-center px-5">
         <StatusBar style="dark" />

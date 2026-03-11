@@ -96,8 +96,6 @@ export default function CheckoutScreenPaymentExample({ navigation, route }) {
       // Generate order ID
       const orderId = `ORD${String(Math.floor(Math.random() * 9000) + 1000)}`;
 
-      console.log("Initiating payment for order:", orderId);
-
       // Prepare payment data
       const paymentData = formatPaymentData({
         orderId,
@@ -120,12 +118,8 @@ export default function CheckoutScreenPaymentExample({ navigation, route }) {
         },
       });
 
-      console.log("Payment data:", paymentData);
-
       // Call backend to initiate payment
       const response = await initiatePayment(paymentData);
-
-      console.log("Payment response:", response);
 
       if (!response.success) {
         throw new Error(response.message || "Payment initiation failed");
@@ -146,7 +140,6 @@ export default function CheckoutScreenPaymentExample({ navigation, route }) {
         // Payment gateway required
         // Option 1: Open payment URL (if exists)
         if (response.paymentUrl) {
-          console.log("Opening payment URL:", response.paymentUrl);
           // In real app, open webview or external browser
           // const Linking = require("react-native").Linking;
           // Linking.openURL(response.paymentUrl);
@@ -164,7 +157,6 @@ export default function CheckoutScreenPaymentExample({ navigation, route }) {
         );
       }
     } catch (error) {
-      console.error("Payment error:", error);
       setPaymentError(
         error.message || "Lỗi trong quá trình thanh toán. Vui lòng thử lại.",
       );

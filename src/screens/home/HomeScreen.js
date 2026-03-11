@@ -68,7 +68,7 @@ export default function HomeScreen({ navigation }) {
         setFeaturedProducts(productsResult.data);
       }
     } catch (error) {
-      console.error("Error loading home data:", error);
+      // Silent error
     } finally {
       setLoading(false);
     }
@@ -290,24 +290,6 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </View>
           </TouchableOpacity>
-          <View className="flex-row gap-3">
-            <TouchableOpacity
-              className="relative"
-              onPress={() => navigation.navigate("CartTab")}
-            >
-              <Ionicons name="cart-outline" size={24} color="#333333" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="relative"
-              onPress={() => navigation.navigate("Notifications")}
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color="#333333"
-              />
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Search Bar */}

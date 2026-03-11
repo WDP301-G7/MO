@@ -39,7 +39,6 @@ export const getMyOrders = async (page = 1, limit = 10) => {
       message: response.data.message,
     };
   } catch (error) {
-    console.error("getMyOrders error:", error.response?.data || error);
     return {
       success: false,
       message:
@@ -92,19 +91,6 @@ export const createOrder = async (orderData) => {
       message: response.data.message || "Đặt hàng thành công",
     };
   } catch (error) {
-    // Log detailed error for debugging
-    console.error(
-      "Create order error - Full response:",
-      JSON.stringify(error.response?.data, null, 2),
-    );
-
-    if (error.response?.data?.error?.details) {
-      console.error(
-        "Validation details:",
-        JSON.stringify(error.response.data.error.details, null, 2),
-      );
-    }
-
     // Handle specific error cases
     if (error.response?.status === 400) {
       // Get validation error details

@@ -58,4 +58,12 @@ export const API_ENDPOINTS = {
     DELETE_IMAGE: "/returns/:id/images/:imageId",
     STATS: "/returns/stats",
   },
+  REVIEWS: {
+    ELIGIBLE: "/reviews/eligible",
+    CREATE: "/reviews",
+    MY_REVIEWS: "/reviews/my-reviews",
+    UPDATE: "/reviews/:id",
+    DETAIL: "/reviews/:id",
+    PRODUCT_REVIEWS: "/products/:productId/reviews",
+  },
 };

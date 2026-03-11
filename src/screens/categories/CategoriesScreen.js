@@ -30,7 +30,6 @@ export default function CategoriesScreen({ navigation }) {
         setCategories(result.data);
       }
     } catch (error) {
-      console.error("Error loading categories:", error);
     } finally {
       setLoading(false);
     }

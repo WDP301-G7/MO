@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View, ActivityIndicator } from "react-native";
-import { isLoggedIn } from "./src/services/authService";
+import { isLoggedIn, authEventEmitter } from "./src/services/authService";
 import { linking, handleDeepLink } from "./src/utils/deepLinkHandler";
 import { configureGoogleSignIn } from "./src/services/googleAuthService";
 
@@ -21,7 +21,6 @@ import HomeScreen from "./src/screens/home/HomeScreen";
 import ProductCatalogScreen from "./src/screens/products/ProductCatalogScreen";
 import ProductDetailScreen from "./src/screens/products/ProductDetailScreen";
 import LensOrderScreen from "./src/screens/products/LensOrderScreen";
-import CartScreen from "./src/screens/cart/CartScreen";
 import CheckoutScreen from "./src/screens/checkout/CheckoutScreen";
 import CheckoutScreenVNPay from "./src/screens/checkout/CheckoutScreenVNPay";
 import VNPayPaymentScreen from "./src/screens/checkout/VNPayPaymentScreen";
@@ -31,22 +30,20 @@ import OrderDetailScreen from "./src/screens/orders/OrderDetailScreen";
 import OrderSuccessScreen from "./src/screens/orders/OrderSuccessScreen";
 import OrderSuccessScreenVNPay from "./src/screens/orders/OrderSuccessScreenVNPay";
 import SearchScreen from "./src/screens/search/SearchScreen";
-import NotificationsScreen from "./src/screens/notifications/NotificationsScreen";
 import VouchersScreen from "./src/screens/vouchers/VouchersScreen";
 import SupportScreen from "./src/screens/support/SupportScreen";
 import CategoriesScreen from "./src/screens/categories/CategoriesScreen";
 import PrescriptionOrderScreen from "./src/screens/prescription/PrescriptionOrderScreen";
 import VirtualTryOnScreen from "./src/screens/virtual-tryon/VirtualTryOnScreen";
 import ReviewsScreen from "./src/screens/reviews/ReviewsScreen";
+import WriteReviewScreen from "./src/screens/reviews/WriteReviewScreen";
 import ReturnRequestScreen from "./src/screens/return/ReturnRequestScreen";
 import ReturnHistoryScreen from "./src/screens/return/ReturnHistoryScreen";
 import ReturnDetailScreen from "./src/screens/return/ReturnDetailScreen";
 import AddressManagementScreen from "./src/screens/address/AddressManagementScreen";
 import EditProfileScreen from "./src/screens/profile/EditProfileScreen";
-import FavoritesScreen from "./src/screens/favorites/FavoritesScreen";
 import MyReviewsScreen from "./src/screens/reviews/MyReviewsScreen";
 import ChangePasswordScreen from "./src/screens/profile/ChangePasswordScreen";
-import NotificationSettingsScreen from "./src/screens/settings/NotificationSettingsScreen";
 import TermsAndPoliciesScreen from "./src/screens/settings/TermsAndPoliciesScreen";
 
 // Import Tab Navigator
@@ -57,11 +54,32 @@ const Stack = createStackNavigator();
 export default function App() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [userLoggedIn, setUserLoggedIn] = useState(false);
+  const navigationRef = useRef(null);
 
   useEffect(() => {
     // Cấu hình Google Sign-In khi app khởi động
     configureGoogleSignIn();
     checkAuthStatus();
+
+    // Listen for logout events from authService
+    const handleLogout = () => {
+      setUserLoggedIn(false);
+
+      // Navigate to Login screen
+      if (navigationRef.current) {
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        });
+      }
+    };
+
+    authEventEmitter.on("logout", handleLogout);
+
+    // Cleanup listener on unmount
+    return () => {
+      authEventEmitter.removeListener("logout", handleLogout);
+    };
   }, []);
 
   const checkAuthStatus = async () => {
@@ -69,7 +87,7 @@ export default function App() {
       const loggedIn = await isLoggedIn();
       setUserLoggedIn(loggedIn);
     } catch (error) {
-      console.error("Auth check error:", error);
+      // Silent error
     } finally {
       setIsCheckingAuth(false);
     }
@@ -125,7 +143,6 @@ export default function App() {
                 component={ProductDetailScreen}
               />
               <Stack.Screen name="LensOrder" component={LensOrderScreen} />
-              <Stack.Screen name="Cart" component={CartScreen} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} />
               <Stack.Screen
                 name="CheckoutScreenVNPay"
@@ -147,10 +164,6 @@ export default function App() {
                 component={OrderSuccessScreenVNPay}
               />
               <Stack.Screen name="Search" component={SearchScreen} />
-              <Stack.Screen
-                name="Notifications"
-                component={NotificationsScreen}
-              />
               <Stack.Screen name="Vouchers" component={VouchersScreen} />
               <Stack.Screen name="Support" component={SupportScreen} />
               <Stack.Screen name="Categories" component={CategoriesScreen} />
@@ -163,6 +176,7 @@ export default function App() {
                 component={VirtualTryOnScreen}
               />
               <Stack.Screen name="Reviews" component={ReviewsScreen} />
+              <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
               <Stack.Screen
                 name="ReturnRequest"
                 component={ReturnRequestScreen}
@@ -180,15 +194,10 @@ export default function App() {
                 component={AddressManagementScreen}
               />
               <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-              <Stack.Screen name="Favorites" component={FavoritesScreen} />
               <Stack.Screen name="MyReviews" component={MyReviewsScreen} />
               <Stack.Screen
                 name="ChangePassword"
                 component={ChangePasswordScreen}
-              />
-              <Stack.Screen
-                name="NotificationSettings"
-                component={NotificationSettingsScreen}
               />
               <Stack.Screen name="Terms" component={TermsAndPoliciesScreen} />
             </Stack.Navigator>

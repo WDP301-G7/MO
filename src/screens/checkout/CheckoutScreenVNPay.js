@@ -119,7 +119,6 @@ export default function CheckoutScreenVNPay({ navigation, route }) {
         });
       }
     } catch (error) {
-      console.error("Payment error:", error);
       setPaymentError(
         error.message || "Lỗi trong quá trình thanh toán. Vui lòng thử lại.",
       );
@@ -157,8 +156,6 @@ export default function CheckoutScreenVNPay({ navigation, route }) {
    * Detect when user returns from VNPay
    */
   const handleVNPayWebViewNavigation = async (navState) => {
-    console.log("WebView URL:", navState.url);
-
     // Check if returned to app (deeplink or vnpay/return endpoint)
     if (
       navState.url.includes("/payments/vnpay/return") ||
@@ -172,12 +169,8 @@ export default function CheckoutScreenVNPay({ navigation, route }) {
         const url = new URL(navState.url);
         const params = Object.fromEntries(url.searchParams);
 
-        console.log("VNPay return params:", params);
-
         // Call backend return endpoint
         const returnResponse = await handleVNPayReturn(params);
-
-        console.log("VNPay return response:", returnResponse);
 
         if (returnResponse.success && returnResponse.deeplink) {
           // Parse deeplink and navigate
@@ -203,7 +196,6 @@ export default function CheckoutScreenVNPay({ navigation, route }) {
           setShowVNPayWebView(false);
         }
       } catch (error) {
-        console.error("Handle return error:", error);
         Alert.alert("Lỗi", error.message);
         setShowVNPayWebView(false);
       }
