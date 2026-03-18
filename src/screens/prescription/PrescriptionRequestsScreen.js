@@ -18,7 +18,7 @@ import {
 } from "../../services/prescriptionService";
 import { getCurrentUser } from "../../services/authService";
 
-export default function AppointmentsScreen({ navigation }) {
+export default function PrescriptionRequestsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [requests, setRequests] = useState([]);

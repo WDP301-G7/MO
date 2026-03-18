@@ -28,14 +28,14 @@ import VNPayPaymentScreen from "../screens/checkout/VNPayPaymentScreen";
 import OrderSuccessScreenVNPay from "../screens/orders/OrderSuccessScreenVNPay";
 import ReturnRequestScreen from "../screens/return/ReturnRequestScreen";
 import ReturnHistoryScreen from "../screens/return/ReturnHistoryScreen";
-import VouchersScreen from "../screens/vouchers/VouchersScreen";
 import SupportScreen from "../screens/support/SupportScreen";
-import AddressManagementScreen from "../screens/address/AddressManagementScreen";
 import EditProfileScreen from "../screens/profile/EditProfileScreen";
 import ChangePasswordScreen from "../screens/profile/ChangePasswordScreen";
 import TermsAndPoliciesScreen from "../screens/settings/TermsAndPoliciesScreen";
-import AppointmentsScreen from "../screens/appointments/AppointmentsScreen";
-import StoreMapScreen from "../screens/map/StoreMapScreen";
+import PrescriptionRequestsScreen from "../screens/prescription/PrescriptionRequestsScreen";
+import MembershipScreen from "../screens/membership/MembershipScreen";
+import MembershipHistoryScreen from "../screens/membership/MembershipHistoryScreen";
+import MyAppointmentsScreen from "../screens/appointments/MyAppointmentsScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -62,8 +62,11 @@ function HomeStack() {
         name="OrderSuccessVNPay"
         component={OrderSuccessScreenVNPay}
       />
-      <Stack.Screen name="Appointments" component={AppointmentsScreen} />
-      <Stack.Screen name="StoreMap" component={StoreMapScreen} />
+      <Stack.Screen
+        name="Appointments"
+        component={PrescriptionRequestsScreen}
+      />
+      <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />
     </Stack.Navigator>
   );
 }
@@ -90,8 +93,11 @@ function CategoriesStack() {
         name="OrderSuccessVNPay"
         component={OrderSuccessScreenVNPay}
       />
-      <Stack.Screen name="Appointments" component={AppointmentsScreen} />
-      <Stack.Screen name="StoreMap" component={StoreMapScreen} />
+      <Stack.Screen
+        name="Appointments"
+        component={PrescriptionRequestsScreen}
+      />
+      <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />
     </Stack.Navigator>
   );
 }
@@ -115,8 +121,16 @@ function OrdersStack() {
       <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
-      <Stack.Screen name="Appointments" component={AppointmentsScreen} />
-      <Stack.Screen name="StoreMap" component={StoreMapScreen} />
+      <Stack.Screen
+        name="Appointments"
+        component={PrescriptionRequestsScreen}
+      />
+      <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />
+      <Stack.Screen name="Membership" component={MembershipScreen} />
+      <Stack.Screen
+        name="MembershipHistory"
+        component={MembershipHistoryScreen}
+      />
     </Stack.Navigator>
   );
 }
@@ -127,11 +141,6 @@ function ProfileStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-      <Stack.Screen
-        name="AddressManagement"
-        component={AddressManagementScreen}
-      />
-      <Stack.Screen name="Vouchers" component={VouchersScreen} />
       <Stack.Screen name="MyReviews" component={MyReviewsScreen} />
       <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
       <Stack.Screen name="ReturnHistory" component={ReturnHistoryScreen} />
@@ -155,8 +164,17 @@ function ProfileStack() {
         name="OrderSuccessVNPay"
         component={OrderSuccessScreenVNPay}
       />
-      <Stack.Screen name="Appointments" component={AppointmentsScreen} />
-      <Stack.Screen name="StoreMap" component={StoreMapScreen} />
+      <Stack.Screen
+        name="Appointments"
+        component={PrescriptionRequestsScreen}
+      />
+      <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />
+      <Stack.Screen name="Membership" component={MembershipScreen} />
+      <Stack.Screen
+        name="MembershipHistory"
+        component={MembershipHistoryScreen}
+      />
+      <Stack.Screen name="ReturnRequest" component={ReturnRequestScreen} />
     </Stack.Navigator>
   );
 }

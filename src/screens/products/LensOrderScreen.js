@@ -10,10 +10,18 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { getProducts, formatPrice } from "../../services/productService";
+import {
+  getProducts,
+  formatPrice,
+  getProductImages,
+} from "../../services/productService";
 import { createOrder } from "../../services/orderService";
 import { getProfile } from "../../services/authService";
 import { getProductAvailableQuantity } from "../../services/inventoryService";
+import {
+  getMyMembership,
+  getTierColor,
+} from "../../services/membershipService";
 
 export default function LensOrderScreen({ navigation, route }) {
   const { selectedFrame, selectedLensFromProduct, fromCart, cartItems } =
@@ -28,27 +36,70 @@ export default function LensOrderScreen({ navigation, route }) {
   // API data states
   const [lensProducts, setLensProducts] = useState([]);
   const [frameProducts, setFrameProducts] = useState([]);
+  const [lensImages, setLensImages] = useState({});
+  const [membership, setMembership] = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadProducts();
     loadUserData();
+    getMyMembership().then((r) => {
+      if (r.success) setMembership(r.data);
+    });
   }, []);
 
   const loadProducts = async () => {
     try {
       setLoading(true);
-      // Load LENS products
-      const lensResult = await getProducts({ type: "LENS", limit: 20 });
+      // Tròng kính = category 00000000-0000-0000-0000-000000000002
+      const lensResult = await getProducts({
+        categoryId: "00000000-0000-0000-0000-000000000002",
+        limit: 50,
+      });
       if (lensResult.success) {
         setLensProducts(lensResult.data);
+        // Fetch images for all lens products in parallel
+        const imageResults = await Promise.all(
+          lensResult.data.map((p) =>
+            getProductImages(p.id).then((r) => ({ id: p.id, r })),
+          ),
+        );
+        const imgMap = {};
+        imageResults.forEach(({ id, r }) => {
+          if (r.success && r.data?.length > 0) {
+            const sorted = [...r.data].sort((a, b) =>
+              b.isPrimary ? 1 : a.isPrimary ? -1 : 0,
+            );
+            imgMap[id] = sorted[0].imageUrl;
+          }
+        });
+        setLensImages(imgMap);
       }
 
-      // Load FRAME products
-      const frameResult = await getProducts({ type: "FRAME", limit: 20 });
+      // Gọng kính = category 00000000-0000-0000-0000-000000000001
+      const frameResult = await getProducts({
+        categoryId: "00000000-0000-0000-0000-000000000001",
+        limit: 50,
+      });
       if (frameResult.success) {
         setFrameProducts(frameResult.data);
+        // Fetch images for frame products and merge into lensImages map
+        const frameImageResults = await Promise.all(
+          frameResult.data.map((p) =>
+            getProductImages(p.id).then((r) => ({ id: p.id, r })),
+          ),
+        );
+        const frameImgMap = {};
+        frameImageResults.forEach(({ id, r }) => {
+          if (r.success && r.data?.length > 0) {
+            const sorted = [...r.data].sort((a, b) =>
+              b.isPrimary ? 1 : a.isPrimary ? -1 : 0,
+            );
+            frameImgMap[id] = sorted[0].imageUrl;
+          }
+        });
+        setLensImages((prev) => ({ ...prev, ...frameImgMap }));
       }
     } catch (error) {
       // Silent error
@@ -169,6 +220,9 @@ export default function LensOrderScreen({ navigation, route }) {
       }
 
       const totalAmount = getTotalAmount();
+      const discountPercent = membership?.discountPercent || 0;
+      const discountAmount = Math.floor((totalAmount * discountPercent) / 100);
+      const paymentAmount = totalAmount - discountAmount;
 
       // Determine order type based on whether any product is preorder
       const hasPreorder = selectedLens?.isPreorder || selectedFrame?.isPreorder;
@@ -194,8 +248,8 @@ export default function LensOrderScreen({ navigation, route }) {
           paymentMethod: "VNPAY",
           note: "Đơn hàng tròng + gọng kính (không cần đơn thuốc)",
         },
-        totalAmount: totalAmount,
-        paymentAmount: totalAmount,
+        totalAmount: paymentAmount,
+        paymentAmount: paymentAmount,
         orderType: "lens_with_frame", // For UI tracking only
       });
     }
@@ -210,10 +264,23 @@ export default function LensOrderScreen({ navigation, route }) {
         Chọn loại tròng kính và gọng kính
       </Text>
 
-      {/* Lens Type Selection */}
-      <Text className="text-base font-semibold text-text mb-3">
-        Loại tròng kính
-      </Text>
+      {/* ── TRÒNG KÍNH ── */}
+      <View className="flex-row items-center mb-3 px-1">
+        <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-2">
+          <Ionicons name="ellipse-outline" size={18} color="#2E86AB" />
+        </View>
+        <Text className="text-base font-bold text-primary flex-1">
+          Loại tròng kính
+        </Text>
+        {selectedLensType && (
+          <View className="flex-row items-center bg-blue-50 px-2 py-1 rounded-full">
+            <Ionicons name="checkmark-circle" size={14} color="#2E86AB" />
+            <Text className="text-xs text-primary ml-1 font-semibold">
+              Đã chọn
+            </Text>
+          </View>
+        )}
+      </View>
 
       {/* Info if coming from ProductDetail */}
       {selectedLensFromProduct && (
@@ -231,120 +298,162 @@ export default function LensOrderScreen({ navigation, route }) {
 
       {lensProducts.map((lens) => {
         const available = isProductAvailable(lens);
+        const isSelected = selectedLensType === lens.id;
+        const lensImageUrl =
+          lensImages[lens.id] ||
+          lens.images?.[0]?.imageUrl ||
+          "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=300&h=200&fit=crop";
         return (
           <TouchableOpacity
             key={lens.id}
-            className={`bg-white rounded-2xl p-4 mb-3 border-2 ${
-              selectedLensType === lens.id
-                ? "border-primary"
-                : "border-transparent"
+            className={`bg-white rounded-2xl mb-3 overflow-hidden border-2 ${
+              isSelected ? "border-primary" : "border-gray-100"
             } ${!available ? "opacity-50" : ""}`}
             onPress={() => available && setSelectedLensType(lens.id)}
             disabled={!available}
           >
-            <View className="flex-row items-start justify-between mb-3">
-              <View className="flex-1">
-                <View className="flex-row items-center mb-2">
-                  <Text className="text-base font-bold text-text">
-                    {lens.name}
+            <Image
+              source={{ uri: lensImageUrl }}
+              className="w-full h-36"
+              resizeMode="cover"
+            />
+            {isSelected && (
+              <View className="absolute top-2 right-2 bg-primary rounded-full px-2 py-1 flex-row items-center">
+                <Ionicons name="checkmark" size={12} color="#fff" />
+                <Text className="text-white text-xs font-bold ml-1">
+                  Đã chọn
+                </Text>
+              </View>
+            )}
+            <View className="p-4">
+              <View className="flex-row items-start justify-between">
+                <View className="flex-1 mr-3">
+                  <View className="flex-row items-center flex-wrap mb-1">
+                    <Text className="text-base font-bold text-text mr-2">
+                      {lens.name}
+                    </Text>
+                    {lens.brand && (
+                      <View className="bg-accent px-2 py-0.5 rounded-full">
+                        <Text className="text-xs text-white font-semibold">
+                          {lens.brand}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-lg font-bold text-primary mb-1">
+                    {`${formatPrice(lens.price).toLocaleString("vi-VN")}đ`}
                   </Text>
-                  {lens.brand && (
-                    <View className="bg-accent px-2 py-0.5 rounded-full ml-2">
-                      <Text className="text-xs text-white font-semibold">
-                        {lens.brand}
-                      </Text>
-                    </View>
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name={
+                        !available
+                          ? "close-circle"
+                          : lens.isPreorder
+                            ? "time"
+                            : "checkmark-circle"
+                      }
+                      size={13}
+                      color={
+                        !available
+                          ? "#EF4444"
+                          : lens.isPreorder
+                            ? "#F18F01"
+                            : "#10B981"
+                      }
+                    />
+                    <Text className="text-xs text-textGray ml-1">
+                      {!available
+                        ? "Hết hàng"
+                        : lens.isPreorder
+                          ? `Đặt trước (${lens.leadTimeDays || 7} ngày)`
+                          : "Sẵn hàng"}
+                    </Text>
+                  </View>
+                  {lens.description ? (
+                    <Text
+                      className="text-xs text-textGray mt-2"
+                      numberOfLines={2}
+                    >
+                      {lens.description}
+                    </Text>
+                  ) : null}
+                </View>
+                <View
+                  className={`w-6 h-6 rounded-full border-2 items-center justify-center mt-1 shrink-0 ${
+                    isSelected ? "border-primary bg-primary" : "border-border"
+                  }`}
+                >
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                   )}
                 </View>
-                <Text className="text-lg font-bold text-primary mb-1">
-                  {`${formatPrice(lens.price).toLocaleString("vi-VN")}đ`}
-                </Text>
-                <View className="flex-row items-center mb-2">
-                  <Ionicons
-                    name={
-                      !available
-                        ? "close-circle"
-                        : lens.isPreorder
-                          ? "time"
-                          : "checkmark-circle"
-                    }
-                    size={14}
-                    color={
-                      !available
-                        ? "#EF4444"
-                        : lens.isPreorder
-                          ? "#F18F01"
-                          : "#10B981"
-                    }
-                  />
-                  <Text className="text-xs text-textGray ml-1">
-                    {!available
-                      ? "Hết hàng"
-                      : lens.isPreorder
-                        ? `Đặt trước (${lens.leadTimeDays || 7} ngày)`
-                        : "Sẵn hàng"}
-                  </Text>
-                </View>
-              </View>
-              <View
-                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                  selectedLensType === lens.id
-                    ? "border-primary bg-primary"
-                    : "border-border"
-                }`}
-              >
-                {selectedLensType === lens.id && (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                )}
               </View>
             </View>
-
-            {lens.description && (
-              <Text className="text-sm text-textGray" numberOfLines={2}>
-                {lens.description}
-              </Text>
-            )}
           </TouchableOpacity>
         );
       })}
 
-      {/* Frame Selection */}
-      <Text className="text-base font-semibold text-text mt-4 mb-3">
-        Chọn gọng kính
-      </Text>
+      {/* ── GỌNG KÍNH ── */}
+      <View className="flex-row items-center mt-4 mb-3 px-1">
+        <View className="w-8 h-8 rounded-full bg-orange-100 items-center justify-center mr-2">
+          <Ionicons name="glasses-outline" size={18} color="#F18F01" />
+        </View>
+        <Text className="text-base font-bold text-accent flex-1">
+          Chọn gọng kính
+        </Text>
+        {selectedFrameId && (
+          <View className="flex-row items-center bg-orange-50 px-2 py-1 rounded-full">
+            <Ionicons name="checkmark-circle" size={14} color="#F18F01" />
+            <Text className="text-xs text-accent ml-1 font-semibold">
+              Đã chọn
+            </Text>
+          </View>
+        )}
+      </View>
+
       {frameProducts.map((frame) => {
-        // Get first image or use fallback
         const imageUrl =
           frame.images?.[0]?.imageUrl ||
           "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=300&h=200&fit=crop";
         const available = isProductAvailable(frame);
+        const isSelected = selectedFrameId === frame.id;
 
         return (
           <TouchableOpacity
             key={frame.id}
             className={`bg-white rounded-2xl mb-3 overflow-hidden border-2 ${
-              selectedFrameId === frame.id
-                ? "border-primary"
-                : "border-transparent"
+              isSelected ? "border-accent" : "border-gray-100"
             } ${!available ? "opacity-50" : ""}`}
             onPress={() => available && setSelectedFrameId(frame.id)}
             disabled={!available}
           >
             <Image
               source={{ uri: imageUrl }}
-              className="w-full h-32"
+              className="w-full h-36"
               resizeMode="cover"
             />
-            <View className="p-4 flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-base font-bold text-text mb-1">
-                  {frame.name}
+            {isSelected && (
+              <View className="absolute top-2 right-2 bg-accent rounded-full px-2 py-1 flex-row items-center">
+                <Ionicons name="checkmark" size={12} color="#fff" />
+                <Text className="text-white text-xs font-bold ml-1">
+                  Đã chọn
                 </Text>
-                {frame.brand && (
-                  <Text className="text-xs text-textGray mb-1">
-                    {frame.brand}
+              </View>
+            )}
+            <View className="p-4 flex-row items-start justify-between">
+              <View className="flex-1 mr-3">
+                <View className="flex-row items-center flex-wrap mb-1">
+                  <Text className="text-base font-bold text-text mr-2">
+                    {frame.name}
                   </Text>
-                )}
+                  {frame.brand && (
+                    <View className="bg-accent px-2 py-0.5 rounded-full">
+                      <Text className="text-xs text-white font-semibold">
+                        {frame.brand}
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <Text className="text-lg font-bold text-primary">
                   {`${formatPrice(frame.price).toLocaleString("vi-VN")}đ`}
                 </Text>
@@ -360,14 +469,12 @@ export default function LensOrderScreen({ navigation, route }) {
                 </View>
               </View>
               <View
-                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                  selectedFrameId === frame.id
-                    ? "border-primary bg-primary"
-                    : "border-border"
+                className={`w-6 h-6 rounded-full border-2 items-center justify-center mt-1 shrink-0 ${
+                  isSelected ? "border-accent bg-accent" : "border-border"
                 }`}
               >
-                {selectedFrameId === frame.id && (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                {isSelected && (
+                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                 )}
               </View>
             </View>
@@ -381,7 +488,10 @@ export default function LensOrderScreen({ navigation, route }) {
     const selectedLens = lensProducts.find((l) => l.id === selectedLensType);
     const selectedFrame = frameProducts.find((f) => f.id === selectedFrameId);
     const hasPreorder = selectedLens?.isPreorder || selectedFrame?.isPreorder;
-    const totalAmount = getTotalAmount();
+    const subtotal = getTotalAmount();
+    const discountPercent = membership?.discountPercent || 0;
+    const discountAmount = Math.floor((subtotal * discountPercent) / 100);
+    const totalAmount = subtotal - discountAmount;
 
     return (
       <View>
@@ -400,7 +510,22 @@ export default function LensOrderScreen({ navigation, route }) {
 
           {selectedFrame && (
             <View className="flex-row justify-between items-center py-2 border-b border-border">
-              <Text className="text-sm text-text">{selectedFrame.name}</Text>
+              <View className="flex-row items-center flex-1 mr-2">
+                {lensImages[selectedFrame.id] ? (
+                  <Image
+                    source={{ uri: lensImages[selectedFrame.id] }}
+                    className="w-12 h-12 rounded-lg mr-3"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="w-12 h-12 rounded-lg mr-3 bg-gray-100 items-center justify-center">
+                    <Ionicons name="image-outline" size={20} color="#CCCCCC" />
+                  </View>
+                )}
+                <Text className="text-sm text-text flex-1" numberOfLines={2}>
+                  {selectedFrame.name}
+                </Text>
+              </View>
               <Text className="text-sm font-bold text-text">
                 {`${formatPrice(selectedFrame.price).toLocaleString("vi-VN")}đ`}
               </Text>
@@ -409,11 +534,62 @@ export default function LensOrderScreen({ navigation, route }) {
 
           {selectedLens && (
             <View className="flex-row justify-between items-center py-2 border-b border-border">
-              <Text className="text-sm text-text">{selectedLens.name}</Text>
+              <View className="flex-row items-center flex-1 mr-2">
+                {lensImages[selectedLens.id] ? (
+                  <Image
+                    source={{ uri: lensImages[selectedLens.id] }}
+                    className="w-12 h-12 rounded-lg mr-3"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="w-12 h-12 rounded-lg mr-3 bg-gray-100 items-center justify-center">
+                    <Ionicons name="image-outline" size={20} color="#CCCCCC" />
+                  </View>
+                )}
+                <Text className="text-sm text-text flex-1" numberOfLines={2}>
+                  {selectedLens.name}
+                </Text>
+              </View>
               <Text className="text-sm font-bold text-text">
                 {`${formatPrice(selectedLens.price).toLocaleString("vi-VN")}đ`}
               </Text>
             </View>
+          )}
+
+          {discountAmount > 0 && (
+            <>
+              <View className="flex-row justify-between items-center py-2 border-b border-border">
+                <Text className="text-sm text-textGray">Tạm tính</Text>
+                <Text className="text-sm text-text">
+                  {`${subtotal.toLocaleString("vi-VN")}đ`}
+                </Text>
+              </View>
+              <View className="flex-row justify-between items-center py-2 border-b border-border">
+                <View className="flex-row items-center">
+                  <Text className="text-sm text-green-600">
+                    Ưu đãi thành viên
+                  </Text>
+                  {membership?.tier && (
+                    <View
+                      className="ml-2 px-2 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: getTierColor(membership.tier) + "20",
+                      }}
+                    >
+                      <Text
+                        className="text-xs font-bold"
+                        style={{ color: getTierColor(membership.tier) }}
+                      >
+                        {`${membership.tier} -${discountPercent}%`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text className="text-sm font-semibold text-green-600">
+                  {`-${discountAmount.toLocaleString("vi-VN")}đ`}
+                </Text>
+              </View>
+            </>
           )}
 
           <View className="flex-row justify-between items-center pt-3">
@@ -452,10 +628,7 @@ export default function LensOrderScreen({ navigation, route }) {
           <Ionicons name="information-circle" size={24} color="#2E86AB" />
           <Text className="flex-1 text-sm text-blue-800 ml-2">
             <Text className="font-bold">Lưu ý:{"\n"}</Text>
-            {`• Đơn hàng bao gồm 1 gọng + 1 tròng kính
-• Thanh toán qua VNPay
-• Quý khách vui lòng đến cửa hàng để nhận hàng
-• Shop sẽ liên hệ để xác nhận đơn hàng`}
+            {`• Đơn hàng bao gồm 1 gọng + 1 tròng kính\n• Thanh toán qua VNPay\n• Quý khách vui lòng đến cửa hàng để nhận hàng\n• Shop sẽ liên hệ để xác nhận đơn hàng`}
           </Text>
         </View>
       </View>
@@ -505,7 +678,13 @@ export default function LensOrderScreen({ navigation, route }) {
           <View className="flex-row items-center">
             <TouchableOpacity
               className="mr-3"
-              onPress={() => navigation.goBack()}
+              onPress={() => {
+                if (step > 1) {
+                  setStep(step - 1);
+                } else {
+                  navigation.goBack();
+                }
+              }}
             >
               <Ionicons name="arrow-back" size={24} color="#333333" />
             </TouchableOpacity>

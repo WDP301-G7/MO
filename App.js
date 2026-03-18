@@ -22,7 +22,6 @@ import ProductCatalogScreen from "./src/screens/products/ProductCatalogScreen";
 import ProductDetailScreen from "./src/screens/products/ProductDetailScreen";
 import LensOrderScreen from "./src/screens/products/LensOrderScreen";
 import CheckoutScreen from "./src/screens/checkout/CheckoutScreen";
-import CheckoutScreenVNPay from "./src/screens/checkout/CheckoutScreenVNPay";
 import VNPayPaymentScreen from "./src/screens/checkout/VNPayPaymentScreen";
 import ProfileScreen from "./src/screens/profile/ProfileScreen";
 import OrdersScreen from "./src/screens/orders/OrdersScreen";
@@ -30,7 +29,6 @@ import OrderDetailScreen from "./src/screens/orders/OrderDetailScreen";
 import OrderSuccessScreen from "./src/screens/orders/OrderSuccessScreen";
 import OrderSuccessScreenVNPay from "./src/screens/orders/OrderSuccessScreenVNPay";
 import SearchScreen from "./src/screens/search/SearchScreen";
-import VouchersScreen from "./src/screens/vouchers/VouchersScreen";
 import SupportScreen from "./src/screens/support/SupportScreen";
 import CategoriesScreen from "./src/screens/categories/CategoriesScreen";
 import PrescriptionOrderScreen from "./src/screens/prescription/PrescriptionOrderScreen";
@@ -40,7 +38,6 @@ import WriteReviewScreen from "./src/screens/reviews/WriteReviewScreen";
 import ReturnRequestScreen from "./src/screens/return/ReturnRequestScreen";
 import ReturnHistoryScreen from "./src/screens/return/ReturnHistoryScreen";
 import ReturnDetailScreen from "./src/screens/return/ReturnDetailScreen";
-import AddressManagementScreen from "./src/screens/address/AddressManagementScreen";
 import EditProfileScreen from "./src/screens/profile/EditProfileScreen";
 import MyReviewsScreen from "./src/screens/reviews/MyReviewsScreen";
 import ChangePasswordScreen from "./src/screens/profile/ChangePasswordScreen";
@@ -145,10 +142,6 @@ export default function App() {
               <Stack.Screen name="LensOrder" component={LensOrderScreen} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} />
               <Stack.Screen
-                name="CheckoutScreenVNPay"
-                component={CheckoutScreenVNPay}
-              />
-              <Stack.Screen
                 name="VNPayPayment"
                 component={VNPayPaymentScreen}
               />
@@ -164,7 +157,6 @@ export default function App() {
                 component={OrderSuccessScreenVNPay}
               />
               <Stack.Screen name="Search" component={SearchScreen} />
-              <Stack.Screen name="Vouchers" component={VouchersScreen} />
               <Stack.Screen name="Support" component={SupportScreen} />
               <Stack.Screen name="Categories" component={CategoriesScreen} />
               <Stack.Screen
@@ -188,10 +180,6 @@ export default function App() {
               <Stack.Screen
                 name="ReturnDetail"
                 component={ReturnDetailScreen}
-              />
-              <Stack.Screen
-                name="AddressManagement"
-                component={AddressManagementScreen}
               />
               <Stack.Screen name="EditProfile" component={EditProfileScreen} />
               <Stack.Screen name="MyReviews" component={MyReviewsScreen} />

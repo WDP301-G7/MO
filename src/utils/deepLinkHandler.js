@@ -60,8 +60,6 @@ export const linking = {
       Profile: "profile",
       EditProfile: "profile/edit",
       ChangePassword: "profile/change-password",
-      AddressManagement: "address",
-
       // Prescription
       PrescriptionOrder: "prescription",
 

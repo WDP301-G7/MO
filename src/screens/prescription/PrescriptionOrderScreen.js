@@ -179,7 +179,10 @@ export default function PrescriptionOrderScreen({ navigation }) {
               text: "Về trang chủ",
               style: "cancel",
               onPress: () => {
-                navigation.navigate("Home");
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "MainApp", params: { screen: "HomeTab" } }],
+                });
               },
             },
             {

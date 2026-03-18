@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { createOrder, formatPrice } from "../../services/orderService";
 import { getProfile } from "../../services/authService";
+import { getMyMembership } from "../../services/membershipService";
 
 export default function CheckoutScreen({ navigation, route }) {
   const {
@@ -33,11 +34,25 @@ export default function CheckoutScreen({ navigation, route }) {
   const [selectedPayment, setSelectedPayment] = useState("cod");
   const [note, setNote] = useState("");
   const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [membership, setMembership] = useState(null);
+  const [orderDiscountAmount, setOrderDiscountAmount] = useState(0);
 
   useEffect(() => {
     loadUserData();
     loadCartItems();
+    loadMembership();
   }, []);
+
+  const loadMembership = async () => {
+    try {
+      const result = await getMyMembership();
+      if (result.success && result.data) {
+        setMembership(result.data);
+      }
+    } catch (error) {
+      // Silent error
+    }
+  };
 
   const loadUserData = async () => {
     try {
@@ -90,7 +105,12 @@ export default function CheckoutScreen({ navigation, route }) {
     0,
   );
   const shipping = requiresStore ? 0 : 30000;
-  const discount = 0;
+  // Membership discount is applied server-side; show estimated discount
+  const membershipDiscountPercent = membership?.discountPercent || 0;
+  const estimatedMembershipDiscount = Math.floor(
+    (subtotal * membershipDiscountPercent) / 100,
+  );
+  const discount = estimatedMembershipDiscount;
   const fullAmount = subtotal + shipping - discount;
 
   const total = fullAmount;
@@ -128,17 +148,26 @@ export default function CheckoutScreen({ navigation, route }) {
       const result = await createOrder(orderData);
 
       if (result.success) {
+        // Use actual amounts returned by server (BE applies real membership discount)
+        const actualDiscount = result.data?.discountAmount
+          ? Number(result.data.discountAmount)
+          : discount;
+        setOrderDiscountAmount(actualDiscount);
         // If VNPay payment, navigate to payment screen
         if (selectedPayment === "vnpay") {
           navigation.navigate("VNPayPayment", {
             orderId: result.data.id,
-            amount: total,
+            amount: result.data.totalAmount
+              ? Number(result.data.totalAmount)
+              : total,
           });
         } else {
           // COD - go directly to success screen
           navigation.navigate("OrderSuccess", {
             orderId: result.data.id,
-            totalAmount: fullAmount,
+            totalAmount: result.data.totalAmount
+              ? Number(result.data.totalAmount)
+              : fullAmount,
             paymentMethod: "COD",
           });
         }
@@ -376,7 +405,11 @@ export default function CheckoutScreen({ navigation, route }) {
             </Text>
           </View>
           <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-sm text-textGray">Giảm giá</Text>
+            <Text className="text-sm text-textGray">
+              {membershipDiscountPercent > 0
+                ? `Ưu đãi thành viên (${membership?.tier || ""} -${membershipDiscountPercent}%)`
+                : "Giảm giá"}
+            </Text>
             <Text className="text-sm font-semibold text-green-500">
               {`-${discount.toLocaleString("vi-VN")}đ`}
             </Text>

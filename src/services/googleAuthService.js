@@ -7,12 +7,9 @@ import { Platform } from "react-native";
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_OAUTH_CONFIG = {
-  iosClientId:
-    "263008296948-bl7kq5bg7n6fhiiquulcr71lqgib2doa.apps.googleusercontent.com",
-  androidClientId:
-    "263008296948-i8s77ti8t4sab555u85cjarfp5tr3pd9.apps.googleusercontent.com",
-  webClientId:
-    "263008296948-kgk8i38i21jpqhjh5udr8reog1c0jna7.apps.googleusercontent.com", // Web Client ID (bắt buộc)
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // Web Client ID (bắt buộc)
 };
 
 /**
@@ -21,8 +18,9 @@ const GOOGLE_OAUTH_CONFIG = {
  */
 export const useGoogleAuth = () => {
   // iOS Client ID yêu cầu redirect URI format đặc biệt
-  const iosRedirectUri =
-    "com.googleusercontent.apps.263008296948-bl7kq5bg7n6fhiiquulcr71lqgib2doa:/oauth2redirect";
+  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
+  const iosAppId = iosClientId.split(".apps.googleusercontent.com")[0];
+  const iosRedirectUri = `com.googleusercontent.apps.${iosAppId}:/oauth2redirect`;
 
   // Dùng useAuthRequest để có code verifier cho PKCE
   const [request, response, promptAsync] = Google.useAuthRequest(

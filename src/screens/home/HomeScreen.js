@@ -59,13 +59,34 @@ export default function HomeScreen({ navigation }) {
       // Load categories
       const categoriesResult = await getCategories({ limit: 6 });
       if (categoriesResult.success) {
-        setCategories(categoriesResult.data);
+        const ALLOWED_CATEGORY_IDS = [
+          "00000000-0000-0000-0000-000000000001",
+          "00000000-0000-0000-0000-000000000002",
+        ];
+        setCategories(
+          categoriesResult.data.filter((c) =>
+            ALLOWED_CATEGORY_IDS.includes(c.id),
+          ),
+        );
       }
 
-      // Load featured products (first 10 products)
-      const productsResult = await getProducts({ limit: 10 });
-      if (productsResult.success) {
-        setFeaturedProducts(productsResult.data);
+      // Load featured products from the 2 allowed categories only
+      const [featuredA, featuredB] = await Promise.all([
+        getProducts({
+          categoryId: "00000000-0000-0000-0000-000000000001",
+          limit: 10,
+        }),
+        getProducts({
+          categoryId: "00000000-0000-0000-0000-000000000002",
+          limit: 10,
+        }),
+      ]);
+      const combined = [
+        ...(featuredA.success ? featuredA.data : []),
+        ...(featuredB.success ? featuredB.data : []),
+      ];
+      if (combined.length > 0) {
+        setFeaturedProducts(combined);
       }
     } catch (error) {
       // Silent error
@@ -124,7 +145,6 @@ export default function HomeScreen({ navigation }) {
       "Gọng kính": "glasses-outline",
       "Tròng kính": "ellipse-outline",
       "Dịch vụ": "medical-outline",
-      "Phụ kiện": "bag-outline",
     };
     return iconMap[name] || "cube-outline";
   };
