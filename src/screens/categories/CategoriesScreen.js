@@ -11,9 +11,16 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { getCategories } from "../../services/categoryService";
+import { getProducts } from "../../services/productService";
+
+const ALLOWED_CATEGORY_IDS = [
+  "00000000-0000-0000-0000-000000000001",
+  "00000000-0000-0000-0000-000000000002",
+];
 
 export default function CategoriesScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
+  const [categoryProductCounts, setCategoryProductCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -27,7 +34,25 @@ export default function CategoriesScreen({ navigation }) {
       const result = await getCategories({ limit: 100 }); // Load all categories
 
       if (result.success) {
-        setCategories(result.data);
+        const filtered = result.data.filter((c) =>
+          ALLOWED_CATEGORY_IDS.includes(c.id),
+        );
+        setCategories(filtered);
+
+        // Fetch actual product counts from products API in parallel
+        const countResults = await Promise.all(
+          filtered.map((c) =>
+            getProducts({ categoryId: c.id, limit: 1, page: 1 }).then((r) => ({
+              id: c.id,
+              count: r.pagination?.total ?? 0,
+            })),
+          ),
+        );
+        const countsMap = {};
+        countResults.forEach(({ id, count }) => {
+          countsMap[id] = count;
+        });
+        setCategoryProductCounts(countsMap);
       }
     } catch (error) {
     } finally {
@@ -47,7 +72,6 @@ export default function CategoriesScreen({ navigation }) {
       "Gọng kính": "glasses-outline",
       "Tròng kính": "ellipse-outline",
       "Dịch vụ": "medical-outline",
-      "Phụ kiện": "bag-outline",
     };
     return iconMap[name] || "cube-outline";
   };
@@ -74,8 +98,6 @@ export default function CategoriesScreen({ navigation }) {
         "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=300&fit=crop",
       "Dịch vụ":
         "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&h=300&fit=crop",
-      "Phụ kiện":
-        "https://images.unsplash.com/photo-1584308972272-9e4e7685e80f?w=400&h=300&fit=crop",
     };
     return (
       imageMap[name] ||
@@ -174,7 +196,10 @@ export default function CategoriesScreen({ navigation }) {
                       </Text>
                     </View>
                     <Text className="text-xs text-textGray">
-                      {category._count?.products || 0} sản phẩm
+                      {categoryProductCounts[category.id] ??
+                        category._count?.products ??
+                        0}{" "}
+                      sản phẩm
                     </Text>
                   </View>
                 </TouchableOpacity>

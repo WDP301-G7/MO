@@ -32,31 +32,49 @@ export default function ProductCatalogScreen({ navigation, route }) {
     loadProducts();
   }, [categoryId, selectedFilter, selectedSort]);
 
+  const ALLOWED_CATEGORY_IDS = [
+    "00000000-0000-0000-0000-000000000001",
+    "00000000-0000-0000-0000-000000000002",
+  ];
+
   const loadProducts = async (page = 1, append = false) => {
     try {
       if (!append) setLoading(true);
 
-      const params = {
-        page,
-        limit: 20,
-      };
+      const baseParams = { page, limit: 20 };
+      if (selectedFilter === "preorder") baseParams.isPreorder = true;
 
-      if (categoryId) params.categoryId = categoryId;
-
-      // Apply filters
-      if (selectedFilter === "preorder") {
-        params.isPreorder = true;
-      }
-
-      const result = await getProducts(params);
-
-      if (result.success) {
-        if (append) {
-          setProducts([...products, ...result.data]);
-        } else {
-          setProducts(result.data);
+      if (categoryId) {
+        // Single category — normal fetch
+        const result = await getProducts({ ...baseParams, categoryId });
+        if (result.success) {
+          if (append) setProducts((prev) => [...prev, ...result.data]);
+          else setProducts(result.data);
+          setPagination(result.pagination);
         }
-        setPagination(result.pagination);
+      } else {
+        // No category filter — fetch from both allowed categories in parallel
+        const [resultA, resultB] = await Promise.all(
+          ALLOWED_CATEGORY_IDS.map((catId) =>
+            getProducts({ ...baseParams, categoryId: catId }),
+          ),
+        );
+        const combined = [
+          ...(resultA.success ? resultA.data : []),
+          ...(resultB.success ? resultB.data : []),
+        ];
+        if (append) setProducts((prev) => [...prev, ...combined]);
+        else setProducts(combined);
+        // Keep pagination of whichever category still has more pages
+        const paginationA = resultA.pagination;
+        const paginationB = resultB.pagination;
+        const hasMoreA =
+          paginationA && paginationA.page < paginationA.totalPages;
+        const hasMoreB =
+          paginationB && paginationB.page < paginationB.totalPages;
+        setPagination(
+          hasMoreA ? paginationA : hasMoreB ? paginationB : paginationA,
+        );
       }
     } catch (error) {
       // Silent error

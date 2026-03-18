@@ -126,7 +126,7 @@ export default function OrderSuccessScreen({ navigation, route }) {
             onPress={() => {
               navigation.reset({
                 index: 0,
-                routes: [{ name: "Home" }],
+                routes: [{ name: "MainApp", params: { screen: "HomeTab" } }],
               });
             }}
           >

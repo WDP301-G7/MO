@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,36 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { getProducts, formatPrice } from "../../services/productService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  getProducts,
+  getProductImages,
+  formatPrice,
+} from "../../services/productService";
+
+const RECENT_SEARCHES_KEY = "recentSearches";
+const MAX_RECENT = 8;
+
+const CATEGORY_FILTERS = [
+  { id: "all", label: "Tất cả", icon: "apps-outline", categoryId: null },
+  {
+    id: "frame",
+    label: "Gọng kính",
+    icon: "glasses-outline",
+    categoryId: "00000000-0000-0000-0000-000000000001",
+  },
+  {
+    id: "lens",
+    label: "Tròng kính",
+    icon: "ellipse-outline",
+    categoryId: "00000000-0000-0000-0000-000000000002",
+  },
+];
+
+const ALLOWED_CATEGORY_IDS = [
+  "00000000-0000-0000-0000-000000000001",
+  "00000000-0000-0000-0000-000000000002",
+];
 
 export default function SearchScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,10 +48,15 @@ export default function SearchScreen({ navigation }) {
   const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("all");
-  const [trendingProducts, setTrendingProducts] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [featuredImages, setFeaturedImages] = useState({});
+  const [searchImages, setSearchImages] = useState({});
+  const [recentSearches, setRecentSearches] = useState([]);
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    loadTrendingProducts();
+    loadRecentSearches();
+    loadFeaturedProducts();
   }, []);
 
   useEffect(() => {
@@ -33,18 +67,62 @@ export default function SearchScreen({ navigation }) {
         setIsSearching(false);
         setSearchResults([]);
       }
-    }, 500); // Debounce 500ms
-
+    }, 500);
     return () => clearTimeout(delaySearch);
   }, [searchQuery, selectedFilter]);
 
-  const loadTrendingProducts = async () => {
+  const loadRecentSearches = async () => {
     try {
-      const { data } = await getProducts({ page: 1, limit: 4 });
-      setTrendingProducts(data);
-    } catch (error) {
-      // Silent error
-    }
+      const stored = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
+      if (stored) setRecentSearches(JSON.parse(stored));
+    } catch {}
+  };
+
+  const saveRecentSearch = async (query) => {
+    try {
+      const trimmed = query.trim();
+      if (!trimmed) return;
+      const updated = [
+        trimmed,
+        ...recentSearches.filter((s) => s !== trimmed),
+      ].slice(0, MAX_RECENT);
+      setRecentSearches(updated);
+      await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+    } catch {}
+  };
+
+  const clearRecentSearches = async () => {
+    try {
+      setRecentSearches([]);
+      await AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
+    } catch {}
+  };
+
+  const loadFeaturedProducts = async () => {
+    try {
+      const results = await Promise.all(
+        ALLOWED_CATEGORY_IDS.map((categoryId) =>
+          getProducts({ categoryId, limit: 2 }).then((r) => r.data || []),
+        ),
+      );
+      const products = results.flat().slice(0, 4);
+      setFeaturedProducts(products);
+
+      const uniqueIds = products.map((p) => p.id);
+      const imgResults = await Promise.all(
+        uniqueIds.map((pid) => getProductImages(pid).then((r) => ({ pid, r }))),
+      );
+      const imgMap = {};
+      imgResults.forEach(({ pid, r }) => {
+        if (r.success && r.data?.length > 0) {
+          const sorted = [...r.data].sort((a, b) =>
+            b.isPrimary ? 1 : a.isPrimary ? -1 : 0,
+          );
+          imgMap[pid] = sorted[0].imageUrl;
+        }
+      });
+      setFeaturedImages(imgMap);
+    } catch {}
   };
 
   const performSearch = async () => {
@@ -52,63 +130,55 @@ export default function SearchScreen({ navigation }) {
       setLoading(true);
       setIsSearching(true);
 
-      const params = {
-        search: searchQuery.trim(),
-        page: 1,
-        limit: 20,
-      };
+      const filter = CATEGORY_FILTERS.find((f) => f.id === selectedFilter);
+      const params = { search: searchQuery.trim(), page: 1, limit: 20 };
+      if (filter?.categoryId) params.categoryId = filter.categoryId;
 
-      // Apply filter
-      if (selectedFilter !== "all") {
-        const typeMap = {
-          frames: "FRAME",
-          sunglasses: "FRAME", // Could add a separate field for sunglasses
-          lenses: "LENS",
-          accessories: "SERVICE",
-        };
-        params.type = typeMap[selectedFilter];
+      let allResults = [];
+      if (!filter?.categoryId) {
+        // Search across both allowed categories
+        const results = await Promise.all(
+          ALLOWED_CATEGORY_IDS.map((categoryId) =>
+            getProducts({ ...params, categoryId }).then((r) => r.data || []),
+          ),
+        );
+        allResults = results.flat();
+      } else {
+        const r = await getProducts(params);
+        allResults = r.data || [];
       }
 
-      const { data } = await getProducts(params);
-      setSearchResults(data);
-    } catch (error) {
+      setSearchResults(allResults);
+
+      // Fetch images for results
+      const uniqueIds = [...new Set(allResults.map((p) => p.id))];
+      const imgResults = await Promise.all(
+        uniqueIds.map((pid) => getProductImages(pid).then((r) => ({ pid, r }))),
+      );
+      const imgMap = {};
+      imgResults.forEach(({ pid, r }) => {
+        if (r.success && r.data?.length > 0) {
+          const sorted = [...r.data].sort((a, b) =>
+            b.isPrimary ? 1 : a.isPrimary ? -1 : 0,
+          );
+          imgMap[pid] = sorted[0].imageUrl;
+        }
+      });
+      setSearchImages(imgMap);
+    } catch {
       setSearchResults([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const recentSearches = [
-    "Gọng kính Rayban",
-    "Kính cận nam",
-    "Tròng kính chống ánh sáng xanh",
-    "Kính mát nữ",
-  ];
-
-  const popularKeywords = [
-    { id: 1, text: "Rayban", icon: "flame" },
-    { id: 2, text: "Oakley", icon: "flame" },
-    { id: 3, text: "Kính cận", icon: "trending-up" },
-    { id: 4, text: "Kính mát", icon: "sunny" },
-    { id: 5, text: "Gọng nhựa", icon: "trending-up" },
-    { id: 6, text: "Tròng chống UV", icon: "shield-checkmark" },
-  ];
-
-  const filters = [
-    { id: "all", label: "Tất cả", icon: "apps-outline" },
-    { id: "frames", label: "Gọng kính", icon: "glasses-outline" },
-    { id: "sunglasses", label: "Kính mát", icon: "sunny-outline" },
-    { id: "lenses", label: "Tròng kính", icon: "ellipse-outline" },
-    { id: "accessories", label: "Phụ kiện", icon: "bag-outline" },
-  ];
-
   const handleSearch = (query) => {
     setSearchQuery(query);
   };
 
-  const handleRecentSearch = (keyword) => {
+  const handleSelectKeyword = (keyword) => {
     setSearchQuery(keyword);
-    handleSearch(keyword);
+    saveRecentSearch(keyword);
   };
 
   const clearSearch = () => {
@@ -117,15 +187,13 @@ export default function SearchScreen({ navigation }) {
     setIsSearching(false);
   };
 
+  const handleSubmitSearch = () => {
+    if (searchQuery.trim()) saveRecentSearch(searchQuery);
+  };
+
   const renderProductItem = ({ item }) => {
-    const primaryImage =
-      item.images?.find((img) => img.isPrimary)?.imageUrl ||
-      item.images?.[0]?.imageUrl ||
-      (item.type === "FRAME"
-        ? "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400"
-        : item.type === "LENS"
-          ? "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400"
-          : "https://images.unsplash.com/photo-1622519407650-3df9883f76e6?w=400");
+    const image = searchImages[item.id];
+    const rating = item.averageRating ?? item.rating ?? null;
 
     return (
       <TouchableOpacity
@@ -134,29 +202,38 @@ export default function SearchScreen({ navigation }) {
           navigation.navigate("ProductDetail", { productId: item.id })
         }
       >
-        <Image
-          source={{ uri: primaryImage }}
-          className="w-24 h-24 rounded-xl"
-        />
+        {image ? (
+          <Image
+            source={{ uri: image }}
+            className="w-24 h-24 rounded-xl"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-24 h-24 rounded-xl bg-gray-100 items-center justify-center">
+            <Ionicons name="image-outline" size={32} color="#CCCCCC" />
+          </View>
+        )}
         <View className="flex-1 ml-3 justify-between">
           <View>
             <Text className="text-sm font-bold text-text" numberOfLines={2}>
               {item.name}
             </Text>
             <Text className="text-xs text-textGray mt-1">
-              {item.brandName || "Không rõ"}
+              {item.brandName || ""}
             </Text>
           </View>
           <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="text-base font-bold text-primary">
-                {`${formatPrice(item.price).toLocaleString("vi-VN")}đ`}
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <Ionicons name="star" size={14} color="#F18F01" />
-              <Text className="text-xs text-textGray ml-1">4.5</Text>
-            </View>
+            <Text className="text-base font-bold text-primary">
+              {`${formatPrice(item.price).toLocaleString("vi-VN")}đ`}
+            </Text>
+            {rating != null && (
+              <View className="flex-row items-center">
+                <Ionicons name="star" size={14} color="#F18F01" />
+                <Text className="text-xs text-textGray ml-1">
+                  {Number(rating).toFixed(1)}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -179,11 +256,14 @@ export default function SearchScreen({ navigation }) {
           <View className="flex-1 bg-background rounded-xl px-4 py-3 flex-row items-center">
             <Ionicons name="search" size={20} color="#999999" />
             <TextInput
+              ref={inputRef}
               className="flex-1 ml-2 text-sm text-text"
               placeholder="Tìm kiếm sản phẩm..."
               placeholderTextColor="#999999"
               value={searchQuery}
               onChangeText={handleSearch}
+              onSubmitEditing={handleSubmitSearch}
+              returnKeyType="search"
               autoFocus
             />
             {searchQuery.length > 0 && (
@@ -201,7 +281,7 @@ export default function SearchScreen({ navigation }) {
             showsHorizontalScrollIndicator={false}
             className="mt-3 flex-row"
           >
-            {filters.map((filter) => (
+            {CATEGORY_FILTERS.map((filter) => (
               <TouchableOpacity
                 key={filter.id}
                 className={`mr-2 px-4 py-2 rounded-full flex-row items-center ${
@@ -242,7 +322,7 @@ export default function SearchScreen({ navigation }) {
                   <Text className="text-base font-bold text-text">
                     Tìm kiếm gần đây
                   </Text>
-                  <TouchableOpacity>
+                  <TouchableOpacity onPress={clearRecentSearches}>
                     <Text className="text-sm text-primary font-semibold">
                       Xóa tất cả
                     </Text>
@@ -252,7 +332,7 @@ export default function SearchScreen({ navigation }) {
                   <TouchableOpacity
                     key={index}
                     className="flex-row items-center py-3 border-b border-border"
-                    onPress={() => handleRecentSearch(keyword)}
+                    onPress={() => handleSelectKeyword(keyword)}
                   >
                     <Ionicons name="time-outline" size={20} color="#999999" />
                     <Text className="flex-1 text-sm text-text ml-3">
@@ -264,116 +344,99 @@ export default function SearchScreen({ navigation }) {
               </View>
             )}
 
-            {/* Popular Keywords */}
-            <View className="px-5 pt-5">
-              <Text className="text-base font-bold text-text mb-3">
-                Từ khóa phổ biến
-              </Text>
-              <View className="flex-row flex-wrap">
-                {popularKeywords.map((keyword) => (
-                  <TouchableOpacity
-                    key={keyword.id}
-                    className="bg-white rounded-full px-4 py-2.5 mr-2 mb-2 flex-row items-center shadow-sm"
-                    onPress={() => handleRecentSearch(keyword.text)}
-                  >
-                    <Ionicons name={keyword.icon} size={16} color="#F18F01" />
-                    <Text className="text-sm text-text ml-1.5">
-                      {keyword.text}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Trending Products */}
-            <View className="px-5 pt-5 pb-6">
-              <Text className="text-base font-bold text-text mb-3">
-                Sản phẩm nổi bật
-              </Text>
-              <View className="flex-row flex-wrap justify-between">
-                {trendingProducts.map((product) => {
-                  const primaryImage =
-                    product.images?.find((img) => img.isPrimary)?.imageUrl ||
-                    product.images?.[0]?.imageUrl ||
-                    (product.type === "FRAME"
-                      ? "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400"
-                      : product.type === "LENS"
-                        ? "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400"
-                        : "https://images.unsplash.com/photo-1622519407650-3df9883f76e6?w=400");
-
-                  return (
-                    <TouchableOpacity
-                      key={product.id}
-                      className="bg-white rounded-2xl p-3 mb-3 shadow-sm"
-                      style={{ width: "48%" }}
-                      onPress={() =>
-                        navigation.navigate("ProductDetail", {
-                          productId: product.id,
-                        })
-                      }
-                    >
-                      <Image
-                        source={{ uri: primaryImage }}
-                        className="w-full h-32 rounded-xl"
-                      />
-                      <Text
-                        className="text-sm font-semibold text-text mt-2"
-                        numberOfLines={2}
+            {/* Featured Products */}
+            {featuredProducts.length > 0 && (
+              <View className="px-5 pt-5 pb-6">
+                <Text className="text-base font-bold text-text mb-3">
+                  Sản phẩm nổi bật
+                </Text>
+                <View className="flex-row flex-wrap justify-between">
+                  {featuredProducts.map((product) => {
+                    const image = featuredImages[product.id];
+                    const rating =
+                      product.averageRating ?? product.rating ?? null;
+                    return (
+                      <TouchableOpacity
+                        key={product.id}
+                        className="bg-white rounded-2xl p-3 mb-3 shadow-sm"
+                        style={{ width: "48%" }}
+                        onPress={() =>
+                          navigation.navigate("ProductDetail", {
+                            productId: product.id,
+                          })
+                        }
                       >
-                        {product.name}
-                      </Text>
-                      <View className="flex-row items-center justify-between mt-2">
-                        <Text className="text-base font-bold text-primary">
-                          {`${formatPrice(product.price).toLocaleString("vi-VN")}đ`}
+                        {image ? (
+                          <Image
+                            source={{ uri: image }}
+                            className="w-full h-32 rounded-xl"
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View className="w-full h-32 rounded-xl bg-gray-100 items-center justify-center">
+                            <Ionicons
+                              name="image-outline"
+                              size={36}
+                              color="#CCCCCC"
+                            />
+                          </View>
+                        )}
+                        <Text
+                          className="text-sm font-semibold text-text mt-2"
+                          numberOfLines={2}
+                        >
+                          {product.name}
                         </Text>
-                        <View className="flex-row items-center">
-                          <Ionicons name="star" size={12} color="#F18F01" />
-                          <Text className="text-xs text-textGray ml-1">
-                            4.5
+                        <View className="flex-row items-center justify-between mt-2">
+                          <Text className="text-base font-bold text-primary">
+                            {`${formatPrice(product.price).toLocaleString("vi-VN")}đ`}
                           </Text>
+                          {rating != null && (
+                            <View className="flex-row items-center">
+                              <Ionicons name="star" size={12} color="#F18F01" />
+                              <Text className="text-xs text-textGray ml-1">
+                                {Number(rating).toFixed(1)}
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            )}
           </>
         ) : (
-          <>
-            {/* Search Results */}
-            <View className="px-5 pt-4">
-              <Text className="text-sm text-textGray mb-3">
-                Tìm thấy {searchResults.length} kết quả cho &quot;{searchQuery}
-                &quot;
-              </Text>
-              {loading ? (
-                <View className="items-center py-8">
-                  <ActivityIndicator size="large" color="#2E86AB" />
-                  <Text className="text-sm text-textGray mt-2">
-                    Đang tìm kiếm...
-                  </Text>
-                </View>
-              ) : searchResults.length > 0 ? (
-                <FlatList
-                  data={searchResults}
-                  renderItem={renderProductItem}
-                  keyExtractor={(item) => item.id.toString()}
-                  scrollEnabled={false}
-                />
-              ) : (
-                <View className="items-center py-16">
-                  <Ionicons name="search-outline" size={80} color="#E0E0E0" />
-                  <Text className="text-lg font-bold text-text mt-4">
-                    Không tìm thấy kết quả
-                  </Text>
-                  <Text className="text-sm text-textGray text-center mt-2 px-8">
-                    Không tìm thấy sản phẩm phù hợp với từ khóa của bạn
-                  </Text>
-                </View>
-              )}
-            </View>
-          </>
+          <View className="px-5 pt-4">
+            <Text className="text-sm text-textGray mb-3">
+              {loading
+                ? "Đang tìm kiếm..."
+                : `Tìm thấy ${searchResults.length} kết quả cho "${searchQuery}"`}
+            </Text>
+            {loading ? (
+              <View className="items-center py-8">
+                <ActivityIndicator size="large" color="#2E86AB" />
+              </View>
+            ) : searchResults.length > 0 ? (
+              <FlatList
+                data={searchResults}
+                renderItem={renderProductItem}
+                keyExtractor={(item) => item.id.toString()}
+                scrollEnabled={false}
+              />
+            ) : (
+              <View className="items-center py-16">
+                <Ionicons name="search-outline" size={80} color="#E0E0E0" />
+                <Text className="text-lg font-bold text-text mt-4">
+                  Không tìm thấy kết quả
+                </Text>
+                <Text className="text-sm text-textGray text-center mt-2 px-8">
+                  Không tìm thấy sản phẩm phù hợp với từ khóa của bạn
+                </Text>
+              </View>
+            )}
+          </View>
         )}
       </ScrollView>
     </View>

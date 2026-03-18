@@ -12,6 +12,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { getOrderById } from "../../services/orderService";
+import { getProductImages } from "../../services/productService";
 import { useReturns } from "../../contexts/ReturnsContext";
 import ReturnTypeSelector from "../../components/returns/ReturnTypeSelector";
 import ProductConditionSelector from "../../components/returns/ProductConditionSelector";
@@ -23,6 +24,7 @@ export default function ReturnRequestScreen({ navigation, route }) {
   const {
     orderId,
     warrantyOnly = false,
+    returnOnly = false,
     isPrescription = false,
   } = route.params || {};
   const { createReturn } = useReturns();
@@ -32,12 +34,15 @@ export default function ReturnRequestScreen({ navigation, route }) {
   const [submitting, setSubmitting] = useState(false);
   const [order, setOrder] = useState(null);
   const [returnType, setReturnType] = useState(
-    warrantyOnly ? "WARRANTY" : "RETURN",
+    warrantyOnly ? "WARRANTY" : returnOnly ? "EXCHANGE" : "RETURN",
   );
   const [selectedItems, setSelectedItems] = useState([]);
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
   const [images, setImages] = useState([]);
+
+  // Product images map { productId: imageUrl }
+  const [productImages, setProductImages] = useState({});
 
   // Product selector modal state
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -56,6 +61,26 @@ export default function ReturnRequestScreen({ navigation, route }) {
       const result = await getOrderById(orderId);
       if (result.success) {
         setOrder(result.data);
+        // Fetch images for all products in parallel
+        const items = result.data?.orderItems || [];
+        const uniqueProductIds = [
+          ...new Set(items.map((i) => i.productId).filter(Boolean)),
+        ];
+        const imageResults = await Promise.all(
+          uniqueProductIds.map((pid) =>
+            getProductImages(pid).then((r) => ({ pid, r })),
+          ),
+        );
+        const imageMap = {};
+        imageResults.forEach(({ pid, r }) => {
+          if (r.success && r.data?.length > 0) {
+            const sorted = [...r.data].sort((a, b) =>
+              b.isPrimary ? 1 : a.isPrimary ? -1 : 0,
+            );
+            imageMap[pid] = sorted[0].imageUrl;
+          }
+        });
+        setProductImages(imageMap);
       } else {
         Alert.alert("Lỗi", result.message);
         navigation.goBack();
@@ -367,10 +392,31 @@ export default function ReturnRequestScreen({ navigation, route }) {
                   <Text className="text-amber-700 text-xs">
                     {isPrescription
                       ? "Sản phẩm theo toa không được phép đổi/trả, chỉ có thể yêu cầu bảo hành."
-                      : "Đơn hàng đã quá hạn đổi/trả (7 ngày), chỉ có thể yêu cầu bảo hành."}
+                      : "Đơn hàng đã quá hạn đổi/trả, chỉ có thể yêu cầu bảo hành."}
                   </Text>
                 </View>
               </View>
+            </View>
+          ) : returnOnly ? (
+            <View>
+              <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-1">
+                <View className="flex-row items-start">
+                  <Ionicons
+                    name="information-circle"
+                    size={20}
+                    color="#F59E0B"
+                  />
+                  <Text className="text-amber-700 text-xs ml-2 flex-1">
+                    Đã quá hạn trả hàng, chỉ có thể yêu cầu đổi hàng hoặc bảo
+                    hành.
+                  </Text>
+                </View>
+              </View>
+              <ReturnTypeSelector
+                value={returnType}
+                onChange={setReturnType}
+                disabledTypes={["RETURN"]}
+              />
             </View>
           ) : (
             <ReturnTypeSelector value={returnType} onChange={setReturnType} />
@@ -404,8 +450,9 @@ export default function ReturnRequestScreen({ navigation, route }) {
                   <Image
                     source={{
                       uri:
+                        productImages[orderItem.productId] ||
                         orderItem.product?.images?.[0]?.imageUrl ||
-                        "https://via.placeholder.com/60",
+                        "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
                     }}
                     className="w-16 h-16 rounded-lg bg-background"
                     resizeMode="cover"

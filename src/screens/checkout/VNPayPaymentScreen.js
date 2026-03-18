@@ -234,7 +234,17 @@ export default function VNPayPaymentScreen({ navigation, route }) {
                 { text: "Không", style: "cancel" },
                 {
                   text: "Có",
-                  onPress: () => navigation.goBack(),
+                  onPress: () => {
+                    const currentOrderId = createdOrderId || orderId;
+                    if (currentOrderId) {
+                      navigation.navigate("OrdersTab", {
+                        screen: "OrderDetail",
+                        params: { orderId: currentOrderId },
+                      });
+                    } else {
+                      navigation.goBack();
+                    }
+                  },
                   style: "destructive",
                 },
               ],

@@ -24,7 +24,6 @@ export default function EditProfileScreen({ navigation, route }) {
     fullName: "",
     email: "",
     phone: "",
-    birthDate: "",
     gender: "male",
     address: "",
   });
@@ -53,7 +52,7 @@ export default function EditProfileScreen({ navigation, route }) {
           fullName: result.data.fullName || "",
           email: result.data.email || "",
           phone: result.data.phone || "",
-          birthDate: "", // Backend chưa có field này
+
           gender: "male", // Backend chưa có field này
           address: result.data.address || "",
         });
@@ -269,17 +268,6 @@ export default function EditProfileScreen({ navigation, route }) {
                 Bắt buộc nhập số điện thoại
               </Text>
             )}
-          </View>
-
-          {/* Birth Date */}
-          <View className="mb-4">
-            <Text className="text-sm font-semibold text-text mb-2">
-              Ngày sinh
-            </Text>
-            <TouchableOpacity className="bg-background rounded-xl px-4 py-3 flex-row items-center justify-between">
-              <Text className="text-sm text-text">{formData.birthDate}</Text>
-              <Ionicons name="calendar-outline" size={20} color="#999999" />
-            </TouchableOpacity>
           </View>
 
           {/* Gender */}

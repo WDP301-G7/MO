@@ -146,8 +146,13 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
         <View className="bg-white rounded-2xl p-6 w-full mb-6 shadow-sm">
           {/* Order ID */}
           <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-border">
-            <Text className="text-sm text-textGray">Mã đơn hàng:</Text>
-            <Text className="text-base font-bold text-text">{orderId}</Text>
+            <Text className="text-sm text-textGray mr-3">Mã đơn hàng:</Text>
+            <Text
+              className="text-sm font-bold text-text flex-1 text-right"
+              numberOfLines={2}
+            >
+              {orderId}
+            </Text>
           </View>
 
           {/* Transaction ID */}
@@ -196,7 +201,10 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
           <TouchableOpacity
             className="w-full bg-primary py-4 rounded-xl items-center"
             onPress={() =>
-              navigation.navigate("OrderDetail", { orderId: orderId })
+              navigation.navigate("OrdersTab", {
+                screen: "OrderDetail",
+                params: { orderId: orderId },
+              })
             }
           >
             <Text className="text-white font-bold text-base">Xem đơn hàng</Text>
@@ -207,7 +215,7 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
             onPress={() => {
               navigation.reset({
                 index: 0,
-                routes: [{ name: "Home" }],
+                routes: [{ name: "MainApp", params: { screen: "HomeTab" } }],
               });
             }}
           >

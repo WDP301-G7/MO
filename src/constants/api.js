@@ -1,4 +1,5 @@
-export const API_URL = "https://wdp.up.railway.app/api";
+export const API_URL =
+  process.env.EXPO_PUBLIC_API_URL || "https://wdp.up.railway.app/api";
 
 export const API_ENDPOINTS = {
   AUTH: {
@@ -65,5 +66,10 @@ export const API_ENDPOINTS = {
     UPDATE: "/reviews/:id",
     DETAIL: "/reviews/:id",
     PRODUCT_REVIEWS: "/products/:productId/reviews",
+  },
+  MEMBERSHIP: {
+    TIERS: "/membership/tiers",
+    MY_STATUS: "/membership/me",
+    MY_HISTORY: "/membership/me/history",
   },
 };

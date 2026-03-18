@@ -20,9 +20,15 @@ import {
   getOrderStatusIcon,
   formatPrice,
 } from "../../services/orderService";
+import { getProductImages } from "../../services/productService";
 import { getOrderPrescription } from "../../services/prescriptionService";
 import { createVNPayPayment } from "../../services/paymentService";
 import { getMyReturns } from "../../services/returnService";
+import {
+  getMyMembership,
+  getTierColor,
+  getTierIcon,
+} from "../../services/membershipService";
 
 export default function OrderDetailScreen({ navigation, route }) {
   const { orderId } = route.params;
@@ -35,30 +41,56 @@ export default function OrderDetailScreen({ navigation, route }) {
   const [cancelling, setCancelling] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState("");
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [membership, setMembership] = useState(null);
+  const [productImages, setProductImages] = useState({});
 
   useEffect(() => {
     if (orderId) {
       loadOrderDetails();
+      loadMembershipData();
     }
   }, [orderId]);
+
+  const loadMembershipData = async () => {
+    try {
+      const result = await getMyMembership();
+      if (result.success) {
+        setMembership(result.data);
+      }
+    } catch (error) {
+      // Silent error
+    }
+  };
 
   // Countdown timer for expiry
   useEffect(() => {
     if (!order?.expiresAt) return;
 
-    const interval = setInterval(() => {
+    const computeRemaining = () => {
       const now = new Date().getTime();
       const expiry = new Date(order.expiresAt).getTime();
       const diff = expiry - now;
 
       if (diff <= 0) {
         setTimeRemaining("Đã hết hạn");
-        clearInterval(interval);
-      } else {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        setTimeRemaining(`Còn ${hours}h ${minutes}m để thanh toán`);
+        return true; // expired
       }
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeRemaining(
+        `Còn ${hours > 0 ? hours + "h " : ""}${minutes}m ${seconds}s để thanh toán`,
+      );
+      return false;
+    };
+
+    // Set immediately on load, then tick every second
+    const alreadyExpired = computeRemaining();
+    if (alreadyExpired) return;
+
+    const interval = setInterval(() => {
+      const expired = computeRemaining();
+      if (expired) clearInterval(interval);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -94,25 +126,44 @@ export default function OrderDetailScreen({ navigation, route }) {
           }
         }
 
-        // Calculate appointment date based on createdAt + max leadTimeDays from products
-        if (orderData.orderItems) {
+        // Use expectedReadyDate from backend if available, otherwise calculate from leadTimeDays
+        if (orderData.expectedReadyDate) {
+          orderData.appointmentDate = orderData.expectedReadyDate;
+        } else if (orderData.orderItems) {
           const leadTimes = orderData.orderItems.map(
             (item) => item.product?.leadTimeDays || 0,
           );
-
           const maxLeadTime = Math.max(...leadTimes, 0);
-
           if (maxLeadTime > 0) {
             const createdDate = new Date(orderData.createdAt);
             const appointmentDate = new Date(createdDate);
             appointmentDate.setDate(appointmentDate.getDate() + maxLeadTime);
-
-            // Always use calculated date for preorder items
             orderData.appointmentDate = appointmentDate.toISOString();
           }
         }
 
         setOrder(orderData);
+
+        // Fetch images for all products in this order
+        const items = orderData.orderItems || [];
+        const uniqueIds = [
+          ...new Set(items.map((i) => i.productId).filter(Boolean)),
+        ];
+        const imgResults = await Promise.all(
+          uniqueIds.map((pid) =>
+            getProductImages(pid).then((r) => ({ pid, r })),
+          ),
+        );
+        const imgMap = {};
+        imgResults.forEach(({ pid, r }) => {
+          if (r.success && r.data?.length > 0) {
+            const sorted = [...r.data].sort((a, b) =>
+              b.isPrimary ? 1 : a.isPrimary ? -1 : 0,
+            );
+            imgMap[pid] = sorted[0].imageUrl;
+          }
+        });
+        setProductImages(imgMap);
 
         // Check if there are existing return requests for this order
         try {
@@ -238,15 +289,15 @@ export default function OrderDetailScreen({ navigation, route }) {
     const now = new Date();
     const daysDiff = Math.floor((now - completedDate) / (1000 * 60 * 60 * 24));
 
-    // Return/Exchange deadline: 7 days (not for prescription)
-    // Warranty deadline: 15 days (for all orders)
-    const returnDeadline = 7;
-    const warrantyDeadline = 15;
+    // Return/Exchange deadline: use membership tier deadlines if available
+    const returnDeadline = membership?.returnDays ?? 7;
+    const exchangeDeadline = membership?.exchangeDays ?? 15;
+    const warrantyDeadline = membership ? membership.warrantyMonths * 30 : 15;
 
     if (daysDiff > warrantyDeadline) {
       return {
         canReturn: false,
-        reason: "Đơn hàng đã quá hạn bảo hành (15 ngày)",
+        reason: `Đơn hàng đã quá hạn bảo hành (${membership ? membership.warrantyMonths + " tháng" : "15 ngày"})`,
       };
     }
 
@@ -262,18 +313,34 @@ export default function OrderDetailScreen({ navigation, route }) {
       };
     }
 
-    // Non-prescription orders
-    if (daysDiff > returnDeadline) {
+    // Non-prescription orders — check each deadline separately
+    if (daysDiff > exchangeDeadline) {
+      // Both return and exchange expired, only warranty remains
       return {
         canReturn: true,
         reason: "",
-        message:
-          "Đơn hàng đã quá hạn trả hàng/đổi hàng (7 ngày), chỉ có thể yêu cầu bảo hành",
+        message: `Đơn hàng đã quá hạn trả hàng và đổi hàng (${exchangeDeadline} ngày), chỉ có thể yêu cầu bảo hành`,
         warrantyOnly: true,
       };
     }
 
-    return { canReturn: true, reason: "", daysLeft: returnDeadline - daysDiff };
+    if (daysDiff > returnDeadline) {
+      // Return expired but exchange still valid
+      return {
+        canReturn: true,
+        reason: "",
+        message: `Đơn hàng đã quá hạn trả hàng (${returnDeadline} ngày) nhưng vẫn còn hạn đổi hàng và bảo hành`,
+        returnExpired: true,
+        daysLeftExchange: exchangeDeadline - daysDiff,
+      };
+    }
+
+    return {
+      canReturn: true,
+      reason: "",
+      daysLeft: returnDeadline - daysDiff,
+      daysLeftExchange: exchangeDeadline - daysDiff,
+    };
   };
 
   // Format date helper
@@ -573,6 +640,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                     <Image
                       source={{
                         uri:
+                          productImages[orderItem.productId] ||
                           orderItem.product?.images?.[0]?.imageUrl ||
                           "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
                       }}
@@ -699,20 +767,54 @@ export default function OrderDetailScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* Expiry Countdown - For WAITING_CUSTOMER status */}
-          {order.status === "WAITING_CUSTOMER" &&
-            order.paymentStatus === "UNPAID" &&
-            timeRemaining && (
-              <View className="bg-orange-50 mx-5 mt-4 p-4 rounded-2xl border border-orange-200">
+          {/* Expiry Countdown - For unpaid NEW and WAITING_CUSTOMER orders */}
+          {order.paymentStatus === "UNPAID" &&
+            (order.status === "NEW" || order.status === "WAITING_CUSTOMER") && (
+              <View
+                className={`mx-5 mt-4 p-4 rounded-2xl border ${
+                  timeRemaining === "Đã hết hạn"
+                    ? "bg-red-50 border-red-200"
+                    : "bg-orange-50 border-orange-200"
+                }`}
+              >
                 <View className="flex-row items-center">
-                  <Ionicons name="time-outline" size={20} color="#F97316" />
-                  <Text className="text-sm font-bold text-orange-700 ml-2">
-                    {timeRemaining}
+                  <Ionicons
+                    name={
+                      timeRemaining === "Đã hết hạn"
+                        ? "close-circle-outline"
+                        : "time-outline"
+                    }
+                    size={20}
+                    color={
+                      timeRemaining === "Đã hết hạn" ? "#EF4444" : "#F97316"
+                    }
+                  />
+                  <Text
+                    className={`text-sm font-bold ml-2 ${
+                      timeRemaining === "Đã hết hạn"
+                        ? "text-red-700"
+                        : "text-orange-700"
+                    }`}
+                  >
+                    {timeRemaining || "Chưa thanh toán"}
                   </Text>
                 </View>
-                <Text className="text-xs text-orange-600 mt-2">
-                  Vui lòng thanh toán trước khi hết hạn để giữ báo giá
+                <Text
+                  className={`text-xs mt-2 ${
+                    timeRemaining === "Đã hết hạn"
+                      ? "text-red-600"
+                      : "text-orange-600"
+                  }`}
+                >
+                  {timeRemaining === "Đã hết hạn"
+                    ? "Đơn hàng đã hết hạn thanh toán và có thể bị hủy tự động."
+                    : "Vui lòng thanh toán để hoàn tất đơn hàng."}
                 </Text>
+                {order.expiresAt && (
+                  <Text className="text-xs text-textGray mt-1">
+                    {`Hạn: ${new Date(order.expiresAt).toLocaleString("vi-VN")}`}
+                  </Text>
+                )}
               </View>
             )}
 
@@ -757,18 +859,199 @@ export default function OrderDetailScreen({ navigation, route }) {
 
           {/* Price Summary */}
           <View className="bg-white mx-5 mt-4 mb-6 px-5 py-5 rounded-2xl">
-            <View className="flex-row items-center justify-between pt-3 border-t border-border">
-              <Text className="text-base font-bold text-text">Tổng cộng:</Text>
-              <Text className="text-xl font-bold text-primary">
-                {`${formatPrice(order.totalAmount || 0).toLocaleString("vi-VN")}đ`}
-              </Text>
-            </View>
+            {(() => {
+              const subtotal = (order.orderItems || []).reduce(
+                (sum, item) =>
+                  sum + formatPrice(item.unitPrice) * item.quantity,
+                0,
+              );
+              const total = formatPrice(order.totalAmount || 0);
+              const discountAmount = order.discountAmount
+                ? Number(order.discountAmount)
+                : subtotal > total
+                  ? subtotal - total
+                  : 0;
+              const discountPercent = membership?.discountPercent || 0;
+
+              return (
+                <>
+                  {/* Subtotal row — only show when there's a discount to break down */}
+                  {discountAmount > 0 && (
+                    <>
+                      <View className="flex-row items-center justify-between mb-2">
+                        <Text className="text-sm text-textGray">Tạm tính</Text>
+                        <Text className="text-sm text-text">
+                          {`${subtotal.toLocaleString("vi-VN")}đ`}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center justify-between mb-3">
+                        <View className="flex-row items-center">
+                          <Text className="text-sm text-green-600">
+                            {`Ưu đãi thành viên`}
+                          </Text>
+                          {discountPercent > 0 && membership?.tier && (
+                            <View
+                              className="ml-2 px-2 py-0.5 rounded-full"
+                              style={{
+                                backgroundColor:
+                                  getTierColor(membership.tier) + "20",
+                              }}
+                            >
+                              <Text
+                                className="text-xs font-bold"
+                                style={{ color: getTierColor(membership.tier) }}
+                              >
+                                {membership.tier} -{discountPercent}%
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text className="text-sm font-semibold text-green-600">
+                          {`-${discountAmount.toLocaleString("vi-VN")}đ`}
+                        </Text>
+                      </View>
+                      <View className="h-px bg-border mb-3" />
+                    </>
+                  )}
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-base font-bold text-text">
+                      Tổng cộng:
+                    </Text>
+                    <Text className="text-xl font-bold text-primary">
+                      {`${total.toLocaleString("vi-VN")}đ`}
+                    </Text>
+                  </View>
+                </>
+              );
+            })()}
           </View>
+
+          {/* Membership Benefits — shown for COMPLETED orders */}
+          {order.status === "COMPLETED" && membership?.tier && (
+            <View
+              className="mx-5 mt-4 mb-4 p-4 rounded-2xl"
+              style={{
+                backgroundColor: getTierColor(membership.tier) + "15",
+                borderWidth: 1,
+                borderColor: getTierColor(membership.tier) + "40",
+              }}
+            >
+              <View className="flex-row items-center mb-3">
+                <Ionicons
+                  name={getTierIcon(membership.tier)}
+                  size={20}
+                  color={getTierColor(membership.tier)}
+                />
+                <Text
+                  className="text-sm font-bold ml-2"
+                  style={{ color: getTierColor(membership.tier) }}
+                >
+                  Quyền lợi hạng {membership.tier}
+                </Text>
+              </View>
+              {(() => {
+                const completedDate = new Date(
+                  order.updatedAt || order.createdAt,
+                );
+                const now = new Date();
+
+                const returnDeadline = new Date(completedDate);
+                returnDeadline.setDate(
+                  returnDeadline.getDate() + (membership.returnDays || 7),
+                );
+                const returnDaysLeft = Math.max(
+                  0,
+                  Math.ceil((returnDeadline - now) / (1000 * 60 * 60 * 24)),
+                );
+
+                const exchangeDeadline = new Date(completedDate);
+                exchangeDeadline.setDate(
+                  exchangeDeadline.getDate() + (membership.exchangeDays || 15),
+                );
+                const exchangeDaysLeft = Math.max(
+                  0,
+                  Math.ceil((exchangeDeadline - now) / (1000 * 60 * 60 * 24)),
+                );
+
+                const warrantyExpiry = new Date(completedDate);
+                warrantyExpiry.setMonth(
+                  warrantyExpiry.getMonth() + (membership.warrantyMonths || 6),
+                );
+
+                return (
+                  <>
+                    <View className="flex-row items-center mb-2">
+                      <Ionicons
+                        name="return-down-back-outline"
+                        size={15}
+                        color="#666"
+                      />
+                      <Text className="text-xs text-textGray ml-2 flex-1">
+                        Trả hàng:{" "}
+                        <Text
+                          className="font-semibold"
+                          style={{
+                            color:
+                              returnDaysLeft > 0
+                                ? getTierColor(membership.tier)
+                                : "#EF4444",
+                          }}
+                        >
+                          {returnDaysLeft > 0
+                            ? `Còn ${returnDaysLeft} ngày`
+                            : "Hết hạn"}
+                        </Text>{" "}
+                        (hết {returnDeadline.toLocaleDateString("vi-VN")})
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center mb-2">
+                      <Ionicons name="refresh-outline" size={15} color="#666" />
+                      <Text className="text-xs text-textGray ml-2 flex-1">
+                        Đổi hàng:{" "}
+                        <Text
+                          className="font-semibold"
+                          style={{
+                            color:
+                              exchangeDaysLeft > 0
+                                ? getTierColor(membership.tier)
+                                : "#EF4444",
+                          }}
+                        >
+                          {exchangeDaysLeft > 0
+                            ? `Còn ${exchangeDaysLeft} ngày`
+                            : "Hết hạn"}
+                        </Text>{" "}
+                        (hết {exchangeDeadline.toLocaleDateString("vi-VN")})
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center">
+                      <Ionicons
+                        name="shield-checkmark-outline"
+                        size={15}
+                        color="#666"
+                      />
+                      <Text className="text-xs text-textGray ml-2 flex-1">
+                        Bảo hành: đến{" "}
+                        <Text
+                          className="font-semibold"
+                          style={{ color: getTierColor(membership.tier) }}
+                        >
+                          {warrantyExpiry.toLocaleDateString("vi-VN")}
+                        </Text>{" "}
+                        ({membership.warrantyMonths} tháng)
+                      </Text>
+                    </View>
+                  </>
+                );
+              })()}
+            </View>
+          )}
 
           {/* Return/Exchange Deadline Notice */}
           {order.status === "COMPLETED" &&
             canReturnExchange().canReturn &&
-            canReturnExchange().daysLeft !== undefined && (
+            canReturnExchange().daysLeft !== undefined &&
+            !membership?.tier && (
               <View className="mx-5 mb-4 bg-blue-50 rounded-xl p-4 flex-row items-start">
                 <Ionicons name="time-outline" size={20} color="#2196F3" />
                 <View className="flex-1 ml-3">
@@ -777,14 +1060,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                   </Text>
                   <Text className="text-xs text-blue-600">
                     Còn {canReturnExchange().daysLeft} ngày để yêu cầu đổi/trả
-                    hàng hoặc{" "}
-                    {15 -
-                      Math.floor(
-                        (new Date() -
-                          new Date(order.updatedAt || order.createdAt)) /
-                          (1000 * 60 * 60 * 24),
-                      )}{" "}
-                    ngày để yêu cầu bảo hành
+                    hàng
                   </Text>
                 </View>
               </View>
@@ -794,43 +1070,77 @@ export default function OrderDetailScreen({ navigation, route }) {
           <View className="px-5 mb-8 gap-4">
             {/* Payment Button for Prescription Orders (WAITING_CUSTOMER) */}
             {order.paymentStatus === "UNPAID" &&
-              order.status === "WAITING_CUSTOMER" && (
-                <TouchableOpacity
-                  className="bg-primary rounded-xl py-4 items-center flex-row justify-center shadow-sm"
-                  onPress={handlePayment}
-                  disabled={paymentLoading}
-                >
-                  {paymentLoading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="card" size={20} color="#FFFFFF" />
-                      <Text className="text-white font-bold text-base ml-2">
-                        Thanh toán ngay
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
+              order.status === "WAITING_CUSTOMER" &&
+              (() => {
+                const isExpired = timeRemaining === "Đã hết hạn";
+                return (
+                  <TouchableOpacity
+                    className={`rounded-xl py-4 items-center flex-row justify-center shadow-sm ${
+                      isExpired ? "bg-gray-300" : "bg-primary"
+                    }`}
+                    onPress={handlePayment}
+                    disabled={paymentLoading || isExpired}
+                  >
+                    {paymentLoading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name={isExpired ? "time-outline" : "card"}
+                          size={20}
+                          color={isExpired ? "#9CA3AF" : "#FFFFFF"}
+                        />
+                        <Text
+                          className={`font-bold text-base ml-2 ${
+                            isExpired ? "text-gray-500" : "text-white"
+                          }`}
+                        >
+                          {isExpired
+                            ? "Đã hết hạn thanh toán"
+                            : "Thanh toán ngay"}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                );
+              })()}
 
             {/* Payment Button for Regular Unpaid Orders */}
-            {order.paymentStatus === "UNPAID" && order.status === "NEW" && (
-              <TouchableOpacity
-                className="bg-green-500 rounded-xl py-4 items-center flex-row justify-center shadow-sm"
-                onPress={() =>
-                  navigation.navigate("CheckoutScreenVNPay", {
-                    orderId: order.id,
-                    totalAmount: order.totalAmount,
-                    isPayingExistingOrder: true,
-                  })
-                }
-              >
-                <Ionicons name="card" size={20} color="#FFFFFF" />
-                <Text className="text-white font-bold text-base ml-2">
-                  Thanh toán ngay
-                </Text>
-              </TouchableOpacity>
-            )}
+            {order.paymentStatus === "UNPAID" &&
+              order.status === "NEW" &&
+              (() => {
+                const isExpired = timeRemaining === "Đã hết hạn";
+                return (
+                  <TouchableOpacity
+                    className={`rounded-xl py-4 items-center flex-row justify-center shadow-sm ${
+                      isExpired ? "bg-gray-300" : "bg-green-500"
+                    }`}
+                    onPress={handlePayment}
+                    disabled={paymentLoading || isExpired}
+                  >
+                    {paymentLoading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name={isExpired ? "time-outline" : "card"}
+                          size={20}
+                          color={isExpired ? "#9CA3AF" : "#FFFFFF"}
+                        />
+                        <Text
+                          className={`font-bold text-base ml-2 ${
+                            isExpired ? "text-gray-500" : "text-white"
+                          }`}
+                        >
+                          {isExpired
+                            ? "Đã hết hạn thanh toán"
+                            : "Thanh toán ngay"}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                );
+              })()}
 
             {/* Return/Exchange Button */}
             {canReturnExchange().canReturn && (
@@ -847,6 +1157,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                           navigation.navigate("ReturnRequest", {
                             orderId: order.id,
                             warrantyOnly: eligibility.warrantyOnly || false,
+                            returnOnly: eligibility.returnExpired || false,
                             isPrescription: eligibility.isPrescription || false,
                           }),
                       },
@@ -855,6 +1166,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                     navigation.navigate("ReturnRequest", {
                       orderId: order.id,
                       warrantyOnly: eligibility.warrantyOnly || false,
+                      returnOnly: eligibility.returnExpired || false,
                       isPrescription: eligibility.isPrescription || false,
                     });
                   }
@@ -868,7 +1180,9 @@ export default function OrderDetailScreen({ navigation, route }) {
                 <Text className="text-white font-bold text-base ml-2">
                   {canReturnExchange().warrantyOnly
                     ? "Bảo hành"
-                    : "Đổi/Trả/Bảo hành"}
+                    : canReturnExchange().returnExpired
+                      ? "Đổi hàng / Bảo hành"
+                      : "Đổi/Trả/Bảo hành"}
                 </Text>
               </TouchableOpacity>
             )}
@@ -910,16 +1224,16 @@ export default function OrderDetailScreen({ navigation, route }) {
                 </View>
               </View>
             )}
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                className="flex-1 border-2 border-border bg-white rounded-xl py-3 items-center"
-                onPress={() => navigation.navigate("Support")}
-              >
-                <Text className="text-text font-bold text-sm">
-                  Liên hệ hỗ trợ
-                </Text>
-              </TouchableOpacity>
-              {(order.status === "NEW" || order.status === "CONFIRMED") && (
+            {order.status === "NEW" || order.status === "CONFIRMED" ? (
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  className="flex-1 border-2 border-border bg-white rounded-xl py-3 items-center"
+                  onPress={() => navigation.navigate("Support")}
+                >
+                  <Text className="text-text font-bold text-sm">
+                    Liên hệ hỗ trợ
+                  </Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   className="flex-1 border-2 border-red-500 bg-white rounded-xl py-3 items-center"
                   onPress={() => setShowCancelModal(true)}
@@ -928,8 +1242,17 @@ export default function OrderDetailScreen({ navigation, route }) {
                     Hủy đơn hàng
                   </Text>
                 </TouchableOpacity>
-              )}
-            </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                className="border-2 border-border bg-white rounded-xl py-3 items-center"
+                onPress={() => navigation.navigate("Support")}
+              >
+                <Text className="text-text font-bold text-sm">
+                  Liên hệ hỗ trợ
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
 

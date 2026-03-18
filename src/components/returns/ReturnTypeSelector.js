@@ -9,6 +9,7 @@ export default function ReturnTypeSelector({
   value,
   onChange,
   disabled = false,
+  disabledTypes = [],
 }) {
   const types = [
     {
@@ -36,38 +37,41 @@ export default function ReturnTypeSelector({
 
   return (
     <View style={styles.container}>
-      {types.map((type) => (
-        <TouchableOpacity
-          key={type.value}
-          style={[
-            styles.typeButton,
-            value === type.value && [
-              styles.typeButtonActive,
-              { borderColor: type.color },
-            ],
-            disabled && styles.typeButtonDisabled,
-          ]}
-          onPress={() => !disabled && onChange(type.value)}
-          disabled={disabled}
-        >
-          <Text style={styles.typeIcon}>{type.icon}</Text>
-          <Text
+      {types.map((type) => {
+        const isTypeDisabled = disabled || disabledTypes.includes(type.value);
+        return (
+          <TouchableOpacity
+            key={type.value}
             style={[
-              styles.typeLabel,
-              value === type.value && styles.typeLabelActive,
+              styles.typeButton,
+              value === type.value && [
+                styles.typeButtonActive,
+                { borderColor: type.color },
+              ],
+              isTypeDisabled && styles.typeButtonDisabled,
             ]}
+            onPress={() => !isTypeDisabled && onChange(type.value)}
+            disabled={isTypeDisabled}
           >
-            {type.label}
-          </Text>
-          <Text style={styles.typeDescription}>{type.description}</Text>
+            <Text style={styles.typeIcon}>{type.icon}</Text>
+            <Text
+              style={[
+                styles.typeLabel,
+                value === type.value && styles.typeLabelActive,
+              ]}
+            >
+              {type.label}
+            </Text>
+            <Text style={styles.typeDescription}>{type.description}</Text>
 
-          {value === type.value && (
-            <View style={[styles.checkmark, { backgroundColor: type.color }]}>
-              <Ionicons name="checkmark" size={16} color="white" />
-            </View>
-          )}
-        </TouchableOpacity>
-      ))}
+            {value === type.value && (
+              <View style={[styles.checkmark, { backgroundColor: type.color }]}>
+                <Ionicons name="checkmark" size={16} color="white" />
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }

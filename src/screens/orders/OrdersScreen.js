@@ -18,6 +18,7 @@ import {
   getOrderStatusColor,
   formatPrice,
 } from "../../services/orderService";
+import { getProductImages } from "../../services/productService";
 import { OrdersContext } from "../../contexts/OrdersContext";
 
 export default function OrdersScreen({ navigation, route }) {
@@ -27,6 +28,7 @@ export default function OrdersScreen({ navigation, route }) {
   const [selectedTab, setSelectedTab] = useState(initialFilter);
   const [prescriptionFilter, setPrescriptionFilter] = useState("ALL"); // ALL, PRESCRIPTION, IN_STOCK
   const [orders, setOrders] = useState([]);
+  const [productImages, setProductImages] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -65,6 +67,27 @@ export default function OrdersScreen({ navigation, route }) {
           setOrders(ordersData);
           setCurrentPage(1);
         }
+
+        // Fetch images for all unique products across all orders
+        const allItems = ordersData.flatMap((o) => o.orderItems || []);
+        const uniqueIds = [
+          ...new Set(allItems.map((i) => i.productId).filter(Boolean)),
+        ];
+        const imgResults = await Promise.all(
+          uniqueIds.map((pid) =>
+            getProductImages(pid).then((r) => ({ pid, r })),
+          ),
+        );
+        const imgMap = {};
+        imgResults.forEach(({ pid, r }) => {
+          if (r.success && r.data?.length > 0) {
+            const sorted = [...r.data].sort((a, b) =>
+              b.isPrimary ? 1 : a.isPrimary ? -1 : 0,
+            );
+            imgMap[pid] = sorted[0].imageUrl;
+          }
+        });
+        setProductImages((prev) => ({ ...prev, ...imgMap }));
 
         // Check if there are more pages - support different field names
         if (result.pagination) {
@@ -190,7 +213,13 @@ export default function OrdersScreen({ navigation, route }) {
         let passPrescriptionFilter = true;
         if (prescriptionFilter !== "ALL") {
           const orderType = (order.orderType || "").trim().toUpperCase();
-          passPrescriptionFilter = orderType === prescriptionFilter;
+          if (prescriptionFilter === "IN_STOCK") {
+            // "Không toa" includes both IN_STOCK and PRE_ORDER
+            passPrescriptionFilter =
+              orderType === "IN_STOCK" || orderType === "PRE_ORDER";
+          } else {
+            passPrescriptionFilter = orderType === prescriptionFilter;
+          }
         }
 
         return passStatusFilter && passPrescriptionFilter;
@@ -227,7 +256,7 @@ export default function OrdersScreen({ navigation, route }) {
     }
   };
 
-  const handleAction = (orderId, action) => {
+  const handleAction = (orderId, action, order) => {
     switch (action) {
       case "detail":
       case "track":
@@ -236,12 +265,26 @@ export default function OrdersScreen({ navigation, route }) {
       case "cancel":
         alert("Hủy đơn hàng");
         break;
-      case "reorder":
-        alert("Mua lại");
+      case "reorder": {
+        const FRAME_CATEGORY = "00000000-0000-0000-0000-000000000001";
+        const LENS_CATEGORY = "00000000-0000-0000-0000-000000000002";
+        const items = order?.orderItems || [];
+        const frameItem = items.find(
+          (i) => i.product?.categoryId === FRAME_CATEGORY,
+        );
+        const lensItem = items.find(
+          (i) => i.product?.categoryId === LENS_CATEGORY,
+        );
+        navigation.navigate("LensOrder", {
+          selectedFrame: frameItem ? { id: frameItem.productId } : undefined,
+          selectedLensFromProduct: lensItem
+            ? { id: lensItem.productId }
+            : undefined,
+        });
         break;
+      }
       case "review":
-        // Navigate to OrderDetail where user can click products to review
-        navigation.navigate("OrderDetail", { orderId });
+        navigation.navigate("ProfileTab", { screen: "MyReviews" });
         break;
       case "contact":
         navigation.navigate("Support");
@@ -272,6 +315,13 @@ export default function OrdersScreen({ navigation, route }) {
           label: "Không toa",
           color: "#10B981",
           icon: "checkmark-circle-outline",
+        };
+      case "pre_order":
+        return {
+          label: "Không toa",
+          color: "#10B981",
+          icon: "checkmark-circle-outline",
+          isPreorder: true,
         };
       case "lens_with_frame":
         return {
@@ -304,15 +354,34 @@ export default function OrdersScreen({ navigation, route }) {
         onPress={() => navigation.navigate("OrderDetail", { orderId: item.id })}
       >
         {/* Order Header */}
-        <View className="flex-row items-center justify-between mb-3 pb-3 border-b border-border">
-          <View className="flex-row items-center flex-1">
-            <Ionicons name="receipt-outline" size={18} color="#2E86AB" />
-            <Text className="text-sm font-bold text-text ml-2">
-              {item.id.substring(0, 8)}
-            </Text>
-            {orderTypeBadge && (
+        <View className="mb-3 pb-3 border-b border-border">
+          {/* Row 1: Order ID + Status */}
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <Ionicons name="receipt-outline" size={18} color="#2E86AB" />
+              <Text className="text-sm font-bold text-text ml-2">
+                {item.id.substring(0, 8)}
+              </Text>
+            </View>
+            <View className="flex-row items-center">
               <View
-                className="ml-2 px-2 py-1 rounded-md flex-row items-center"
+                className="w-2 h-2 rounded-full mr-2"
+                style={{ backgroundColor: getOrderStatusColor(item.status) }}
+              />
+              <Text
+                className="text-sm font-semibold"
+                style={{ color: getOrderStatusColor(item.status) }}
+              >
+                {formatOrderStatus(item.status)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Row 2: Type badges */}
+          {orderTypeBadge && (
+            <View className="flex-row items-center mt-2 gap-2">
+              <View
+                className="px-2 py-1 rounded-md flex-row items-center"
                 style={{ backgroundColor: orderTypeBadge.color + "20" }}
               >
                 <Ionicons
@@ -327,20 +396,22 @@ export default function OrdersScreen({ navigation, route }) {
                   {orderTypeBadge.label}
                 </Text>
               </View>
-            )}
-          </View>
-          <View className="flex-row items-center">
-            <View
-              className="w-2 h-2 rounded-full mr-2"
-              style={{ backgroundColor: getOrderStatusColor(item.status) }}
-            />
-            <Text
-              className="text-sm font-semibold"
-              style={{ color: getOrderStatusColor(item.status) }}
-            >
-              {formatOrderStatus(item.status)}
-            </Text>
-          </View>
+              {orderTypeBadge.isPreorder && (
+                <View
+                  className="px-2 py-1 rounded-md flex-row items-center"
+                  style={{ backgroundColor: "#F18F0120" }}
+                >
+                  <Ionicons name="time-outline" size={12} color="#F18F01" />
+                  <Text
+                    className="text-xs font-semibold ml-1"
+                    style={{ color: "#F18F01" }}
+                  >
+                    Đặt trước
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Order Items */}
@@ -354,6 +425,7 @@ export default function OrdersScreen({ navigation, route }) {
                 <Image
                   source={{
                     uri:
+                      productImages[orderItem.productId] ||
                       orderItem.product?.images?.[0]?.imageUrl ||
                       "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
                   }}
@@ -420,7 +492,7 @@ export default function OrdersScreen({ navigation, route }) {
                     ? "bg-primary border-primary"
                     : "border-border"
                 }`}
-                onPress={() => handleAction(item.id, action.action)}
+                onPress={() => handleAction(item.id, action.action, item)}
               >
                 <Text
                   className={`text-sm font-semibold ${
@@ -581,7 +653,9 @@ export default function OrdersScreen({ navigation, route }) {
           </Text>
           <TouchableOpacity
             className="bg-primary px-8 py-3 rounded-full mt-6"
-            onPress={() => navigation.navigate("Home")}
+            onPress={() =>
+              navigation.navigate("MainApp", { screen: "HomeTab" })
+            }
           >
             <Text className="text-white font-semibold">Mua sắm ngay</Text>
           </TouchableOpacity>

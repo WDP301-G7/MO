@@ -14,12 +14,19 @@ import { useFocusEffect } from "@react-navigation/native";
 import { logout, getCurrentUser, getProfile } from "../../services/authService";
 import { OrdersContext } from "../../contexts/OrdersContext";
 import { getMyOrders } from "../../services/orderService";
+import {
+  getMyMembership,
+  formatCurrency,
+  getTierColor,
+  getTierIcon,
+} from "../../services/membershipService";
 
 export default function ProfileScreen({ navigation }) {
   const { ordersCount } = useContext(OrdersContext);
   const [user, setUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [membership, setMembership] = useState(null);
   const [orderStats, setOrderStats] = useState({
     new: 0,
     confirmed: 0,
@@ -115,15 +122,28 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const loadMembership = async () => {
+    try {
+      const result = await getMyMembership();
+      if (result.success) {
+        setMembership(result.data);
+      }
+    } catch (error) {
+      // Silent error
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadUserData();
     await loadOrderStats();
+    await loadMembership();
     setRefreshing(false);
   };
 
   useEffect(() => {
     loadUserData();
+    loadMembership();
   }, []);
 
   useFocusEffect(
@@ -131,6 +151,7 @@ export default function ProfileScreen({ navigation }) {
       // Reload user data and order stats when screen is focused
       loadUserData();
       loadOrderStats();
+      loadMembership();
     }, []),
   );
 
@@ -220,19 +241,13 @@ export default function ProfileScreen({ navigation }) {
     },
     {
       id: 2,
-      title: "Địa chỉ của tôi",
-      subtitle: "Quản lý địa chỉ giao hàng",
-      icon: "location-outline",
-      screen: "AddressManagement",
-      color: "#2E86AB",
-    },
-    {
-      id: 3,
-      title: "Ví voucher",
-      subtitle: "Mã giảm giá của bạn",
-      icon: "pricetag-outline",
-      screen: "Vouchers",
-      color: "#F18F01",
+      title: "Hạng thành viên",
+      subtitle: membership?.tier
+        ? `Hạng ${membership.tier} — Giảm ${membership.discountPercent}%`
+        : "Xem quyền lợi thành viên",
+      icon: "medal-outline",
+      screen: "Membership",
+      color: getTierColor(membership?.tier),
     },
     {
       id: 5,
@@ -241,6 +256,14 @@ export default function ProfileScreen({ navigation }) {
       icon: "star-outline",
       screen: "MyReviews",
       color: "#FFC107",
+    },
+    {
+      id: 9,
+      title: "Lịch hẹn của tôi",
+      subtitle: "Xem lịch hẹn nhận kính tại cửa hàng",
+      icon: "calendar-outline",
+      screen: "MyAppointments",
+      color: "#2E86AB",
     },
     {
       id: 6,
@@ -363,6 +386,24 @@ export default function ProfileScreen({ navigation }) {
             <Text className="text-2xl font-bold text-white">Tài khoản</Text>
           </View>
 
+          {/* Membership Badge */}
+          {membership?.tier && (
+            <TouchableOpacity
+              className="flex-row items-center mb-3 self-start bg-white/20 rounded-full px-3 py-1"
+              onPress={() => navigation.navigate("Membership")}
+            >
+              <Ionicons
+                name={getTierIcon(membership.tier)}
+                size={14}
+                color="#FFFFFF"
+              />
+              <Text className="text-white text-xs font-bold ml-1">
+                {membership.tier.toUpperCase()}
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+
           {/* User Info Card */}
           <View className="bg-white rounded-2xl p-4 flex-row items-center shadow-lg">
             <View className="relative">
@@ -399,6 +440,64 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
         </View>
+
+        {/* Membership Card */}
+        {membership && (
+          <TouchableOpacity
+            className="mx-5 mt-4 rounded-2xl p-4 shadow-sm overflow-hidden"
+            style={{ backgroundColor: getTierColor(membership.tier) }}
+            onPress={() => navigation.navigate("Membership")}
+            activeOpacity={0.85}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center flex-1">
+                <Ionicons
+                  name={getTierIcon(membership.tier)}
+                  size={32}
+                  color="#FFFFFF"
+                />
+                <View className="ml-3 flex-1">
+                  <Text className="text-white font-bold text-base">
+                    {membership.tier
+                      ? `${membership.tier.toUpperCase()} MEMBER`
+                      : "THÀNH VIÊN"}
+                  </Text>
+                  {membership.discountPercent > 0 && (
+                    <Text className="text-white/80 text-xs mt-0.5">
+                      Giảm {membership.discountPercent}% mỗi đơn hàng
+                    </Text>
+                  )}
+                  {membership.amountToNextTier !== null && (
+                    <Text className="text-white/70 text-xs mt-0.5">
+                      Cần thêm {formatCurrency(membership.amountToNextTier)} để
+                      lên {membership.nextTier?.toUpperCase()}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
+            </View>
+            {/* Progress Bar */}
+            <View className="mt-3 h-1.5 bg-white/30 rounded-full overflow-hidden">
+              <View
+                className="h-full bg-white rounded-full"
+                style={{
+                  width: `${
+                    membership.amountToNextTier !== null
+                      ? Math.min(
+                          100,
+                          ((membership.spendInPeriod || 0) /
+                            ((membership.spendInPeriod || 0) +
+                              (membership.amountToNextTier || 1))) *
+                            100,
+                        )
+                      : 100
+                  }%`,
+                }}
+              />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Order Stats */}
         <View className="pt-6 pb-3">
