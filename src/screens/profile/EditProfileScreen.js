@@ -24,7 +24,6 @@ export default function EditProfileScreen({ navigation, route }) {
     fullName: "",
     email: "",
     phone: "",
-    gender: "male",
     address: "",
   });
 
@@ -53,7 +52,6 @@ export default function EditProfileScreen({ navigation, route }) {
           email: result.data.email || "",
           phone: result.data.phone || "",
 
-          gender: "male", // Backend chưa có field này
           address: result.data.address || "",
         });
       } else {
@@ -268,69 +266,6 @@ export default function EditProfileScreen({ navigation, route }) {
                 Bắt buộc nhập số điện thoại
               </Text>
             )}
-          </View>
-
-          {/* Gender */}
-          <View className="mb-4">
-            <Text className="text-sm font-semibold text-text mb-2">
-              Giới tính
-            </Text>
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                className={`flex-1 border-2 rounded-xl py-3 items-center ${
-                  formData.gender === "male"
-                    ? "border-primary bg-primary/10"
-                    : "border-border"
-                }`}
-                onPress={() => setFormData({ ...formData, gender: "male" })}
-              >
-                <Text
-                  className={`text-sm font-semibold ${
-                    formData.gender === "male"
-                      ? "text-primary"
-                      : "text-textGray"
-                  }`}
-                >
-                  Nam
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={`flex-1 border-2 rounded-xl py-3 items-center ${
-                  formData.gender === "female"
-                    ? "border-primary bg-primary/10"
-                    : "border-border"
-                }`}
-                onPress={() => setFormData({ ...formData, gender: "female" })}
-              >
-                <Text
-                  className={`text-sm font-semibold ${
-                    formData.gender === "female"
-                      ? "text-primary"
-                      : "text-textGray"
-                  }`}
-                >
-                  Nữ
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={`flex-1 border-2 rounded-xl py-3 items-center ${
-                  formData.gender === "other"
-                    ? "border-primary bg-primary/10"
-                    : "border-border"
-                }`}
-                onPress={() => setFormData({ ...formData, gender: "other" })}
-              >
-                <Text
-                  className={`text-sm font-semibold ${
-                    formData.gender === "other"
-                      ? "text-primary"
-                      : "text-textGray"
-                  }`}
-                >
-                  Khác
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* Address */}

@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
     LIST: "/products",
     DETAIL: "/products/:id",
     IMAGES: "/products/:id/images",
+    CHECK_TRYON: "/products/:id/try-on",
   },
   INVENTORY: {
     PRODUCT: "/inventory/product/:productId",

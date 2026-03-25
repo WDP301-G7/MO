@@ -2,7 +2,7 @@ import React, { useContext } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
-import { View, Text } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { OrdersContext, OrdersProvider } from "../contexts/OrdersContext";
 
 // Import screens
@@ -182,82 +182,144 @@ function ProfileStack() {
 function TabNavigatorContent() {
   const { ordersCount } = useContext(OrdersContext);
 
+  const TAB_CONFIG = [
+    {
+      name: "HomeTab",
+      label: "Trang chủ",
+      icon: "home",
+      iconOutline: "home-outline",
+    },
+    {
+      name: "CategoriesTab",
+      label: "Danh mục",
+      icon: "grid",
+      iconOutline: "grid-outline",
+    },
+    {
+      name: "OrdersTab",
+      label: "Đơn hàng",
+      icon: "receipt",
+      iconOutline: "receipt-outline",
+    },
+    {
+      name: "ProfileTab",
+      label: "Tài khoản",
+      icon: "person",
+      iconOutline: "person-outline",
+    },
+  ];
+
+  function CustomTabBar({ state, navigation }) {
+    return (
+      <View
+        style={{
+          flexDirection: "row",
+          backgroundColor: "#fff",
+          paddingHorizontal: 10,
+          paddingTop: 10,
+          paddingBottom: 30,
+          borderTopWidth: 1,
+          borderTopColor: "#F0F4F8",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -6 },
+          shadowOpacity: 0.05,
+          shadowRadius: 16,
+          elevation: 20,
+        }}
+      >
+        {state.routes.map((route, index) => {
+          const isFocused = state.index === index;
+          const tab = TAB_CONFIG[index];
+          const badge =
+            route.name === "OrdersTab" && ordersCount > 0 ? ordersCount : null;
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: "tabPress",
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
+
+          return (
+            <TouchableOpacity
+              key={route.key}
+              onPress={onPress}
+              activeOpacity={0.75}
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {isFocused ? (
+                /* Active: rounded square with tinted bg + larger icon */
+                <View
+                  style={{
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "#E8F4F9",
+                    borderRadius: 16,
+                    width: 52,
+                    height: 42,
+                  }}
+                >
+                  <Ionicons name={tab.icon} size={26} color="#2E86AB" />
+                </View>
+              ) : (
+                /* Inactive: icon only + optional badge */
+                <View style={{ position: "relative", padding: 8 }}>
+                  <Ionicons name={tab.iconOutline} size={24} color="#9CA3AF" />
+                  {badge != null && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 3,
+                        right: 3,
+                        backgroundColor: "#EF4444",
+                        borderRadius: 9,
+                        minWidth: 17,
+                        height: 17,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 3,
+                        borderWidth: 1.5,
+                        borderColor: "#fff",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#fff",
+                          fontSize: 9,
+                          fontWeight: "800",
+                          lineHeight: 12,
+                        }}
+                      >
+                        {badge > 99 ? "99+" : badge}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  }
+
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-
-          if (route.name === "HomeTab") {
-            iconName = focused ? "home" : "home-outline";
-          } else if (route.name === "CategoriesTab") {
-            iconName = focused ? "grid" : "grid-outline";
-          } else if (route.name === "OrdersTab") {
-            iconName = focused ? "receipt" : "receipt-outline";
-          } else if (route.name === "ProfileTab") {
-            iconName = focused ? "person" : "person-outline";
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: "#2E86AB",
-        tabBarInactiveTintColor: "#999999",
-        tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopColor: "#E5E7EB",
-          borderTopWidth: 1,
-          height: 88,
-          paddingBottom: 28,
-          paddingTop: 8,
-          paddingHorizontal: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
-        },
-        tabBarBadgeStyle: {
-          backgroundColor: "#EF4444",
-          color: "#FFFFFF",
-          fontSize: 10,
-          fontWeight: "bold",
-          minWidth: 18,
-          height: 18,
-          borderRadius: 9,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-      })}
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen
-        name="HomeTab"
-        component={HomeStack}
-        options={{
-          tabBarLabel: "Trang chủ",
-        }}
-      />
-      <Tab.Screen
-        name="CategoriesTab"
-        component={CategoriesStack}
-        options={{
-          tabBarLabel: "Danh mục",
-        }}
-      />
-      <Tab.Screen
-        name="OrdersTab"
-        component={OrdersStack}
-        options={{
-          tabBarLabel: "Đơn hàng",
-          tabBarBadge: ordersCount > 0 ? ordersCount : undefined,
-        }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileStack}
-        options={{
-          tabBarLabel: "Tài khoản",
-        }}
-      />
+      <Tab.Screen name="HomeTab" component={HomeStack} />
+      <Tab.Screen name="CategoriesTab" component={CategoriesStack} />
+      <Tab.Screen name="OrdersTab" component={OrdersStack} />
+      <Tab.Screen name="ProfileTab" component={ProfileStack} />
     </Tab.Navigator>
   );
 }
