@@ -7,9 +7,11 @@ import {
   Image,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "@react-navigation/native";
 import { logout, getCurrentUser, getProfile } from "../../services/authService";
 import { OrdersContext } from "../../contexts/OrdersContext";
@@ -340,7 +342,8 @@ export default function ProfileScreen({ navigation }) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <StatusBar style="dark" />
-        <Text className="text-textGray">Đang tải...</Text>
+        <ActivityIndicator size="large" color="#2E86AB" />
+        <Text className="text-textGray mt-3 text-sm">Đang tải...</Text>
       </View>
     );
   }
@@ -380,158 +383,342 @@ export default function ProfileScreen({ navigation }) {
           />
         }
       >
-        {/* Header with gradient effect */}
-        <View className="bg-primary pt-12 pb-6 px-5">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-2xl font-bold text-white">Tài khoản</Text>
+        {/* ── GRADIENT HEADER ── */}
+        <LinearGradient
+          colors={["#1565C0", "#2E86AB"]}
+          style={{ paddingTop: 52, paddingBottom: 28, paddingHorizontal: 20 }}
+        >
+          {/* Top row */}
+          <View className="flex-row items-center justify-between mb-5">
+            <View>
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.75)",
+                  fontSize: 12,
+                  marginBottom: 2,
+                }}
+              >
+                Xin chào 👋
+              </Text>
+              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "900" }}>
+                Tài khoản
+              </Text>
+            </View>
+            {membership?.tier && (
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  borderRadius: 20,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                }}
+                onPress={() => navigation.navigate("Membership")}
+              >
+                <Ionicons
+                  name={getTierIcon(membership.tier)}
+                  size={14}
+                  color="#fff"
+                />
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: "700",
+                    marginLeft: 5,
+                  }}
+                >
+                  {membership.tier.toUpperCase()}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={12}
+                  color="rgba(255,255,255,0.8)"
+                  style={{ marginLeft: 2 }}
+                />
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Membership Badge */}
-          {membership?.tier && (
-            <TouchableOpacity
-              className="flex-row items-center mb-3 self-start bg-white/20 rounded-full px-3 py-1"
-              onPress={() => navigation.navigate("Membership")}
-            >
-              <Ionicons
-                name={getTierIcon(membership.tier)}
-                size={14}
-                color="#FFFFFF"
-              />
-              <Text className="text-white text-xs font-bold ml-1">
-                {membership.tier.toUpperCase()}
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
-            </TouchableOpacity>
-          )}
-
           {/* User Info Card */}
-          <View className="bg-white rounded-2xl p-4 flex-row items-center shadow-lg">
-            <View className="relative">
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 20,
+              padding: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.12,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            <View style={{ position: "relative" }}>
               <Image
                 source={{
                   uri:
                     user.avatar ||
-                    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=240&h=240&fit=crop",
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || "U")}&background=2E86AB&color=fff&size=120`,
                 }}
-                className="w-16 h-16 rounded-full"
+                style={{
+                  width: 68,
+                  height: 68,
+                  borderRadius: 34,
+                  borderWidth: 2.5,
+                  borderColor: "#E0F0FF",
+                }}
               />
               <TouchableOpacity
-                className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary items-center justify-center border-2 border-white"
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: "#2E86AB",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 2,
+                  borderColor: "#fff",
+                }}
                 onPress={() => navigation.navigate("EditProfile")}
               >
-                <Ionicons name="camera" size={12} color="#FFFFFF" />
+                <Ionicons name="camera" size={11} color="#fff" />
               </TouchableOpacity>
             </View>
-            <View className="flex-1 ml-3">
-              <Text className="text-lg font-bold text-text">
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontWeight: "800",
+                  color: "#1a1a1a",
+                  marginBottom: 2,
+                }}
+              >
                 {user.name || "Người dùng"}
               </Text>
-              <Text className="text-sm text-textGray mt-0.5">
+              <Text style={{ fontSize: 13, color: "#888", marginBottom: 3 }}>
                 {user.email || ""}
               </Text>
               {user.phone && (
-                <View className="flex-row items-center mt-1">
-                  <Ionicons name="call-outline" size={12} color="#999999" />
-                  <Text className="text-xs text-textGray ml-1">
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons name="call-outline" size={12} color="#aaa" />
+                  <Text style={{ fontSize: 12, color: "#aaa", marginLeft: 4 }}>
                     {user.phone}
                   </Text>
                 </View>
               )}
             </View>
+            <TouchableOpacity
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: "#F0F8FF",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onPress={() => navigation.navigate("EditProfile")}
+            >
+              <Ionicons name="create-outline" size={18} color="#2E86AB" />
+            </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
 
-        {/* Membership Card */}
+        {/* ── MEMBERSHIP CARD ── */}
         {membership && (
           <TouchableOpacity
-            className="mx-5 mt-4 rounded-2xl p-4 shadow-sm overflow-hidden"
-            style={{ backgroundColor: getTierColor(membership.tier) }}
+            activeOpacity={0.88}
             onPress={() => navigation.navigate("Membership")}
-            activeOpacity={0.85}
+            style={{ marginHorizontal: 16, marginTop: 16 }}
           >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center flex-1">
-                <Ionicons
-                  name={getTierIcon(membership.tier)}
-                  size={32}
-                  color="#FFFFFF"
-                />
-                <View className="ml-3 flex-1">
-                  <Text className="text-white font-bold text-base">
-                    {membership.tier
-                      ? `${membership.tier.toUpperCase()} MEMBER`
-                      : "THÀNH VIÊN"}
-                  </Text>
-                  {membership.discountPercent > 0 && (
-                    <Text className="text-white/80 text-xs mt-0.5">
-                      Giảm {membership.discountPercent}% mỗi đơn hàng
+            <LinearGradient
+              colors={[
+                membership.tier === "GOLD"
+                  ? "#B8860B"
+                  : membership.tier === "PLATINUM"
+                    ? "#4A5568"
+                    : "#607D8B",
+                membership.tier === "GOLD"
+                  ? "#D4A017"
+                  : membership.tier === "PLATINUM"
+                    ? "#718096"
+                    : "#78909C",
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ borderRadius: 18, padding: 16 }}
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Ionicons
+                      name={getTierIcon(membership.tier)}
+                      size={24}
+                      color="#fff"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: "#fff",
+                        fontWeight: "800",
+                        fontSize: 15,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {membership.tier
+                        ? `${membership.tier.toUpperCase()} MEMBER`
+                        : "THÀNH VIÊN"}
                     </Text>
-                  )}
-                  {membership.amountToNextTier !== null && (
-                    <Text className="text-white/70 text-xs mt-0.5">
-                      Cần thêm {formatCurrency(membership.amountToNextTier)} để
-                      lên {membership.nextTier?.toUpperCase()}
-                    </Text>
-                  )}
+                    {membership.discountPercent > 0 && (
+                      <Text
+                        style={{
+                          color: "rgba(255,255,255,0.85)",
+                          fontSize: 12,
+                        }}
+                      >
+                        Giảm {membership.discountPercent}% mỗi đơn hàng
+                      </Text>
+                    )}
+                    {membership.amountToNextTier !== null && (
+                      <Text
+                        style={{
+                          color: "rgba(255,255,255,0.7)",
+                          fontSize: 11,
+                          marginTop: 1,
+                        }}
+                      >
+                        Cần thêm {formatCurrency(membership.amountToNextTier)}{" "}
+                        để lên {membership.nextTier?.toUpperCase()}
+                      </Text>
+                    )}
+                  </View>
                 </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color="rgba(255,255,255,0.8)"
+                />
               </View>
-              <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
-            </View>
-            {/* Progress Bar */}
-            <View className="mt-3 h-1.5 bg-white/30 rounded-full overflow-hidden">
+              {/* Progress bar */}
               <View
-                className="h-full bg-white rounded-full"
                 style={{
-                  width: `${
-                    membership.amountToNextTier !== null
-                      ? Math.min(
-                          100,
-                          ((membership.spendInPeriod || 0) /
-                            ((membership.spendInPeriod || 0) +
-                              (membership.amountToNextTier || 1))) *
-                            100,
-                        )
-                      : 100
-                  }%`,
+                  marginTop: 12,
+                  height: 5,
+                  backgroundColor: "rgba(255,255,255,0.25)",
+                  borderRadius: 3,
+                  overflow: "hidden",
                 }}
-              />
-            </View>
+              >
+                <View
+                  style={{
+                    height: "100%",
+                    backgroundColor: "rgba(255,255,255,0.9)",
+                    borderRadius: 3,
+                    width: `${
+                      membership.amountToNextTier !== null
+                        ? Math.min(
+                            100,
+                            ((membership.spendInPeriod || 0) /
+                              ((membership.spendInPeriod || 0) +
+                                (membership.amountToNextTier || 1))) *
+                              100,
+                          )
+                        : 100
+                    }%`,
+                  }}
+                />
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
         )}
 
-        {/* Order Stats */}
-        <View className="pt-6 pb-3">
-          <Text className="text-base font-bold text-text mb-3 px-5">
+        {/* ── ORDER STATS ── */}
+        <View style={{ marginTop: 20 }}>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "800",
+              color: "#1a1a1a",
+              marginBottom: 12,
+              paddingHorizontal: 20,
+            }}
+          >
             Đơn hàng của tôi
           </Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20 }}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
           >
-            {stats.map((stat, index) => (
+            {stats.map((stat) => (
               <TouchableOpacity
                 key={stat.id}
-                className="bg-white rounded-xl p-3 items-center shadow-sm"
-                style={{
-                  width: 85,
-                  marginRight: index < stats.length - 1 ? 10 : 0,
-                }}
+                activeOpacity={0.82}
                 onPress={() =>
                   navigation.navigate(stat.screen, { filter: stat.filter })
                 }
+                style={{
+                  width: 82,
+                  backgroundColor: "#fff",
+                  borderRadius: 16,
+                  padding: 12,
+                  alignItems: "center",
+                  shadowColor: stat.color,
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                  elevation: 3,
+                  borderTopWidth: 3,
+                  borderTopColor: stat.color,
+                }}
               >
                 <View
-                  className="w-11 h-11 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: stat.color + "15" }}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    backgroundColor: stat.color + "18",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 8,
+                  }}
                 >
-                  <Ionicons name={stat.icon} size={22} color={stat.color} />
+                  <Ionicons name={stat.icon} size={20} color={stat.color} />
                 </View>
-                <Text className="text-xl font-bold text-text">
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: "900",
+                    color: "#1a1a1a",
+                    lineHeight: 26,
+                  }}
+                >
                   {stat.count}
                 </Text>
                 <Text
-                  className="text-[10px] text-textGray text-center mt-0.5"
+                  style={{
+                    fontSize: 10,
+                    color: "#888",
+                    textAlign: "center",
+                    marginTop: 3,
+                    lineHeight: 13,
+                  }}
                   numberOfLines={2}
                 >
                   {stat.label}
@@ -541,53 +728,121 @@ export default function ProfileScreen({ navigation }) {
           </ScrollView>
         </View>
 
-        {/* Menu Items */}
-        <View className="px-5 py-3">
-          <Text className="text-base font-bold text-text mb-3">Tiện ích</Text>
-          <View className="bg-white rounded-2xl overflow-hidden shadow-sm">
+        {/* ── MENU ── */}
+        <View style={{ marginTop: 20, paddingHorizontal: 16 }}>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "800",
+              color: "#1a1a1a",
+              marginBottom: 12,
+            }}
+          >
+            Tiện ích
+          </Text>
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 20,
+              overflow: "hidden",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 10,
+              elevation: 3,
+            }}
+          >
             {menuItems.map((item, index) => (
               <TouchableOpacity
                 key={item.id}
-                className={`flex-row items-center p-4 ${
-                  index !== menuItems.length - 1 ? "border-b border-border" : ""
-                }`}
+                activeOpacity={0.7}
                 onPress={() => navigation.navigate(item.screen)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  borderBottomWidth: index !== menuItems.length - 1 ? 1 : 0,
+                  borderBottomColor: "#F5F5F5",
+                }}
               >
                 <View
-                  className="w-10 h-10 rounded-full items-center justify-center"
-                  style={{ backgroundColor: item.color + "15" }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: item.color + "18",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 14,
+                  }}
                 >
                   <Ionicons name={item.icon} size={20} color={item.color} />
                 </View>
-                <View className="flex-1 ml-3">
-                  <Text className="text-[15px] font-semibold text-text">
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "700",
+                      color: "#1a1a1a",
+                      marginBottom: 1,
+                    }}
+                  >
                     {item.title}
                   </Text>
-                  <Text className="text-xs text-textGray mt-0.5">
+                  <Text style={{ fontSize: 12, color: "#999" }}>
                     {item.subtitle}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
+                <View
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: "#F5F5F5",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="chevron-forward" size={14} color="#ccc" />
+                </View>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Logout Button */}
-        <View className="px-5 py-4">
+        {/* ── LOGOUT ── */}
+        <View style={{ paddingHorizontal: 16, marginTop: 16, marginBottom: 8 }}>
           <TouchableOpacity
-            className="bg-white rounded-2xl p-4 flex-row items-center justify-center shadow-sm border border-red-100"
+            activeOpacity={0.85}
             onPress={handleLogout}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "#FFF5F5",
+              borderRadius: 16,
+              padding: 14,
+              borderWidth: 1.5,
+              borderColor: "#FECACA",
+            }}
           >
-            <Ionicons name="log-out-outline" size={22} color="#EF4444" />
-            <Text className="text-base font-bold text-red-500 ml-2">
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: "700",
+                color: "#EF4444",
+                marginLeft: 8,
+              }}
+            >
               Đăng xuất
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* App Version */}
-        <View className="items-center pb-8">
+        {/* Version */}
+        <View className="items-center pb-8 pt-2">
           <Text className="text-xs text-textGray">Phiên bản 1.0.0</Text>
         </View>
       </ScrollView>

@@ -718,8 +718,34 @@ export default function ProductDetailScreen({ navigation, route }) {
         <View className="h-32" />
       </ScrollView>
 
-      {/* Bottom Bar - Buy Now Only */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white p-4 shadow-lg">
+      {/* Bottom Bar - Buy Now + Virtual Try-On */}
+      <View className="absolute bottom-0 left-0 right-0 bg-white px-4 pt-3 pb-5 shadow-lg">
+        {/* Virtual Try-On button — only for FRAME products that have a 3D model */}
+        {product.type === "FRAME" && product.model3dUrl ? (
+          <TouchableOpacity
+            className="flex-row items-center justify-center border-2 border-primary rounded-xl py-3 mb-3 gap-2"
+            onPress={() =>
+              navigation.navigate("VirtualTryOn", {
+                product: {
+                  id: product.id,
+                  name: product.name,
+                  price: formatPrice(product.price),
+                  image: images[0],
+                  model3dUrl: product.model3dUrl,
+                  model3dSizeBytes: product.model3dSizeBytes || null,
+                },
+                model3dUrl: product.model3dUrl,
+                model3dSizeBytes: product.model3dSizeBytes || null,
+              })
+            }
+          >
+            <Ionicons name="glasses-outline" size={20} color="#2E86AB" />
+            <Text className="text-primary font-bold text-base">
+              Thử kính ảo
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         <TouchableOpacity
           className="bg-primary rounded-xl py-4 items-center justify-center"
           onPress={handleBuyNow}

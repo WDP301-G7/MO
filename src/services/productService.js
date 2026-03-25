@@ -146,3 +146,27 @@ export const getProductTypeLabel = (type) => {
   };
   return typeMap[type] || type;
 };
+
+/**
+ * Check if a product has a 3D model available for virtual try-on.
+ * The field `model3dUrl` is expected to be included in the standard
+ * GET /products/:id response once the backend team adds it.
+ * This helper can also call GET /products/:id/try-on as a fallback.
+ *
+ * @param {string} productId - Product UUID
+ * @returns {Promise<{ hasTryOn: boolean, model3dUrl: string|null }>}
+ */
+export const getProductTryOnInfo = async (productId) => {
+  try {
+    const response = await api.get(
+      API_ENDPOINTS.PRODUCTS.CHECK_TRYON.replace(":id", productId),
+    );
+    const data = response.data?.data || {};
+    return {
+      hasTryOn: !!data.model3dUrl,
+      model3dUrl: data.model3dUrl || null,
+    };
+  } catch {
+    return { hasTryOn: false, model3dUrl: null };
+  }
+};

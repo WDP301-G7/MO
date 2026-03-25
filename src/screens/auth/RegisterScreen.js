@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { register } from "../../services/authService";
 
 export default function RegisterScreen({ navigation }) {
@@ -24,6 +25,7 @@ export default function RegisterScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
@@ -100,201 +102,339 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-background"
+      className="flex-1"
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
+
+      {/* Gradient background */}
+      <LinearGradient
+        colors={["#1565C0", "#2E86AB", "#48B6D4"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+
+      {/* Decorative circles */}
+      <View
+        style={{
+          position: "absolute",
+          width: 280,
+          height: 280,
+          borderRadius: 140,
+          backgroundColor: "rgba(255,255,255,0.07)",
+          top: -70,
+          right: -70,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          width: 180,
+          height: 180,
+          borderRadius: 90,
+          backgroundColor: "rgba(255,255,255,0.06)",
+          top: 120,
+          left: -50,
+        }}
+      />
+
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, padding: 20 }}
+        contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View className="flex-row items-center justify-between mt-10 mb-6">
+        {/* Hero */}
+        <View className="items-center pt-14 pb-6">
+          {/* Back button */}
           <TouchableOpacity
-            className="w-10 h-10 rounded-full bg-white items-center justify-center"
+            className="absolute left-5 top-14 w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#333333" />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-text">Đăng Ký Tài Khoản</Text>
-          <View className="w-10" />
+
+          <View
+            className="w-16 h-16 rounded-2xl bg-card items-center justify-center mb-3"
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 8,
+            }}
+          >
+            <Ionicons name="person-add" size={34} color="#2E86AB" />
+          </View>
+          <Text className="text-2xl font-extrabold text-white tracking-wide">
+            Tạo tài khoản
+          </Text>
+          <Text
+            className="text-sm mt-1"
+            style={{ color: "rgba(255,255,255,0.75)" }}
+          >
+            Bắt đầu hành trình chăm sóc mắt
+          </Text>
         </View>
 
-        {/* Form */}
-        <View className="bg-white rounded-3xl p-6 shadow-lg">
-          <Text className="text-sm text-textGray text-center mb-6">
-            Tạo tài khoản mới để bắt đầu mua sắm
-          </Text>
+        {/* Card */}
+        <View
+          className="bg-card px-6 pt-7 pb-10"
+          style={{
+            borderTopLeftRadius: 36,
+            borderTopRightRadius: 36,
+            flex: 1,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+            elevation: 10,
+          }}
+        >
+          {[
+            {
+              key: "fullName",
+              placeholder: "Họ và tên",
+              icon: "person-outline",
+              value: fullName,
+              setter: setFullName,
+              keyboard: "default",
+              cap: "words",
+            },
+            {
+              key: "email",
+              placeholder: "Email",
+              icon: "mail-outline",
+              value: email,
+              setter: setEmail,
+              keyboard: "email-address",
+              cap: "none",
+            },
+            {
+              key: "phone",
+              placeholder: "Số điện thoại (10 chữ số)",
+              icon: "call-outline",
+              value: phone,
+              setter: setPhone,
+              keyboard: "phone-pad",
+              cap: "none",
+              maxLen: 10,
+            },
+            {
+              key: "address",
+              placeholder: "Địa chỉ",
+              icon: "location-outline",
+              value: address,
+              setter: setAddress,
+              keyboard: "default",
+              cap: "sentences",
+            },
+          ].map((field) => (
+            <View
+              key={field.key}
+              className="flex-row items-center rounded-2xl px-4 py-3.5 mb-3"
+              style={{
+                backgroundColor:
+                  focusedField === field.key ? "#F0F8FF" : "#F7F9FC",
+                borderWidth: 1.5,
+                borderColor: focusedField === field.key ? "#2E86AB" : "#EEEEEE",
+              }}
+            >
+              <Ionicons
+                name={field.icon}
+                size={20}
+                color={focusedField === field.key ? "#2E86AB" : "#AAAAAA"}
+              />
+              <TextInput
+                className="flex-1 ml-2.5 text-base text-text"
+                placeholder={field.placeholder}
+                placeholderTextColor="#BBBBBB"
+                value={field.value}
+                onChangeText={field.setter}
+                keyboardType={field.keyboard}
+                autoCapitalize={field.cap}
+                maxLength={field.maxLen}
+                editable={!loading}
+                onFocus={() => setFocusedField(field.key)}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+          ))}
 
-          {/* Full Name Input */}
-          <View className="flex-row items-center border border-border rounded-xl px-4 py-3 mb-4 bg-background">
-            <Ionicons name="person-outline" size={20} color="#999999" />
-            <TextInput
-              className="flex-1 ml-3 text-base text-text"
-              placeholder="Họ và tên"
-              placeholderTextColor="#999999"
-              value={fullName}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-              editable={!loading}
+          {/* Password */}
+          <View
+            className="flex-row items-center rounded-2xl px-4 py-3.5 mb-3"
+            style={{
+              backgroundColor:
+                focusedField === "password" ? "#F0F8FF" : "#F7F9FC",
+              borderWidth: 1.5,
+              borderColor: focusedField === "password" ? "#2E86AB" : "#EEEEEE",
+            }}
+          >
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={focusedField === "password" ? "#2E86AB" : "#AAAAAA"}
             />
-          </View>
-
-          {/* Email Input */}
-          <View className="flex-row items-center border border-border rounded-xl px-4 py-3 mb-4 bg-background">
-            <Ionicons name="mail-outline" size={20} color="#999999" />
             <TextInput
-              className="flex-1 ml-3 text-base text-text"
-              placeholder="Email"
-              placeholderTextColor="#999999"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-            />
-          </View>
-
-          {/* Phone Input */}
-          <View className="flex-row items-center border border-border rounded-xl px-4 py-3 mb-4 bg-background">
-            <Ionicons name="call-outline" size={20} color="#999999" />
-            <TextInput
-              className="flex-1 ml-3 text-base text-text"
-              placeholder="Số điện thoại (10 chữ số)"
-              placeholderTextColor="#999999"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              maxLength={10}
-              editable={!loading}
-            />
-          </View>
-
-          {/* Address Input */}
-          <View className="flex-row items-center border border-border rounded-xl px-4 py-3 mb-4 bg-background">
-            <Ionicons name="location-outline" size={20} color="#999999" />
-            <TextInput
-              className="flex-1 ml-3 text-base text-text"
-              placeholder="Địa chỉ"
-              placeholderTextColor="#999999"
-              value={address}
-              onChangeText={setAddress}
-              editable={!loading}
-            />
-          </View>
-
-          {/* Password Input */}
-          <View className="flex-row items-center border border-border rounded-xl px-4 py-3 mb-4 bg-background">
-            <Ionicons name="lock-closed-outline" size={20} color="#999999" />
-            <TextInput
-              className="flex-1 ml-3 text-base text-text"
+              className="flex-1 ml-2.5 text-base text-text"
               placeholder="Mật khẩu (tối thiểu 8 ký tự)"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#BBBBBB"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               editable={!loading}
+              onFocus={() => setFocusedField("password")}
+              onBlur={() => setFocusedField(null)}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Ionicons
                 name={showPassword ? "eye-outline" : "eye-off-outline"}
                 size={20}
-                color="#999999"
+                color="#AAAAAA"
               />
             </TouchableOpacity>
           </View>
 
-          {/* Confirm Password Input */}
-          <View className="flex-row items-center border border-border rounded-xl px-4 py-3 mb-4 bg-background">
-            <Ionicons name="lock-closed-outline" size={20} color="#999999" />
+          {/* Confirm Password */}
+          <View
+            className="flex-row items-center rounded-2xl px-4 py-3.5 mb-4"
+            style={{
+              backgroundColor:
+                focusedField === "confirmPassword" ? "#F0F8FF" : "#F7F9FC",
+              borderWidth: 1.5,
+              borderColor:
+                focusedField === "confirmPassword" ? "#2E86AB" : "#EEEEEE",
+            }}
+          >
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={focusedField === "confirmPassword" ? "#2E86AB" : "#AAAAAA"}
+            />
             <TextInput
-              className="flex-1 ml-3 text-base text-text"
+              className="flex-1 ml-2.5 text-base text-text"
               placeholder="Xác nhận mật khẩu"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#BBBBBB"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
               editable={!loading}
+              onFocus={() => setFocusedField("confirmPassword")}
+              onBlur={() => setFocusedField(null)}
             />
             <TouchableOpacity
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons
                 name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
                 size={20}
-                color="#999999"
+                color="#AAAAAA"
               />
             </TouchableOpacity>
           </View>
 
-          {/* Terms and Conditions */}
+          {/* Terms */}
           <TouchableOpacity
             className="flex-row items-start mb-6"
             onPress={() => setAgreeTerms(!agreeTerms)}
+            activeOpacity={0.7}
           >
             <View
-              className={`w-5 h-5 rounded border-2 items-center justify-center mr-2 mt-0.5 ${
-                agreeTerms ? "bg-primary border-primary" : "border-border"
-              }`}
+              className="w-5 h-5 rounded items-center justify-center mr-2 mt-0.5"
+              style={{
+                borderWidth: 2,
+                borderColor: agreeTerms ? "#2E86AB" : "#CCCCCC",
+                backgroundColor: agreeTerms ? "#2E86AB" : "transparent",
+              }}
             >
               {agreeTerms && (
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={13} color="#FFFFFF" />
               )}
             </View>
             <Text className="flex-1 text-xs text-textGray leading-5">
-              {`Tôi đồng ý với `}
+              {"Tôi đồng ý với "}
               <Text className="text-primary font-semibold">
                 Điều khoản sử dụng
               </Text>
-              {` và `}
+              {" và "}
               <Text className="text-primary font-semibold">
                 Chính sách bảo mật
               </Text>
             </Text>
           </TouchableOpacity>
 
-          {/* Register Button */}
+          {/* Register button */}
           <TouchableOpacity
-            className={`rounded-xl py-4 items-center shadow-lg ${
-              agreeTerms && !loading ? "bg-primary" : "bg-textGray opacity-50"
-            }`}
+            className="rounded-2xl overflow-hidden mb-5"
+            style={[
+              {
+                shadowColor: "#2E86AB",
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: agreeTerms && !loading ? 0.35 : 0,
+                shadowRadius: 12,
+                elevation: agreeTerms && !loading ? 8 : 0,
+              },
+              (!agreeTerms || loading) && { opacity: 0.55 },
+            ]}
             onPress={handleRegister}
             disabled={!agreeTerms || loading}
+            activeOpacity={0.85}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text className="text-white text-base font-bold">Đăng Ký</Text>
-            )}
+            <LinearGradient
+              colors={["#2E86AB", "#1565C0"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              className="py-4 items-center justify-center"
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text className="text-white text-base font-bold tracking-wide">
+                  Đăng Ký
+                </Text>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
 
           {/* Divider */}
-          <View className="flex-row items-center my-6">
+          <View className="flex-row items-center mb-5">
             <View className="flex-1 h-px bg-border" />
-            <Text className="mx-4 text-textGray text-xs font-semibold">
+            <Text className="text-xs font-bold text-textGray mx-3 tracking-widest">
               HOẶC
             </Text>
             <View className="flex-1 h-px bg-border" />
           </View>
 
-          {/* Social Register */}
-          <View className="flex-row justify-center gap-4 mb-6">
-            <TouchableOpacity className="w-14 h-14 rounded-full bg-background items-center justify-center border border-border">
-              <Ionicons name="logo-google" size={24} color="#DB4437" />
-            </TouchableOpacity>
-            <TouchableOpacity className="w-14 h-14 rounded-full bg-background items-center justify-center border border-border">
-              <Ionicons name="logo-facebook" size={24} color="#4267B2" />
-            </TouchableOpacity>
-            <TouchableOpacity className="w-14 h-14 rounded-full bg-background items-center justify-center border border-border">
-              <Ionicons name="logo-apple" size={24} color="#000000" />
-            </TouchableOpacity>
-          </View>
+          {/* Google only */}
+          <TouchableOpacity
+            className="flex-row items-center justify-center bg-card rounded-2xl py-3.5 border border-border mb-7"
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 6,
+              elevation: 2,
+              borderWidth: 1.5,
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="logo-google" size={20} color="#DB4437" />
+            <Text className="text-base font-semibold text-textLight ml-2.5">
+              Tiếp tục với Google
+            </Text>
+          </TouchableOpacity>
 
-          {/* Login Link */}
+          {/* Login link */}
           <View className="flex-row justify-center items-center">
-            <Text className="text-textGray text-sm">Đã có tài khoản? </Text>
+            <Text className="text-sm text-textGray">Đã có tài khoản? </Text>
             <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-              <Text className="text-primary text-sm font-bold">Đăng nhập</Text>
+              <Text className="text-sm font-bold text-primary">Đăng nhập</Text>
             </TouchableOpacity>
           </View>
         </View>

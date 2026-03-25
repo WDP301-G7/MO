@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   getMyOrders,
@@ -35,11 +36,7 @@ export default function OrdersScreen({ navigation, route }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  // Reload orders when screen comes into focus
+  // useFocusEffect fires on mount too — no need for a separate useEffect
   useFocusEffect(
     React.useCallback(() => {
       loadOrders();
@@ -348,63 +345,126 @@ export default function OrdersScreen({ navigation, route }) {
   const renderOrderItem = ({ item }) => {
     const orderTypeBadge = getOrderTypeLabel(item);
 
+    const statusColor = getOrderStatusColor(item.status);
     return (
       <TouchableOpacity
-        className="bg-white rounded-2xl p-4 mb-3 shadow-sm"
+        activeOpacity={0.88}
         onPress={() => navigation.navigate("OrderDetail", { orderId: item.id })}
+        style={{
+          backgroundColor: "#fff",
+          borderRadius: 20,
+          marginBottom: 14,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.07,
+          shadowRadius: 10,
+          elevation: 3,
+          overflow: "hidden",
+        }}
       >
-        {/* Order Header */}
-        <View className="mb-3 pb-3 border-b border-border">
-          {/* Row 1: Order ID + Status */}
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Ionicons name="receipt-outline" size={18} color="#2E86AB" />
-              <Text className="text-sm font-bold text-text ml-2">
-                {item.id.substring(0, 8)}
-              </Text>
-            </View>
+        {/* Colored top accent bar */}
+        <View style={{ height: 4, backgroundColor: statusColor }} />
+
+        <View style={{ padding: 16 }}>
+          {/* Header row */}
+          <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center">
               <View
-                className="w-2 h-2 rounded-full mr-2"
-                style={{ backgroundColor: getOrderStatusColor(item.status) }}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  backgroundColor: statusColor + "18",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 10,
+                }}
+              >
+                <Ionicons name="receipt" size={17} color={statusColor} />
+              </View>
+              <View>
+                <Text className="text-xs text-textGray">Mã đơn hàng</Text>
+                <Text className="text-sm font-extrabold text-text">
+                  #{item.id.substring(0, 8).toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            {/* Status badge */}
+            <View
+              style={{
+                backgroundColor: statusColor + "18",
+                borderRadius: 20,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: statusColor,
+                  marginRight: 5,
+                }}
               />
               <Text
-                className="text-sm font-semibold"
-                style={{ color: getOrderStatusColor(item.status) }}
+                style={{ color: statusColor, fontSize: 12, fontWeight: "700" }}
               >
                 {formatOrderStatus(item.status)}
               </Text>
             </View>
           </View>
 
-          {/* Row 2: Type badges */}
+          {/* Type badges row */}
           {orderTypeBadge && (
-            <View className="flex-row items-center mt-2 gap-2">
+            <View className="flex-row items-center mb-3" style={{ gap: 6 }}>
               <View
-                className="px-2 py-1 rounded-md flex-row items-center"
-                style={{ backgroundColor: orderTypeBadge.color + "20" }}
+                style={{
+                  backgroundColor: orderTypeBadge.color + "18",
+                  borderRadius: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
               >
                 <Ionicons
                   name={orderTypeBadge.icon}
-                  size={12}
+                  size={11}
                   color={orderTypeBadge.color}
                 />
                 <Text
-                  className="text-xs font-semibold ml-1"
-                  style={{ color: orderTypeBadge.color }}
+                  style={{
+                    color: orderTypeBadge.color,
+                    fontSize: 11,
+                    fontWeight: "600",
+                    marginLeft: 4,
+                  }}
                 >
                   {orderTypeBadge.label}
                 </Text>
               </View>
               {orderTypeBadge.isPreorder && (
                 <View
-                  className="px-2 py-1 rounded-md flex-row items-center"
-                  style={{ backgroundColor: "#F18F0120" }}
+                  style={{
+                    backgroundColor: "#F18F0118",
+                    borderRadius: 8,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
                 >
-                  <Ionicons name="time-outline" size={12} color="#F18F01" />
+                  <Ionicons name="time-outline" size={11} color="#F18F01" />
                   <Text
-                    className="text-xs font-semibold ml-1"
-                    style={{ color: "#F18F01" }}
+                    style={{
+                      color: "#F18F01",
+                      fontSize: 11,
+                      fontWeight: "600",
+                      marginLeft: 4,
+                    }}
                   >
                     Đặt trước
                   </Text>
@@ -412,109 +472,188 @@ export default function OrdersScreen({ navigation, route }) {
               )}
             </View>
           )}
-        </View>
 
-        {/* Order Items */}
-        <View className="mb-3">
-          {item.orderItems &&
-            item.orderItems.slice(0, 2).map((orderItem, index) => (
-              <View
-                key={orderItem.id}
-                className={`flex-row items-center ${index > 0 ? "mt-3" : ""}`}
-              >
-                <Image
-                  source={{
-                    uri:
-                      productImages[orderItem.productId] ||
-                      orderItem.product?.images?.[0]?.imageUrl ||
-                      "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
+          {/* Divider */}
+          <View
+            style={{ height: 1, backgroundColor: "#F0F0F0", marginBottom: 12 }}
+          />
+
+          {/* Order Items */}
+          <View style={{ marginBottom: 12 }}>
+            {item.orderItems &&
+              item.orderItems.slice(0, 2).map((orderItem, index) => (
+                <View
+                  key={orderItem.id}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom:
+                      index < Math.min(item.orderItems.length, 2) - 1 ? 10 : 0,
                   }}
-                  className="w-16 h-16 rounded-lg"
-                />
-                <View className="flex-1 ml-3">
+                >
+                  <Image
+                    source={{
+                      uri:
+                        productImages[orderItem.productId] ||
+                        orderItem.product?.images?.[0]?.imageUrl ||
+                        "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=160&h=160&fit=crop",
+                    }}
+                    style={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: 12,
+                      backgroundColor: "#F5F5F5",
+                    }}
+                  />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "600",
+                        color: "#333",
+                        marginBottom: 3,
+                      }}
+                      numberOfLines={2}
+                    >
+                      {orderItem.product?.name || "Sản phẩm"}
+                    </Text>
+                    <View
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                    >
+                      <View
+                        style={{
+                          backgroundColor: "#F0F0F0",
+                          borderRadius: 6,
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            color: "#666",
+                            fontWeight: "500",
+                          }}
+                        >
+                          x{orderItem.quantity}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
                   <Text
-                    className="text-sm font-semibold text-text"
-                    numberOfLines={2}
+                    style={{
+                      fontSize: 13,
+                      fontWeight: "800",
+                      color: "#2E86AB",
+                    }}
                   >
-                    {orderItem.product?.name || "S\u1ea3n ph\u1ea9m"}
-                  </Text>
-                  <Text className="text-xs text-textGray mt-1">
-                    x{orderItem.quantity}
+                    {`${(formatPrice(orderItem.unitPrice) || 0).toLocaleString("vi-VN")}đ`}
                   </Text>
                 </View>
-                <Text className="text-sm font-bold text-primary">
-                  {`${formatPrice(orderItem.unitPrice).toLocaleString("vi-VN")}\u0111`}
-                </Text>
-              </View>
-            ))}
-          {item.orderItems && item.orderItems.length > 2 && (
-            <Text className="text-xs text-textGray mt-2">
-              +{item.orderItems.length - 2} sản phẩm khác
-            </Text>
-          )}
-        </View>
+              ))}
+            {item.orderItems && item.orderItems.length > 2 && (
+              <Text style={{ fontSize: 12, color: "#999", marginTop: 6 }}>
+                +{item.orderItems.length - 2} sản phẩm khác
+              </Text>
+            )}
+          </View>
 
-        {/* Order Footer */}
-        <View className="pt-3 border-t border-border">
-          {/* Appointment info if exists */}
+          {/* Appointment banner */}
           {item.appointment && (
-            <View className="mb-3 bg-purple-50 rounded-lg p-2.5 flex-row items-center">
-              <Ionicons name="calendar" size={16} color="#A23B72" />
-              <Text className="text-xs text-purple-800 ml-2">
-                <Text className="font-semibold">L\u1ecbch h\u1eb9n:</Text>{" "}
+            <View
+              style={{
+                backgroundColor: "#F5F0FF",
+                borderRadius: 10,
+                padding: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 10,
+              }}
+            >
+              <Ionicons name="calendar" size={15} color="#7C3AED" />
+              <Text style={{ fontSize: 12, color: "#7C3AED", marginLeft: 6 }}>
+                <Text style={{ fontWeight: "700" }}>Lịch hẹn: </Text>
                 {formatDate(item.appointment.appointmentDate)}
               </Text>
             </View>
           )}
 
-          <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-xs text-textGray">
-              <Ionicons name="calendar-outline" size={12} />{" "}
-              {formatDate(item.createdAt)}
-            </Text>
+          {/* Divider */}
+          <View
+            style={{ height: 1, backgroundColor: "#F0F0F0", marginBottom: 12 }}
+          />
+
+          {/* Footer: date + total + actions */}
+          <View className="flex-row items-center justify-between">
             <View className="flex-row items-center">
-              <Text className="text-xs text-textGray mr-2">Thanh toán:</Text>
-              <Text className="text-lg font-bold text-text">
-                {`${formatPrice(item.totalAmount).toLocaleString("vi-VN")}\u0111`}
+              <Ionicons name="calendar-outline" size={13} color="#999" />
+              <Text style={{ fontSize: 12, color: "#999", marginLeft: 4 }}>
+                {formatDate(item.createdAt)}
+              </Text>
+            </View>
+            <View className="flex-row items-center">
+              <Text style={{ fontSize: 12, color: "#999", marginRight: 4 }}>
+                Tổng:
+              </Text>
+              <Text style={{ fontSize: 16, fontWeight: "900", color: "#333" }}>
+                {`${(formatPrice(item.totalAmount) || 0).toLocaleString("vi-VN")}đ`}
               </Text>
             </View>
           </View>
 
-          {/* Action Buttons */}
-          <View className="flex-row items-center justify-end gap-2">
-            {getStatusActions(item.status).map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                className={`px-4 py-2 rounded-lg border ${
-                  action.action === "detail" ||
-                  action.action === "track" ||
-                  action.action === "reorder"
-                    ? "bg-primary border-primary"
-                    : "border-border"
-                }`}
-                onPress={() => handleAction(item.id, action.action, item)}
-              >
-                <Text
-                  className={`text-sm font-semibold ${
-                    action.action === "detail" ||
-                    action.action === "track" ||
-                    action.action === "reorder"
-                      ? "text-white"
-                      : ""
-                  }`}
-                  style={{
-                    color:
-                      action.action === "detail" ||
-                      action.action === "track" ||
-                      action.action === "reorder"
-                        ? "#FFFFFF"
-                        : action.color,
-                  }}
+          {/* Action buttons */}
+          <View
+            className="flex-row items-center justify-end mt-3"
+            style={{ gap: 8 }}
+          >
+            {getStatusActions(item.status).map((action, index) => {
+              const isPrimary =
+                action.action === "detail" ||
+                action.action === "track" ||
+                action.action === "reorder";
+              return isPrimary ? (
+                <LinearGradient
+                  key={index}
+                  colors={["#2E86AB", "#1565C0"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ borderRadius: 10, overflow: "hidden" }}
                 >
-                  {action.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <TouchableOpacity
+                    style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+                    onPress={() => handleAction(item.id, action.action, item)}
+                  >
+                    <Text
+                      style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}
+                    >
+                      {action.label}
+                    </Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              ) : (
+                <TouchableOpacity
+                  key={index}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    borderWidth: 1.5,
+                    borderColor: action.color,
+                  }}
+                  onPress={() => handleAction(item.id, action.action, item)}
+                >
+                  <Text
+                    style={{
+                      color: action.color,
+                      fontSize: 13,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {action.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
       </TouchableOpacity>
@@ -523,78 +662,119 @@ export default function OrdersScreen({ navigation, route }) {
 
   return (
     <View className="flex-1 bg-background">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Header */}
-      <View className="bg-white pt-12 pb-3 px-5 border-b border-border">
+      {/* ── GRADIENT HEADER ── */}
+      <LinearGradient
+        colors={["#1565C0", "#2E86AB"]}
+        style={{ paddingTop: 52, paddingBottom: 0, paddingHorizontal: 20 }}
+      >
         <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-xl font-bold text-text">Đơn hàng của tôi</Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Support")}>
-            <Ionicons name="help-circle-outline" size={26} color="#2E86AB" />
+          <View>
+            <Text
+              style={{
+                color: "rgba(255,255,255,0.75)",
+                fontSize: 12,
+                marginBottom: 2,
+              }}
+            >
+              Quản lý
+            </Text>
+            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "900" }}>
+              Đơn hàng của tôi
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: "rgba(255,255,255,0.2)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onPress={() => navigation.navigate("Support")}
+          >
+            <Ionicons name="help-circle" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
 
-        {/* Tabs */}
+        {/* Status Tabs */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="flex-row"
+          style={{ marginBottom: 0 }}
+          contentContainerStyle={{ paddingBottom: 0 }}
         >
           {tabs.map((tab) => (
             <TouchableOpacity
               key={tab.id}
-              className={`mr-3 pb-3 px-2 ${
-                selectedTab === tab.id ? "border-b-2 border-primary" : ""
-              }`}
               onPress={() => setSelectedTab(tab.id)}
+              style={{
+                marginRight: 4,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor:
+                  selectedTab === tab.id ? "#fff" : "rgba(255,255,255,0.15)",
+                marginBottom: 12,
+              }}
             >
-              <View className="flex-row items-center">
-                <Ionicons
-                  name={tab.icon}
-                  size={18}
-                  color={selectedTab === tab.id ? "#2E86AB" : "#999999"}
-                />
-                <Text
-                  className={`text-sm font-semibold ml-1.5 ${
-                    selectedTab === tab.id ? "text-primary" : "text-textGray"
-                  }`}
-                >
-                  {tab.label}
-                </Text>
-              </View>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "700",
+                  color:
+                    selectedTab === tab.id
+                      ? "#1565C0"
+                      : "rgba(255,255,255,0.85)",
+                }}
+              >
+                {tab.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
-      </View>
+      </LinearGradient>
 
       {/* Prescription Type Filter Pills */}
-      <View className="bg-white px-5 py-3 border-b border-border">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="flex-row"
-        >
+      <View
+        style={{
+          backgroundColor: "#fff",
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: "#F0F0F0",
+        }}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {prescriptionFilters.map((filter) => (
             <TouchableOpacity
               key={filter.id}
-              className={`mr-2 px-4 py-2 rounded-full flex-row items-center ${
-                prescriptionFilter === filter.id
-                  ? "bg-primary"
-                  : "bg-background"
-              }`}
+              style={{
+                marginRight: 8,
+                paddingHorizontal: 14,
+                paddingVertical: 7,
+                borderRadius: 20,
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor:
+                  prescriptionFilter === filter.id ? "#2E86AB" : "#F5F5F5",
+              }}
               onPress={() => setPrescriptionFilter(filter.id)}
             >
               <Ionicons
                 name={filter.icon}
-                size={16}
-                color={prescriptionFilter === filter.id ? "#FFFFFF" : "#666666"}
+                size={14}
+                color={prescriptionFilter === filter.id ? "#fff" : "#666"}
               />
               <Text
-                className={`text-sm font-semibold ml-1.5 ${
-                  prescriptionFilter === filter.id
-                    ? "text-white"
-                    : "text-textGray"
-                }`}
+                style={{
+                  fontSize: 13,
+                  fontWeight: "600",
+                  marginLeft: 5,
+                  color: prescriptionFilter === filter.id ? "#fff" : "#555",
+                }}
               >
                 {filter.label}
               </Text>
@@ -607,7 +787,9 @@ export default function OrdersScreen({ navigation, route }) {
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2E86AB" />
-          <Text className="text-textGray mt-4">Đang tải...</Text>
+          <Text className="text-textGray mt-3 text-sm">
+            Đang tải đơn hàng...
+          </Text>
         </View>
       ) : filteredOrders.length > 0 ? (
         <FlatList
@@ -644,21 +826,57 @@ export default function OrdersScreen({ navigation, route }) {
         />
       ) : (
         <View className="flex-1 items-center justify-center px-8">
-          <Ionicons name="receipt-outline" size={80} color="#E0E0E0" />
-          <Text className="text-lg font-bold text-text mt-4 text-center">
+          <View
+            style={{
+              width: 100,
+              height: 100,
+              borderRadius: 50,
+              backgroundColor: "#EBF5FB",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Ionicons name="receipt-outline" size={48} color="#2E86AB" />
+          </View>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "800",
+              color: "#333",
+              textAlign: "center",
+              marginBottom: 8,
+            }}
+          >
             Chưa có đơn hàng
           </Text>
-          <Text className="text-sm text-textGray text-center mt-2">
+          <Text
+            style={{
+              fontSize: 14,
+              color: "#999",
+              textAlign: "center",
+              lineHeight: 20,
+            }}
+          >
             Bạn chưa có đơn hàng nào trong mục này
           </Text>
-          <TouchableOpacity
-            className="bg-primary px-8 py-3 rounded-full mt-6"
-            onPress={() =>
-              navigation.navigate("MainApp", { screen: "HomeTab" })
-            }
+          <LinearGradient
+            colors={["#2E86AB", "#1565C0"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ borderRadius: 25, marginTop: 24 }}
           >
-            <Text className="text-white font-semibold">Mua sắm ngay</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={{ paddingHorizontal: 32, paddingVertical: 13 }}
+              onPress={() =>
+                navigation.navigate("MainApp", { screen: "HomeTab" })
+              }
+            >
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+                Mua sắm ngay
+              </Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
       )}
     </View>
