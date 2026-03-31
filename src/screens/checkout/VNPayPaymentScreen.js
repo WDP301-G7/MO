@@ -3,7 +3,7 @@
  * Màn hình thanh toán VNPay - Mở WebView để thanh toán
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -30,12 +30,15 @@ export default function VNPayPaymentScreen({ navigation, route }) {
     paymentAmount,
     orderType,
     paymentUrl, // Direct payment URL from OrderDetailScreen
+    shippingFee,
   } = route.params || {};
 
   const [loading, setLoading] = useState(true);
   const [vnpayUrl, setVnpayUrl] = useState(paymentUrl || null);
   const [error, setError] = useState(null);
   const [createdOrderId, setCreatedOrderId] = useState(orderId);
+  // Guard against WebView firing multiple navigation events for the same return URL
+  const hasHandledReturn = useRef(false);
 
   useEffect(() => {
     // If paymentUrl is provided, use it directly
@@ -126,9 +129,12 @@ export default function VNPayPaymentScreen({ navigation, route }) {
 
   // Helper function to navigate to OrderDetail and reset HomeTab
   const navigateToOrderDetail = (orderIdToNav) => {
+    // getParent() goes up from HomeStack → Tab Navigator
+    const tabNav = navigation.getParent();
+
     if (!orderIdToNav) {
       // No orderId, just navigate to Orders list
-      navigation.dispatch(
+      (tabNav || navigation).dispatch(
         CommonActions.reset({
           index: 1,
           routes: [
@@ -147,13 +153,13 @@ export default function VNPayPaymentScreen({ navigation, route }) {
               },
             },
           ],
-        })
+        }),
       );
       return;
     }
 
     // Reset navigation: HomeTab về Home, OrdersTab hiển thị OrderDetail
-    navigation.dispatch(
+    (tabNav || navigation).dispatch(
       CommonActions.reset({
         index: 1,
         routes: [
@@ -175,7 +181,7 @@ export default function VNPayPaymentScreen({ navigation, route }) {
             },
           },
         ],
-      })
+      }),
     );
   };
 
@@ -188,6 +194,10 @@ export default function VNPayPaymentScreen({ navigation, route }) {
       url.includes("myapp://") ||
       url.includes("payment-success")
     ) {
+      // Prevent handling the same return URL more than once
+      if (hasHandledReturn.current) return;
+      hasHandledReturn.current = true;
+
       try {
         // Extract query parameters
         const urlObj = new URL(url);
@@ -199,7 +209,7 @@ export default function VNPayPaymentScreen({ navigation, route }) {
         // Check VNPay response code BEFORE calling backend
         // vnp_ResponseCode: "00" = Success, "24" = User cancelled, other = Failed
         const vnpResponseCode = params.vnp_ResponseCode;
-        
+
         // User cancelled payment
         if (vnpResponseCode === "24") {
           Alert.alert(
@@ -351,6 +361,48 @@ export default function VNPayPaymentScreen({ navigation, route }) {
         <Text className="text-lg font-bold text-text">Thanh toán VNPay</Text>
         <View className="w-10" />
       </View>
+
+      {/* Order Amount Summary Strip */}
+      {(() => {
+        const displayTotal = paymentAmount || amount || totalAmount;
+        const fee = shippingFee ? Number(shippingFee) : 0;
+        if (!displayTotal) return null;
+        const totalNum = Number(displayTotal);
+        const itemsTotal = fee > 0 ? totalNum - fee : null;
+        return (
+          <View className="bg-white border-b border-border px-5 py-3">
+            {itemsTotal !== null && itemsTotal > 0 && (
+              <>
+                <View className="flex-row justify-between mb-1">
+                  <Text className="text-xs text-textGray">
+                    Tạm tính sản phẩm
+                  </Text>
+                  <Text className="text-xs text-text">
+                    {`${itemsTotal.toLocaleString("vi-VN")}đ`}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between mb-2">
+                  <Text className="text-xs text-textGray">
+                    Phí vận chuyển (GHN)
+                  </Text>
+                  <Text className="text-xs text-text">
+                    {`${fee.toLocaleString("vi-VN")}đ`}
+                  </Text>
+                </View>
+                <View className="h-px bg-border mb-2" />
+              </>
+            )}
+            <View className="flex-row justify-between items-center">
+              <Text className="text-sm font-bold text-text">
+                Tổng thanh toán
+              </Text>
+              <Text className="text-base font-bold text-primary">
+                {`${totalNum.toLocaleString("vi-VN")}đ`}
+              </Text>
+            </View>
+          </View>
+        );
+      })()}
 
       {/* VNPay WebView */}
       {vnpayUrl && (

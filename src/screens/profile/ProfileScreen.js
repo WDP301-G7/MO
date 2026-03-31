@@ -160,7 +160,7 @@ export default function ProfileScreen({ navigation }) {
   const stats = [
     {
       id: 1,
-      label: "Mới tạo",
+      label: "Chờ thanh toán",
       count: orderStats.new,
       icon: "document-text-outline",
       color: "#3B82F6",

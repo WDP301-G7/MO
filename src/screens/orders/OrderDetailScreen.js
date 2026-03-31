@@ -206,6 +206,7 @@ export default function OrderDetailScreen({ navigation, route }) {
           orderId: orderId,
           totalAmount: parseFloat(order.totalAmount),
           orderType: order.orderType,
+          shippingFee: order.shippingFee ? Number(order.shippingFee) : 0,
         });
       } else {
         Alert.alert("Lỗi", result.message || "Không thể tạo thanh toán");
@@ -475,22 +476,23 @@ export default function OrderDetailScreen({ navigation, route }) {
                 />
               </View>
             </View>
-            {order.trackingNumber && order.orderType === "normal" && (
-              <View className="mt-3 pt-3 border-t border-border/50">
-                <Text className="text-xs text-textGray">Mã vận đơn:</Text>
-                <View className="flex-row items-center justify-between mt-1">
-                  <Text className="text-sm font-bold text-text">
-                    {order.trackingNumber}
-                  </Text>
-                  <TouchableOpacity className="flex-row items-center">
-                    <Text className="text-sm font-semibold text-primary mr-1">
-                      Sao chép
+            {order.trackingNumber &&
+              order.deliveryMethod === "HOME_DELIVERY" && (
+                <View className="mt-3 pt-3 border-t border-border/50">
+                  <Text className="text-xs text-textGray">Mã vận đơn:</Text>
+                  <View className="flex-row items-center justify-between mt-1">
+                    <Text className="text-sm font-bold text-text">
+                      {order.trackingNumber}
                     </Text>
-                    <Ionicons name="copy-outline" size={16} color="#2E86AB" />
-                  </TouchableOpacity>
+                    <TouchableOpacity className="flex-row items-center">
+                      <Text className="text-sm font-semibold text-primary mr-1">
+                        Sao chép
+                      </Text>
+                      <Ionicons name="copy-outline" size={16} color="#2E86AB" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
           </View>
 
           {/* Order Type Badge */}
@@ -587,9 +589,7 @@ export default function OrderDetailScreen({ navigation, route }) {
           )}
 
           {/* Shipping/Pickup Info */}
-          {(order.orderType === "prescription" ||
-            order.orderType === "lens_only" ||
-            order.orderType === "lens_with_frame") && (
+          {order.deliveryMethod === "PICKUP_AT_STORE" && (
             <View className="bg-white mx-5 mt-4 p-4 rounded-2xl">
               <View className="flex-row items-center mb-3">
                 <Ionicons name="location-outline" size={20} color="#2E86AB" />
@@ -602,11 +602,15 @@ export default function OrderDetailScreen({ navigation, route }) {
                   📍 Nhận tại cửa hàng
                 </Text>
                 <Text className="text-sm text-amber-800">
-                  {order.store || "Chi nhánh Quận 1"}
+                  {order.store?.name ||
+                    order.storeName ||
+                    "Chi nhánh Eyewear Store"}
                 </Text>
-                <Text className="text-xs text-amber-700 mt-1">
-                  123 Nguyễn Huệ, Quận 1, TP.HCM
-                </Text>
+                {(order.store?.address || order.storeAddress) && (
+                  <Text className="text-xs text-amber-700 mt-1">
+                    {order.store?.address || order.storeAddress}
+                  </Text>
+                )}
               </View>
               <Text className="text-sm text-textGray">
                 Vui lòng mang theo CMND/CCCD khi đến nhận hàng
@@ -860,59 +864,84 @@ export default function OrderDetailScreen({ navigation, route }) {
           {/* Price Summary */}
           <View className="bg-white mx-5 mt-4 mb-6 px-5 py-5 rounded-2xl">
             {(() => {
-              const subtotal = (order.orderItems || []).reduce(
+              const itemsSubtotal = (order.orderItems || []).reduce(
                 (sum, item) =>
                   sum + formatPrice(item.unitPrice) * item.quantity,
                 0,
               );
               const total = formatPrice(order.totalAmount || 0);
+              const shippingFee = order.shippingFee
+                ? Number(order.shippingFee)
+                : 0;
+              const isHomeDelivery = order.deliveryMethod === "HOME_DELIVERY";
               const discountAmount = order.discountAmount
                 ? Number(order.discountAmount)
-                : subtotal > total
-                  ? subtotal - total
-                  : 0;
+                : 0;
               const discountPercent = membership?.discountPercent || 0;
 
               return (
                 <>
-                  {/* Subtotal row — only show when there's a discount to break down */}
+                  {/* Tạm tính — always show */}
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-sm text-textGray">Tạm tính</Text>
+                    <Text className="text-sm text-text">
+                      {`${itemsSubtotal.toLocaleString("vi-VN")}đ`}
+                    </Text>
+                  </View>
+
+                  {/* Phí vận chuyển */}
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-sm text-textGray">
+                      Phí vận chuyển
+                    </Text>
+                    {isHomeDelivery ? (
+                      shippingFee > 0 ? (
+                        <Text className="text-sm font-semibold text-text">
+                          {`${shippingFee.toLocaleString("vi-VN")}đ`}
+                        </Text>
+                      ) : (
+                        <Text className="text-sm text-textGray italic">
+                          Miễn phí
+                        </Text>
+                      )
+                    ) : (
+                      <Text className="text-sm text-textGray italic">
+                        Miễn phí
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Discount row — only show when there's a discount */}
                   {discountAmount > 0 && (
-                    <>
-                      <View className="flex-row items-center justify-between mb-2">
-                        <Text className="text-sm text-textGray">Tạm tính</Text>
-                        <Text className="text-sm text-text">
-                          {`${subtotal.toLocaleString("vi-VN")}đ`}
+                    <View className="flex-row items-center justify-between mb-3">
+                      <View className="flex-row items-center">
+                        <Text className="text-sm text-green-600">
+                          {`Ưu đãi thành viên`}
                         </Text>
-                      </View>
-                      <View className="flex-row items-center justify-between mb-3">
-                        <View className="flex-row items-center">
-                          <Text className="text-sm text-green-600">
-                            {`Ưu đãi thành viên`}
-                          </Text>
-                          {discountPercent > 0 && membership?.tier && (
-                            <View
-                              className="ml-2 px-2 py-0.5 rounded-full"
-                              style={{
-                                backgroundColor:
-                                  getTierColor(membership.tier) + "20",
-                              }}
+                        {discountPercent > 0 && membership?.tier && (
+                          <View
+                            className="ml-2 px-2 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor:
+                                getTierColor(membership.tier) + "20",
+                            }}
+                          >
+                            <Text
+                              className="text-xs font-bold"
+                              style={{ color: getTierColor(membership.tier) }}
                             >
-                              <Text
-                                className="text-xs font-bold"
-                                style={{ color: getTierColor(membership.tier) }}
-                              >
-                                {membership.tier} -{discountPercent}%
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text className="text-sm font-semibold text-green-600">
-                          {`-${discountAmount.toLocaleString("vi-VN")}đ`}
-                        </Text>
+                              {membership.tier} -{discountPercent}%
+                            </Text>
+                          </View>
+                        )}
                       </View>
-                      <View className="h-px bg-border mb-3" />
-                    </>
+                      <Text className="text-sm font-semibold text-green-600">
+                        {`-${discountAmount.toLocaleString("vi-VN")}đ`}
+                      </Text>
+                    </View>
                   )}
+
+                  <View className="h-px bg-border mb-3" />
                   <View className="flex-row items-center justify-between">
                     <Text className="text-base font-bold text-text">
                       Tổng cộng:

@@ -1,41 +1,67 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Modal,
   Alert,
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { createOrder, formatPrice } from "../../services/orderService";
+import { useFocusEffect } from "@react-navigation/native";
+import { createOrder } from "../../services/orderService";
 import { getProfile } from "../../services/authService";
 import { getMyMembership } from "../../services/membershipService";
+import { consumePendingAddress } from "../../utils/addressStore";
 
 export default function CheckoutScreen({ navigation, route }) {
   const {
     productType = "normal",
     requiresStore = false,
-    appointmentDate = null,
-    appointmentTime = null,
-    storeName = "MO Eyewear Store",
-    storeAddress = "123 Nguyễn Huệ, Quận 1, TP.HCM",
+    storeName,
+    storeAddress,
     fromProduct = false,
     product = null,
   } = route.params || {};
 
+  // deliveryMethod: HOME_DELIVERY for normal frames, PICKUP_AT_STORE for lens/store orders
+  const deliveryMethod = requiresStore ? "PICKUP_AT_STORE" : "HOME_DELIVERY";
+
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState(null);
   const [cartItems, setCartItems] = useState([]);
+  // selectedAddress holds full address with GHN fields when HOME_DELIVERY
   const [selectedAddress, setSelectedAddress] = useState(null);
-  const [selectedPayment, setSelectedPayment] = useState("cod");
   const [note, setNote] = useState("");
-  const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [membership, setMembership] = useState(null);
-  const [orderDiscountAmount, setOrderDiscountAmount] = useState(0);
+
+  // On every focus: pick up address from store AND re-sync cart from params.
+  // This handles the case where the screen re-mounts or state is lost.
+  useFocusEffect(
+    useCallback(() => {
+      // Consume address returned from AddressPickerScreen
+      const pending = consumePendingAddress();
+      if (pending) {
+        setSelectedAddress(pending);
+      }
+      // Re-sync cart items from route.params (guards against state loss)
+      const p = route.params?.product;
+      const fp = route.params?.fromProduct;
+      if (fp && p) {
+        setCartItems([
+          {
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            image: p.image,
+            quantity: 1,
+          },
+        ]);
+      }
+    }, [route.params]),
+  );
 
   useEffect(() => {
     loadUserData();
@@ -59,16 +85,6 @@ export default function CheckoutScreen({ navigation, route }) {
       const result = await getProfile();
       if (result.success && result.data) {
         setUserData(result.data);
-        // Set default address from user profile
-        if (result.data.address && result.data.phone) {
-          setSelectedAddress({
-            id: "default",
-            name: result.data.fullName,
-            phone: result.data.phone,
-            address: result.data.address,
-            isDefault: true,
-          });
-        }
       }
     } catch (error) {
       // Silent error
@@ -76,7 +92,6 @@ export default function CheckoutScreen({ navigation, route }) {
   };
 
   const loadCartItems = () => {
-    // If coming from product detail, use product from params
     if (fromProduct && product) {
       setCartItems([
         {
@@ -88,36 +103,27 @@ export default function CheckoutScreen({ navigation, route }) {
         },
       ]);
     } else {
-      // TODO: Load from Cart API when available
-      // For now, get from AsyncStorage or params
       setCartItems([]);
     }
   };
-
-  const paymentMethods = [
-    { id: "cod", name: "Thanh toán khi nhận hàng (COD)", icon: "cash" },
-    { id: "vnpay", name: "VNPay", icon: "card" },
-  ];
 
   // Calculate totals from cart items
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-  const shipping = requiresStore ? 0 : 30000;
+  // Shipping fee: 0 for PICKUP_AT_STORE, calculated by backend for HOME_DELIVERY
+  const shippingFeeDisplay = requiresStore ? "Miễn phí" : "Tính theo địa chỉ";
   // Membership discount is applied server-side; show estimated discount
   const membershipDiscountPercent = membership?.discountPercent || 0;
   const estimatedMembershipDiscount = Math.floor(
     (subtotal * membershipDiscountPercent) / 100,
   );
   const discount = estimatedMembershipDiscount;
-  const fullAmount = subtotal + shipping - discount;
-
-  const total = fullAmount;
 
   const handlePlaceOrder = async () => {
     // Validation
-    if (!requiresStore && !selectedAddress) {
+    if (deliveryMethod === "HOME_DELIVERY" && !selectedAddress) {
       Alert.alert("Thông báo", "Vui lòng chọn địa chỉ giao hàng");
       return;
     }
@@ -130,47 +136,39 @@ export default function CheckoutScreen({ navigation, route }) {
     try {
       setLoading(true);
 
-      // Prepare order data for API
       const orderData = {
         items: cartItems.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
-          price: item.price.toString(), // Backend expects string
+          price: item.price.toString(),
         })),
-        shippingAddress: requiresStore
-          ? null
-          : selectedAddress?.address || null,
-        phoneNumber: selectedAddress?.phone || userData?.phone || null,
-        paymentMethod: selectedPayment === "cod" ? "COD" : "VNPAY",
-        note: note || undefined, // Don't send null, use undefined to omit field
+        deliveryMethod,
+        paymentMethod: "VNPAY",
+        note: note || undefined,
+        ...(userData?.phone ? { phoneNumber: userData.phone } : {}),
       };
+
+      // For HOME_DELIVERY: include full shipping info with GHN-format IDs
+      // (ProvinceID, DistrictID, WardCode) required by backend for GHN integration.
+      if (deliveryMethod === "HOME_DELIVERY" && selectedAddress) {
+        orderData.shippingAddress = selectedAddress.shippingAddress;
+        orderData.shippingProvinceId = selectedAddress.shippingProvinceId;
+        orderData.shippingDistrictId = selectedAddress.shippingDistrictId;
+        orderData.shippingWardCode = selectedAddress.shippingWardCode;
+      }
 
       const result = await createOrder(orderData);
 
       if (result.success) {
-        // Use actual amounts returned by server (BE applies real membership discount)
-        const actualDiscount = result.data?.discountAmount
-          ? Number(result.data.discountAmount)
-          : discount;
-        setOrderDiscountAmount(actualDiscount);
-        // If VNPay payment, navigate to payment screen
-        if (selectedPayment === "vnpay") {
-          navigation.navigate("VNPayPayment", {
-            orderId: result.data.id,
-            amount: result.data.totalAmount
-              ? Number(result.data.totalAmount)
-              : total,
-          });
-        } else {
-          // COD - go directly to success screen
-          navigation.navigate("OrderSuccess", {
-            orderId: result.data.id,
-            totalAmount: result.data.totalAmount
-              ? Number(result.data.totalAmount)
-              : fullAmount,
-            paymentMethod: "COD",
-          });
-        }
+        navigation.navigate("VNPayPayment", {
+          orderId: result.data.id,
+          amount: result.data.totalAmount
+            ? Number(result.data.totalAmount)
+            : subtotal - discount,
+          shippingFee: result.data.shippingFee
+            ? Number(result.data.shippingFee)
+            : 0,
+        });
       } else {
         Alert.alert(
           "Lỗi",
@@ -201,8 +199,8 @@ export default function CheckoutScreen({ navigation, route }) {
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Delivery Address - Only show when NOT requiresStore */}
-        {!requiresStore && (
+        {/* Delivery Address - Only show for HOME_DELIVERY (gọng kính lẻ) */}
+        {deliveryMethod === "HOME_DELIVERY" && (
           <View className="bg-white p-5 mt-2">
             <View className="flex-row justify-between items-center mb-4">
               <View className="flex-row items-center gap-2">
@@ -211,45 +209,40 @@ export default function CheckoutScreen({ navigation, route }) {
                   Địa chỉ giao hàng
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setAddressModalVisible(true)}>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("AddressPicker", {
+                    initialAddress: selectedAddress,
+                  })
+                }
+              >
                 <Text className="text-sm text-primary font-semibold">
-                  Thay đổi
+                  {selectedAddress ? "Thay đổi" : "Chọn địa chỉ"}
                 </Text>
               </TouchableOpacity>
             </View>
             {selectedAddress ? (
               <View className="bg-background rounded-xl p-4 border-2 border-primary">
-                <View className="flex-1">
-                  <Text className="text-base font-bold text-text mb-1">
-                    {selectedAddress.name}
-                  </Text>
-                  <Text className="text-sm text-textGray mb-2">
-                    {selectedAddress.phone}
-                  </Text>
-                  <Text className="text-sm text-text leading-5">
-                    {selectedAddress.address}
-                  </Text>
-                </View>
-                {selectedAddress.isDefault && (
-                  <View className="self-start bg-primary px-3 py-1 rounded-xl mt-2">
-                    <Text className="text-xs text-white font-semibold">
-                      Mặc định
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <View className="bg-background rounded-xl p-4">
-                <Text className="text-sm text-textGray">
-                  Chưa có địa chỉ giao hàng
+                <Text className="text-sm text-text leading-5">
+                  {selectedAddress.shippingAddress}
                 </Text>
               </View>
+            ) : (
+              <TouchableOpacity
+                className="bg-background rounded-xl p-4 border border-dashed border-border items-center"
+                onPress={() => navigation.navigate("AddressPicker")}
+              >
+                <Ionicons name="add-circle-outline" size={24} color="#2E86AB" />
+                <Text className="text-sm text-primary mt-1">
+                  Thêm địa chỉ giao hàng
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* Delivery Time or Store Pickup */}
-        {requiresStore ? (
+        {/* Delivery method info */}
+        {deliveryMethod === "PICKUP_AT_STORE" ? (
           <View className="bg-white p-5 mt-2">
             <View className="flex-row items-center gap-2 mb-4">
               <Ionicons name="storefront" size={20} color="#2E86AB" />
@@ -268,40 +261,39 @@ export default function CheckoutScreen({ navigation, route }) {
                 </Text>
               </View>
             </View>
-            <View className="bg-background rounded-xl p-4 mb-4">
-              <Text className="text-[15px] font-semibold text-text mb-2">
-                {storeName}
-              </Text>
-              <View className="flex-row items-start mb-2">
-                <Ionicons name="location-outline" size={16} color="#666666" />
-                <Text className="text-[13px] text-textGray ml-2 flex-1">
-                  {storeAddress}
-                </Text>
+            {storeName || storeAddress ? (
+              <View className="bg-background rounded-xl p-4 mb-4">
+                {storeName && (
+                  <Text className="text-[15px] font-semibold text-text mb-2">
+                    {storeName}
+                  </Text>
+                )}
+                {storeAddress && (
+                  <View className="flex-row items-start">
+                    <Ionicons
+                      name="location-outline"
+                      size={16}
+                      color="#666666"
+                    />
+                    <Text className="text-[13px] text-textGray ml-2 flex-1">
+                      {storeAddress}
+                    </Text>
+                  </View>
+                )}
               </View>
-              <View className="flex-row items-center">
-                <Ionicons name="call-outline" size={16} color="#666666" />
-                <Text className="text-[13px] text-textGray ml-2">
-                  028 1234 5678
-                </Text>
-              </View>
-            </View>
+            ) : null}
           </View>
         ) : (
           <View className="bg-white p-5 mt-2">
-            <View className="flex-row items-center gap-2 mb-4">
-              <Ionicons name="time" size={20} color="#2E86AB" />
+            <View className="flex-row items-center gap-2 mb-3">
+              <Ionicons name="bicycle" size={20} color="#2E86AB" />
               <Text className="text-base font-bold text-text">
-                Thời gian giao hàng
+                Giao hàng tận nhà (GHN)
               </Text>
             </View>
-            <TouchableOpacity className="bg-background rounded-xl p-4">
-              <Text className="text-[15px] font-semibold text-text mb-1">
-                Giao hàng tiêu chuẩn
-              </Text>
-              <Text className="text-[13px] text-textGray">
-                Dự kiến: 22-25 Tháng 1, 2026
-              </Text>
-            </TouchableOpacity>
+            <Text className="text-[13px] text-textGray">
+              Phí vận chuyển sẽ được tính dựa trên địa chỉ sau khi đặt hàng.
+            </Text>
           </View>
         )}
 
@@ -326,7 +318,7 @@ export default function CheckoutScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* Payment Method */}
+        {/* Payment Method - VNPay only */}
         <View className="bg-white p-5 mt-2">
           <View className="flex-row items-center gap-2 mb-4">
             <Ionicons name="card" size={20} color="#2E86AB" />
@@ -334,37 +326,16 @@ export default function CheckoutScreen({ navigation, route }) {
               Phương thức thanh toán
             </Text>
           </View>
-          {paymentMethods.map((method) => (
-            <TouchableOpacity
-              key={method.id}
-              className={`flex-row justify-between items-center bg-background rounded-xl p-4 mb-3 border-2 ${
-                selectedPayment === method.id
-                  ? "border-primary"
-                  : "border-transparent"
-              }`}
-              onPress={() => setSelectedPayment(method.id)}
-            >
-              <View className="flex-row items-center gap-3 flex-1">
-                <Ionicons
-                  name={method.icon}
-                  size={24}
-                  color={selectedPayment === method.id ? "#2E86AB" : "#999999"}
-                />
-                <Text className="text-sm text-text">{method.name}</Text>
-              </View>
-              <View
-                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                  selectedPayment === method.id
-                    ? "border-primary"
-                    : "border-border"
-                }`}
-              >
-                {selectedPayment === method.id && (
-                  <View className="w-3 h-3 rounded-full bg-primary" />
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
+          <View className="flex-row items-center bg-background rounded-xl p-4 border-2 border-primary">
+            <Ionicons name="card" size={24} color="#2E86AB" />
+            <Text className="text-sm text-text ml-3 flex-1">VNPay</Text>
+            <View className="w-6 h-6 rounded-full border-2 border-primary items-center justify-center">
+              <View className="w-3 h-3 rounded-full bg-primary" />
+            </View>
+          </View>
+          <Text className="text-xs text-textGray mt-2 ml-1">
+            Tất cả đơn hàng phải thanh toán 100% trước khi xác nhận.
+          </Text>
         </View>
 
         {/* Note */}
@@ -400,8 +371,8 @@ export default function CheckoutScreen({ navigation, route }) {
           </View>
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-sm text-textGray">Phí vận chuyển</Text>
-            <Text className="text-sm font-semibold text-text">
-              {`${shipping.toLocaleString("vi-VN")}đ`}
+            <Text className="text-sm font-semibold text-textGray italic">
+              {shippingFeeDisplay}
             </Text>
           </View>
           <View className="flex-row justify-between items-center mb-3">
@@ -419,7 +390,7 @@ export default function CheckoutScreen({ navigation, route }) {
           <View className="flex-row justify-between items-center">
             <Text className="text-base font-bold text-text">Tổng cộng</Text>
             <Text className="text-xl font-bold text-primary">
-              {`${fullAmount.toLocaleString("vi-VN")}đ`}
+              {`${(subtotal - discount).toLocaleString("vi-VN")}đ`}
             </Text>
           </View>
         </View>
@@ -430,9 +401,9 @@ export default function CheckoutScreen({ navigation, route }) {
       {/* Bottom Bar */}
       <View className="bg-white p-4 shadow-lg">
         <View className="flex-row justify-between items-center mb-3">
-          <Text className="text-sm text-textGray">Tổng thanh toán</Text>
+          <Text className="text-sm text-textGray">Tổng tạm tính</Text>
           <Text className="text-xl font-bold text-primary">
-            {`${total.toLocaleString("vi-VN")}đ`}
+            {`${(subtotal - discount).toLocaleString("vi-VN")}đ`}
           </Text>
         </View>
         <TouchableOpacity
@@ -443,12 +414,12 @@ export default function CheckoutScreen({ navigation, route }) {
           {loading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text className="text-base font-bold text-white">Đặt Hàng</Text>
+            <Text className="text-base font-bold text-white">
+              Đặt hàng & Thanh toán
+            </Text>
           )}
         </TouchableOpacity>
       </View>
-
-      {/* TODO: Address Modal - Implement when Address API is available */}
     </View>
   );
 }

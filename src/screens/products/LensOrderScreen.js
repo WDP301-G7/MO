@@ -32,7 +32,7 @@ export default function LensOrderScreen({ navigation, route }) {
     selectedFrame?.id || null,
   );
   const [requireAppointment, setRequireAppointment] = useState(false);
-  
+
   // Dropdown states
   const [lensDropdownOpen, setLensDropdownOpen] = useState(false);
   const [frameDropdownOpen, setFrameDropdownOpen] = useState(false);
@@ -239,22 +239,22 @@ export default function LensOrderScreen({ navigation, route }) {
             {
               productId: selectedFrame.id,
               quantity: 1,
-              price: selectedFrame.price.toString(), // Backend expects string
+              price: selectedFrame.price.toString(),
             },
             {
               productId: selectedLens.id,
               quantity: 1,
-              price: selectedLens.price.toString(), // Backend expects string
+              price: selectedLens.price.toString(),
             },
           ],
-          shippingAddress: null, // In-store pickup
-          phoneNumber: userData?.phone || null,
+          deliveryMethod: "PICKUP_AT_STORE",
           paymentMethod: "VNPAY",
+          ...(userData?.phone ? { phoneNumber: userData.phone } : {}),
           note: "Đơn hàng tròng + gọng kính (không cần đơn thuốc)",
         },
         totalAmount: paymentAmount,
         paymentAmount: paymentAmount,
-        orderType: "lens_with_frame", // For UI tracking only
+        orderType: "lens_with_frame",
       });
     }
   };
@@ -322,102 +322,103 @@ export default function LensOrderScreen({ navigation, route }) {
         </View>
       )}
 
-      {lensDropdownOpen && lensProducts.map((lens) => {
-        const available = isProductAvailable(lens);
-        const isSelected = selectedLensType === lens.id;
-        const lensImageUrl =
-          lensImages[lens.id] ||
-          lens.images?.[0]?.imageUrl ||
-          "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=300&h=200&fit=crop";
-        return (
-          <TouchableOpacity
-            key={lens.id}
-            className={`bg-white rounded-2xl mb-3 overflow-hidden border-2 ${
-              isSelected ? "border-primary" : "border-gray-100"
-            } ${!available ? "opacity-50" : ""}`}
-            onPress={() => available && setSelectedLensType(lens.id)}
-            disabled={!available}
-          >
-            <Image
-              source={{ uri: lensImageUrl }}
-              className="w-full h-36"
-              resizeMode="cover"
-            />
-            {isSelected && (
-              <View className="absolute top-2 right-2 bg-primary rounded-full px-2 py-1 flex-row items-center">
-                <Ionicons name="checkmark" size={12} color="#fff" />
-                <Text className="text-white text-xs font-bold ml-1">
-                  Đã chọn
-                </Text>
-              </View>
-            )}
-            <View className="p-4">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1 mr-3">
-                  <View className="flex-row items-center flex-wrap mb-1">
-                    <Text className="text-base font-bold text-text mr-2">
-                      {lens.name}
+      {lensDropdownOpen &&
+        lensProducts.map((lens) => {
+          const available = isProductAvailable(lens);
+          const isSelected = selectedLensType === lens.id;
+          const lensImageUrl =
+            lensImages[lens.id] ||
+            lens.images?.[0]?.imageUrl ||
+            "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=300&h=200&fit=crop";
+          return (
+            <TouchableOpacity
+              key={lens.id}
+              className={`bg-white rounded-2xl mb-3 overflow-hidden border-2 ${
+                isSelected ? "border-primary" : "border-gray-100"
+              } ${!available ? "opacity-50" : ""}`}
+              onPress={() => available && setSelectedLensType(lens.id)}
+              disabled={!available}
+            >
+              <Image
+                source={{ uri: lensImageUrl }}
+                className="w-full h-36"
+                resizeMode="cover"
+              />
+              {isSelected && (
+                <View className="absolute top-2 right-2 bg-primary rounded-full px-2 py-1 flex-row items-center">
+                  <Ionicons name="checkmark" size={12} color="#fff" />
+                  <Text className="text-white text-xs font-bold ml-1">
+                    Đã chọn
+                  </Text>
+                </View>
+              )}
+              <View className="p-4">
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 mr-3">
+                    <View className="flex-row items-center flex-wrap mb-1">
+                      <Text className="text-base font-bold text-text mr-2">
+                        {lens.name}
+                      </Text>
+                      {lens.brand && (
+                        <View className="bg-accent px-2 py-0.5 rounded-full">
+                          <Text className="text-xs text-white font-semibold">
+                            {lens.brand}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text className="text-lg font-bold text-primary mb-1">
+                      {`${formatPrice(lens.price).toLocaleString("vi-VN")}đ`}
                     </Text>
-                    {lens.brand && (
-                      <View className="bg-accent px-2 py-0.5 rounded-full">
-                        <Text className="text-xs text-white font-semibold">
-                          {lens.brand}
-                        </Text>
-                      </View>
+                    <View className="flex-row items-center">
+                      <Ionicons
+                        name={
+                          !available
+                            ? "close-circle"
+                            : lens.isPreorder
+                              ? "time"
+                              : "checkmark-circle"
+                        }
+                        size={13}
+                        color={
+                          !available
+                            ? "#EF4444"
+                            : lens.isPreorder
+                              ? "#F18F01"
+                              : "#10B981"
+                        }
+                      />
+                      <Text className="text-xs text-textGray ml-1">
+                        {!available
+                          ? "Hết hàng"
+                          : lens.isPreorder
+                            ? `Đặt trước (${lens.leadTimeDays || 7} ngày)`
+                            : "Sẵn hàng"}
+                      </Text>
+                    </View>
+                    {lens.description ? (
+                      <Text
+                        className="text-xs text-textGray mt-2"
+                        numberOfLines={2}
+                      >
+                        {lens.description}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View
+                    className={`w-6 h-6 rounded-full border-2 items-center justify-center mt-1 shrink-0 ${
+                      isSelected ? "border-primary bg-primary" : "border-border"
+                    }`}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                     )}
                   </View>
-                  <Text className="text-lg font-bold text-primary mb-1">
-                    {`${formatPrice(lens.price).toLocaleString("vi-VN")}đ`}
-                  </Text>
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name={
-                        !available
-                          ? "close-circle"
-                          : lens.isPreorder
-                            ? "time"
-                            : "checkmark-circle"
-                      }
-                      size={13}
-                      color={
-                        !available
-                          ? "#EF4444"
-                          : lens.isPreorder
-                            ? "#F18F01"
-                            : "#10B981"
-                      }
-                    />
-                    <Text className="text-xs text-textGray ml-1">
-                      {!available
-                        ? "Hết hàng"
-                        : lens.isPreorder
-                          ? `Đặt trước (${lens.leadTimeDays || 7} ngày)`
-                          : "Sẵn hàng"}
-                    </Text>
-                  </View>
-                  {lens.description ? (
-                    <Text
-                      className="text-xs text-textGray mt-2"
-                      numberOfLines={2}
-                    >
-                      {lens.description}
-                    </Text>
-                  ) : null}
-                </View>
-                <View
-                  className={`w-6 h-6 rounded-full border-2 items-center justify-center mt-1 shrink-0 ${
-                    isSelected ? "border-primary bg-primary" : "border-border"
-                  }`}
-                >
-                  {isSelected && (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                  )}
                 </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
+            </TouchableOpacity>
+          );
+        })}
 
       {/* ── GỌNG KÍNH ── */}
       <TouchableOpacity
@@ -433,7 +434,8 @@ export default function LensOrderScreen({ navigation, route }) {
               Chọn gọng kính
             </Text>
             <Text className="text-xs text-accent mt-0.5">
-              {frameProducts.filter(f => isProductAvailable(f)).length} sản phẩm
+              {frameProducts.filter((f) => isProductAvailable(f)).length} sản
+              phẩm
             </Text>
           </View>
         </View>
@@ -459,76 +461,77 @@ export default function LensOrderScreen({ navigation, route }) {
         </View>
       )}
 
-      {frameDropdownOpen && frameProducts.map((frame) => {
-        const imageUrl =
-          frame.images?.[0]?.imageUrl ||
-          "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=300&h=200&fit=crop";
-        const available = isProductAvailable(frame);
-        const isSelected = selectedFrameId === frame.id;
+      {frameDropdownOpen &&
+        frameProducts.map((frame) => {
+          const imageUrl =
+            frame.images?.[0]?.imageUrl ||
+            "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=300&h=200&fit=crop";
+          const available = isProductAvailable(frame);
+          const isSelected = selectedFrameId === frame.id;
 
-        return (
-          <TouchableOpacity
-            key={frame.id}
-            className={`bg-white rounded-2xl mb-3 overflow-hidden border-2 ${
-              isSelected ? "border-accent" : "border-gray-100"
-            } ${!available ? "opacity-50" : ""}`}
-            onPress={() => available && setSelectedFrameId(frame.id)}
-            disabled={!available}
-          >
-            <Image
-              source={{ uri: imageUrl }}
-              className="w-full h-36"
-              resizeMode="cover"
-            />
-            {isSelected && (
-              <View className="absolute top-2 right-2 bg-accent rounded-full px-2 py-1 flex-row items-center">
-                <Ionicons name="checkmark" size={12} color="#fff" />
-                <Text className="text-white text-xs font-bold ml-1">
-                  Đã chọn
-                </Text>
-              </View>
-            )}
-            <View className="p-4 flex-row items-start justify-between">
-              <View className="flex-1 mr-3">
-                <View className="flex-row items-center flex-wrap mb-1">
-                  <Text className="text-base font-bold text-text mr-2">
-                    {frame.name}
+          return (
+            <TouchableOpacity
+              key={frame.id}
+              className={`bg-white rounded-2xl mb-3 overflow-hidden border-2 ${
+                isSelected ? "border-accent" : "border-gray-100"
+              } ${!available ? "opacity-50" : ""}`}
+              onPress={() => available && setSelectedFrameId(frame.id)}
+              disabled={!available}
+            >
+              <Image
+                source={{ uri: imageUrl }}
+                className="w-full h-36"
+                resizeMode="cover"
+              />
+              {isSelected && (
+                <View className="absolute top-2 right-2 bg-accent rounded-full px-2 py-1 flex-row items-center">
+                  <Ionicons name="checkmark" size={12} color="#fff" />
+                  <Text className="text-white text-xs font-bold ml-1">
+                    Đã chọn
                   </Text>
-                  {frame.brand && (
-                    <View className="bg-accent px-2 py-0.5 rounded-full">
-                      <Text className="text-xs text-white font-semibold">
-                        {frame.brand}
-                      </Text>
-                    </View>
+                </View>
+              )}
+              <View className="p-4 flex-row items-start justify-between">
+                <View className="flex-1 mr-3">
+                  <View className="flex-row items-center flex-wrap mb-1">
+                    <Text className="text-base font-bold text-text mr-2">
+                      {frame.name}
+                    </Text>
+                    {frame.brand && (
+                      <View className="bg-accent px-2 py-0.5 rounded-full">
+                        <Text className="text-xs text-white font-semibold">
+                          {frame.brand}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-lg font-bold text-primary">
+                    {`${formatPrice(frame.price).toLocaleString("vi-VN")}đ`}
+                  </Text>
+                  <View className="flex-row items-center mt-1">
+                    <View
+                      className={`w-2 h-2 rounded-full mr-1.5 ${available ? "bg-green-500" : "bg-red-500"}`}
+                    />
+                    <Text
+                      className={`text-xs ${available ? "text-green-600" : "text-red-600"}`}
+                    >
+                      {available ? "Còn hàng" : "Hết hàng"}
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  className={`w-6 h-6 rounded-full border-2 items-center justify-center mt-1 shrink-0 ${
+                    isSelected ? "border-accent bg-accent" : "border-border"
+                  }`}
+                >
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                   )}
                 </View>
-                <Text className="text-lg font-bold text-primary">
-                  {`${formatPrice(frame.price).toLocaleString("vi-VN")}đ`}
-                </Text>
-                <View className="flex-row items-center mt-1">
-                  <View
-                    className={`w-2 h-2 rounded-full mr-1.5 ${available ? "bg-green-500" : "bg-red-500"}`}
-                  />
-                  <Text
-                    className={`text-xs ${available ? "text-green-600" : "text-red-600"}`}
-                  >
-                    {available ? "Còn hàng" : "Hết hàng"}
-                  </Text>
-                </View>
               </View>
-              <View
-                className={`w-6 h-6 rounded-full border-2 items-center justify-center mt-1 shrink-0 ${
-                  isSelected ? "border-accent bg-accent" : "border-border"
-                }`}
-              >
-                {isSelected && (
-                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                )}
-              </View>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
+            </TouchableOpacity>
+          );
+        })}
     </View>
   );
 

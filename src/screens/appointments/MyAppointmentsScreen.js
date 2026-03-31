@@ -16,7 +16,7 @@ import { getMyOrders, formatPrice } from "../../services/orderService";
 import { getProductImages } from "../../services/productService";
 
 const STATUS_LABELS = {
-  NEW: { label: "Mới tạo", color: "#6B7280" },
+  NEW: { label: "Chờ thanh toán", color: "#6B7280" },
   CONFIRMED: { label: "Đã xác nhận", color: "#7C3AED" },
   PROCESSING: { label: "Đang xử lý", color: "#2563EB" },
   READY: { label: "Sẵn sàng nhận", color: "#10B981" },

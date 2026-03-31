@@ -22,6 +22,7 @@ import ReviewsScreen from "../screens/reviews/ReviewsScreen";
 import MyReviewsScreen from "../screens/reviews/MyReviewsScreen";
 import WriteReviewScreen from "../screens/reviews/WriteReviewScreen";
 import CheckoutScreen from "../screens/checkout/CheckoutScreen";
+import AddressPickerScreen from "../screens/checkout/AddressPickerScreen";
 import OrderDetailScreen from "../screens/orders/OrderDetailScreen";
 import OrderSuccessScreen from "../screens/orders/OrderSuccessScreen";
 import VNPayPaymentScreen from "../screens/checkout/VNPayPaymentScreen";
@@ -56,6 +57,7 @@ function HomeStack() {
       <Stack.Screen name="VirtualTryOn" component={VirtualTryOnScreen} />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="AddressPicker" component={AddressPickerScreen} />
       <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
       <Stack.Screen
@@ -87,6 +89,7 @@ function CategoriesStack() {
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="VirtualTryOn" component={VirtualTryOnScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="AddressPicker" component={AddressPickerScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
       <Stack.Screen name="VNPayPayment" component={VNPayPaymentScreen} />
       <Stack.Screen
@@ -120,6 +123,7 @@ function OrdersStack() {
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="AddressPicker" component={AddressPickerScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
       <Stack.Screen
         name="Appointments"

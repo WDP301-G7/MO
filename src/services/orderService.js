@@ -91,6 +91,18 @@ export const createOrder = async (orderData) => {
       message: response.data.message || "Đặt hàng thành công",
     };
   } catch (error) {
+    // Log full error for debugging
+    if (__DEV__) {
+      console.error(
+        "[createOrder] error:",
+        JSON.stringify(error.response?.data ?? error.message, null, 2),
+      );
+      console.error(
+        "[createOrder] payload sent:",
+        JSON.stringify(orderData, null, 2),
+      );
+    }
+
     // Handle specific error cases
     if (error.response?.status === 400) {
       // Get validation error details
@@ -106,6 +118,18 @@ export const createOrder = async (orderData) => {
       return {
         success: false,
         message: errorMessage,
+      };
+    }
+
+    if (error.response?.status === 500) {
+      // Surface BE error message if available, otherwise generic
+      const beMessage =
+        error.response?.data?.message || error.response?.data?.error?.message;
+      return {
+        success: false,
+        message: beMessage
+          ? `Lỗi máy chủ: ${beMessage}`
+          : "Máy chủ gặp lỗi. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.",
       };
     }
 
@@ -170,12 +194,12 @@ export const cancelOrder = async (orderId, reason) => {
  */
 export const formatOrderStatus = (status) => {
   const statusMap = {
-    NEW: "Mới tạo",
+    NEW: "Chờ thanh toán",
     CONFIRMED: "Đã xác nhận",
     WAITING_CUSTOMER: "Chờ khách",
     WAITING_PRODUCT: "Chờ hàng",
     PROCESSING: "Đang xử lý",
-    READY: "Sẵn sàng",
+    READY: "Sẵn sàng giao / nhận",
     COMPLETED: "Hoàn thành",
     CANCELLED: "Đã hủy",
   };
@@ -189,7 +213,7 @@ export const formatOrderStatus = (status) => {
  */
 export const getOrderStatusColor = (status) => {
   const colorMap = {
-    NEW: "#3B82F6", // blue - Mới tạo
+    NEW: "#3B82F6", // blue - Chờ thanh toán
     CONFIRMED: "#8B5CF6", // purple - Đã xác nhận
     WAITING_CUSTOMER: "#EC4899", // pink - Chờ khách
     WAITING_PRODUCT: "#F59E0B", // amber - Chờ hàng

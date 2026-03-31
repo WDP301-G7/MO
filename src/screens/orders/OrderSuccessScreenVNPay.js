@@ -14,17 +14,18 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { CommonActions } from "@react-navigation/native";
 import { getPaymentByOrderId } from "../../services/paymentService";
 
 export default function OrderSuccessScreenVNPay({ navigation, route }) {
   // Params từ deeplink từ VNPay return
   const {
-    orderId = "ORD001",
+    orderId,
     transactionId = null,
     amount = null,
     paymentMethod = "vnpay",
-    totalAmount = 1820000,
-    paidAmount = 1820000,
+    totalAmount = null,
+    paidAmount = null,
   } = route.params || {};
 
   // State
@@ -181,7 +182,7 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
           <View className="flex-row items-center justify-between">
             <Text className="text-sm text-textGray">Tổng tiền:</Text>
             <Text className="text-xl font-bold text-primary">
-              {`${(amount || paidAmount || totalAmount).toLocaleString()}đ`}
+              {`${Number(amount || paidAmount || totalAmount || 0).toLocaleString()}đ`}
             </Text>
           </View>
 
@@ -201,7 +202,7 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
           <TouchableOpacity
             className="w-full bg-primary py-4 rounded-xl items-center"
             onPress={() =>
-              navigation.navigate("OrdersTab", {
+              (navigation.getParent() || navigation).navigate("OrdersTab", {
                 screen: "OrderDetail",
                 params: { orderId: orderId },
               })
@@ -213,10 +214,27 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
           <TouchableOpacity
             className="w-full bg-background border-2 border-primary py-4 rounded-xl items-center"
             onPress={() => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "MainApp", params: { screen: "HomeTab" } }],
-              });
+              // Reset HomeStack to just Home (removes VNPay screens from stack)
+              // then switch to HomeTab via the Tab navigator
+              const tabNav = navigation.getParent();
+              if (tabNav) {
+                tabNav.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [
+                      {
+                        name: "HomeTab",
+                        state: {
+                          routes: [{ name: "Home" }],
+                          index: 0,
+                        },
+                      },
+                    ],
+                  }),
+                );
+              } else {
+                navigation.navigate("Home");
+              }
             }}
           >
             <Text className="text-primary font-bold text-base">
