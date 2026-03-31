@@ -105,16 +105,8 @@ function stripGlbTextures(buffer) {
     outU8.set(newJsonBytes, 20);
     for (let i = 0; i < pad; i++) outU8[20 + newJsonBytes.length + i] = 0x20;
     outU8.set(binTail, 20 + newJsonPadded);
-    console.log(
-      "[VTO] Textures stripped:",
-      buffer.byteLength,
-      "→",
-      newTotal,
-      "bytes",
-    );
     return out;
   } catch (e) {
-    console.warn("[VTO] stripGlbTextures failed, using original:", e?.message);
     return buffer;
   }
 }
@@ -902,21 +894,6 @@ export default function VirtualTryOnScreen({ navigation, route }) {
     };
   }, []);
 
-  // ── Diagnostic log on mount ───────────────────────────────────────────────
-  useEffect(() => {
-    console.log(
-      "[VTO] model3dUrl:",
-      model3dUrl ? model3dUrl.slice(0, 100) : "NULL/UNDEFINED",
-    );
-    console.log(
-      "[VTO] glassesOn:",
-      glassesOn,
-      "→ WebView branch:",
-      !!(glassesOn && model3dUrl),
-    );
-    console.log("[VTO] arHtml length:", arHtml.length);
-  }, []);
-
   // ── WebView message handler (capture / share from MediaPipe AR view) ──────
   const handleWebViewMessage = useCallback(
     async (event) => {
@@ -924,7 +901,6 @@ export default function VirtualTryOnScreen({ navigation, route }) {
         const msg = JSON.parse(event.nativeEvent.data);
         // Debug messages from inside the WebView
         if (msg.type === "debug") {
-          console.log("[VTO WebView]", msg.message);
           return;
         }
         if (msg.type === "capture" || msg.type === "share") {
@@ -964,148 +940,145 @@ export default function VirtualTryOnScreen({ navigation, route }) {
           }
         }
       } catch (e) {
-        console.warn("[VTO WebView]", e?.message);
+        // ignore
       }
     },
     [mediaPermission, requestMediaPermission],
   );
 
   // Native OpenGL renderer — called once when GLView is ready
-const onGLContextCreate = useCallback(
-  async (gl) => {
-    console.log("[VTO] onGLContextCreate START");
+  const onGLContextCreate = useCallback(
+    async (gl) => {
+      const { drawingBufferWidth: w, drawingBufferHeight: h } = gl;
 
-    const { drawingBufferWidth: w, drawingBufferHeight: h } = gl;
+      const renderer = new Renderer({ gl, alpha: true, antialias: true });
+      renderer.setSize(w, h);
+      renderer.setClearColor(0x000000, 0);
 
-    const renderer = new Renderer({ gl, alpha: true, antialias: true });
-    renderer.setSize(w, h);
-    renderer.setClearColor(0x000000, 0);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(30, w / h, 0.001, 100);
+      camera.position.set(0, 0.08, 3.2); // đẩy camera xa hơn
+      glCameraRef.current = camera;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(30, w / h, 0.001, 100);
-    camera.position.set(0, 0.08, 3.2); // đẩy camera xa hơn
-    glCameraRef.current = camera;
+      // LIGHTING RẤT MẠNH ĐẶC BIỆT CHO MODEL TỐI MÀU
+      scene.add(new THREE.AmbientLight(0xffffff, 3.2)); // tăng mạnh
+      const hemi = new THREE.HemisphereLight(0xffffff, 0xdddddd, 2.0);
+      scene.add(hemi);
 
-    // LIGHTING RẤT MẠNH ĐẶC BIỆT CHO MODEL TỐI MÀU
-    scene.add(new THREE.AmbientLight(0xffffff, 3.2)); // tăng mạnh
-    const hemi = new THREE.HemisphereLight(0xffffff, 0xdddddd, 2.0);
-    scene.add(hemi);
+      const key = new THREE.DirectionalLight(0xffffff, 4.5);
+      key.position.set(4, 5, 6);
+      scene.add(key);
 
-    const key = new THREE.DirectionalLight(0xffffff, 4.5);
-    key.position.set(4, 5, 6);
-    scene.add(key);
+      const fill = new THREE.DirectionalLight(0xffffff, 2.8);
+      fill.position.set(-4, -2, 3);
+      scene.add(fill);
 
-    const fill = new THREE.DirectionalLight(0xffffff, 2.8);
-    fill.position.set(-4, -2, 3);
-    scene.add(fill);
-
-    // Environment map
-    try {
-      const pmremGen = new THREE.PMREMGenerator(renderer);
-      scene.environment = pmremGen.fromScene(
-        new RoomEnvironment(),
-        0.08,
-      ).texture;
-      pmremGen.dispose();
-    } catch (e) {
-      console.warn("IBL failed");
-    }
-
-    // Occluder
-    const occluder = new THREE.Mesh(
-      new THREE.SphereGeometry(0.7, 32, 24),
-      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
-    );
-    occluder.renderOrder = 0;
-    scene.add(occluder);
-
-    // Load model
-    const loader = new GLTFLoader();
-    fetch(model3dUrl)
-      .then((res) => res.arrayBuffer())
-      .then((buffer) => {
-        const data = stripGlbTextures(buffer);
-        loader.parse(data, "", (gltf) => {
-          const obj = gltf.scene;
-          const box = new THREE.Box3().setFromObject(obj);
-          const size = box.getSize(new THREE.Vector3());
-          const center = box.getCenter(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-
-          // Scale lớn hơn cho model Gucci
-          obj.scale.setScalar(1.35 / maxDim);
-          obj.position.sub(center);
-
-          obj.rotation.x = -0.06;
-
-          obj.traverse((child) => {
-            if (!child.isMesh) return;
-            child.renderOrder = 1;
-
-            const mat = child.material;
-            if (!mat) return;
-
-            const name = (child.name || "").toLowerCase();
-
-            if (
-              name.includes("lens") ||
-              name.includes("glass") ||
-              mat.transparent
-            ) {
-              // Lens trong cho Gucci
-              child.material = new THREE.MeshPhysicalMaterial({
-                color: 0x222222,
-                metalness: 0.2,
-                roughness: 0.05,
-                transmission: 0.95, // tăng độ trong
-                thickness: 0.8,
-                envMapIntensity: 2.5,
-                clearcoat: 1.0,
-                transparent: true,
-                depthWrite: false,
-                side: THREE.DoubleSide,
-              });
-            } else {
-              // Frame tối → tăng độ sáng và reflection
-              if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
-                mat.metalness = 0.9;
-                mat.roughness = 0.18;
-                mat.envMapIntensity = 3.0; // tăng mạnh reflection
-                mat.needsUpdate = true;
-              }
-            }
-          });
-
-          scene.add(obj);
-          glModelRef.current = obj;
-          console.log("[VTO] Gucci model loaded");
-        });
-      })
-      .catch((err) => console.error(err));
-
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-
-      const face = faceRef.current;
-      const L = 0.9;
-
-      if (glModelRef.current) {
-        // Đẩy kính xuống thấp hơn một chút
-        glModelRef.current.position.x +=
-          (face.ndcX * 1.08 - glModelRef.current.position.x) * L;
-        glModelRef.current.position.y +=
-          (face.ndcY * 1.18 - 0.04 - glModelRef.current.position.y) * L; // -0.04 để hạ xuống
+      // Environment map
+      try {
+        const pmremGen = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmremGen.fromScene(
+          new RoomEnvironment(),
+          0.08,
+        ).texture;
+        pmremGen.dispose();
+      } catch (e) {
+        // IBL not available
       }
 
-      renderer.render(scene, camera);
-      gl.endFrameEXP();
-    };
+      // Occluder
+      const occluder = new THREE.Mesh(
+        new THREE.SphereGeometry(0.7, 32, 24),
+        new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
+      );
+      occluder.renderOrder = 0;
+      scene.add(occluder);
 
-    animate();
-  },
-  [model3dUrl],
-);
+      // Load model
+      const loader = new GLTFLoader();
+      fetch(model3dUrl)
+        .then((res) => res.arrayBuffer())
+        .then((buffer) => {
+          const data = stripGlbTextures(buffer);
+          loader.parse(data, "", (gltf) => {
+            const obj = gltf.scene;
+            const box = new THREE.Box3().setFromObject(obj);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            // Scale lớn hơn cho model Gucci
+            obj.scale.setScalar(1.35 / maxDim);
+            obj.position.sub(center);
+
+            obj.rotation.x = -0.06;
+
+            obj.traverse((child) => {
+              if (!child.isMesh) return;
+              child.renderOrder = 1;
+
+              const mat = child.material;
+              if (!mat) return;
+
+              const name = (child.name || "").toLowerCase();
+
+              if (
+                name.includes("lens") ||
+                name.includes("glass") ||
+                mat.transparent
+              ) {
+                // Lens trong cho Gucci
+                child.material = new THREE.MeshPhysicalMaterial({
+                  color: 0x222222,
+                  metalness: 0.2,
+                  roughness: 0.05,
+                  transmission: 0.95, // tăng độ trong
+                  thickness: 0.8,
+                  envMapIntensity: 2.5,
+                  clearcoat: 1.0,
+                  transparent: true,
+                  depthWrite: false,
+                  side: THREE.DoubleSide,
+                });
+              } else {
+                // Frame tối → tăng độ sáng và reflection
+                if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
+                  mat.metalness = 0.9;
+                  mat.roughness = 0.18;
+                  mat.envMapIntensity = 3.0; // tăng mạnh reflection
+                  mat.needsUpdate = true;
+                }
+              }
+            });
+
+            scene.add(obj);
+            glModelRef.current = obj;
+          });
+        })
+        .catch(() => {});
+
+      // Animation loop
+      const animate = () => {
+        requestAnimationFrame(animate);
+
+        const face = faceRef.current;
+        const L = 0.9;
+
+        if (glModelRef.current) {
+          // Đẩy kính xuống thấp hơn một chút
+          glModelRef.current.position.x +=
+            (face.ndcX * 1.08 - glModelRef.current.position.x) * L;
+          glModelRef.current.position.y +=
+            (face.ndcY * 1.18 - 0.04 - glModelRef.current.position.y) * L; // -0.04 để hạ xuống
+        }
+
+        renderer.render(scene, camera);
+        gl.endFrameEXP();
+      };
+
+      animate();
+    },
+    [model3dUrl],
+  );
 
   const handleTakePicture = async () => {
     if (glassesOn && model3dUrl && webViewRef.current) {
@@ -1213,14 +1186,6 @@ const onGLContextCreate = useCallback(
           mediaCapturePermissionGrantType="grant"
           allowsAirPlayForMediaPlayback={false}
           onMessage={handleWebViewMessage}
-          onLoadStart={() => console.log("[VTO] WebView: onLoadStart")}
-          onLoadEnd={(e) =>
-            console.log("[VTO] WebView: onLoadEnd title=", e.nativeEvent.title)
-          }
-          onHttpError={(e) =>
-            console.warn("[VTO] WebView HTTP error:", e.nativeEvent)
-          }
-          onError={(e) => console.warn("[VTO] WebView error:", e.nativeEvent)}
         />
       ) : (
         <>
