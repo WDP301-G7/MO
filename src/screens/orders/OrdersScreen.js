@@ -141,7 +141,7 @@ export default function OrdersScreen({ navigation, route }) {
     { id: 0, label: "Tất cả", icon: "list-outline", statuses: null },
     {
       id: 1,
-      label: "Mới tạo",
+      label: "Chờ thanh toán",
       icon: "document-text-outline",
       statuses: ["NEW"],
     },

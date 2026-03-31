@@ -73,4 +73,9 @@ export const API_ENDPOINTS = {
     MY_STATUS: "/membership/me",
     MY_HISTORY: "/membership/me/history",
   },
+  LOGISTICS: {
+    PROVINCES: "/logistics/provinces",
+    DISTRICTS: "/logistics/districts",
+    WARDS: "/logistics/wards",
+  },
 };

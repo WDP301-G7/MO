@@ -5,18 +5,15 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function OrderSuccessScreen({ navigation, route }) {
   const {
-    orderId = "ORD001",
-    totalAmount = 1820000,
-    orderType = "normal",
+    orderId,
+    totalAmount,
+    deliveryMethod,
     appointmentDate,
     appointmentTime,
     store,
   } = route.params || {};
 
-  const isPickupOrder =
-    orderType === "prescription" ||
-    orderType === "lens_with_frame" ||
-    orderType === "lens_only";
+  const isPickupOrder = deliveryMethod === "PICKUP_AT_STORE";
 
   return (
     <View className="flex-1 bg-background">
@@ -42,12 +39,14 @@ export default function OrderSuccessScreen({ navigation, route }) {
         <View className="bg-white rounded-2xl p-6 w-full mb-6 shadow-sm">
           <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-border">
             <Text className="text-sm text-textGray">Mã đơn hàng:</Text>
-            <Text className="text-base font-bold text-text">{orderId}</Text>
+            <Text className="text-base font-bold text-text">
+              {orderId || "—"}
+            </Text>
           </View>
           <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-border">
             <Text className="text-sm text-textGray">Tổng tiền:</Text>
             <Text className="text-xl font-bold text-primary">
-              {`${totalAmount.toLocaleString()}đ`}
+              {totalAmount ? `${Number(totalAmount).toLocaleString()}đ` : "—"}
             </Text>
           </View>
           {isPickupOrder && appointmentDate ? (
@@ -68,10 +67,10 @@ export default function OrderSuccessScreen({ navigation, route }) {
           ) : (
             <View className="flex-row items-center justify-between">
               <Text className="text-sm text-textGray">
-                Thời gian giao hàng:
+                Phương thức giao hàng:
               </Text>
               <Text className="text-base font-semibold text-text">
-                2-3 ngày
+                Giao hàng tận nhà (GHN)
               </Text>
             </View>
           )}
