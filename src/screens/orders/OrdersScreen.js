@@ -21,6 +21,7 @@ import {
 } from "../../services/orderService";
 import { getProductImages } from "../../services/productService";
 import { OrdersContext } from "../../contexts/OrdersContext";
+import NotificationBell from "../../components/notifications/NotificationBell";
 
 export default function OrdersScreen({ navigation, route }) {
   const context = useContext(OrdersContext);
@@ -684,19 +685,36 @@ export default function OrdersScreen({ navigation, route }) {
               Đơn hàng của tôi
             </Text>
           </View>
-          <TouchableOpacity
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: "rgba(255,255,255,0.2)",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onPress={() => navigation.navigate("Support")}
-          >
-            <Ionicons name="help-circle" size={22} color="#fff" />
-          </TouchableOpacity>
+          
+          {/* Right icons: Notification + Support */}
+          <View className="flex-row items-center gap-2">
+            <NotificationBell
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "rgba(255,255,255,0.2)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onPress={() => navigation.navigate("NotificationList")}
+              color="#fff"
+              size={22}
+            />
+            <TouchableOpacity
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "rgba(255,255,255,0.2)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onPress={() => navigation.navigate("Support")}
+            >
+              <Ionicons name="help-circle" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Status Tabs */}

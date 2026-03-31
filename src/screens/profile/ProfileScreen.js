@@ -22,6 +22,7 @@ import {
   getTierColor,
   getTierIcon,
 } from "../../services/membershipService";
+import NotificationBell from "../../components/notifications/NotificationBell";
 
 export default function ProfileScreen({ navigation }) {
   const { ordersCount } = useContext(OrdersContext);
@@ -404,41 +405,50 @@ export default function ProfileScreen({ navigation }) {
                 Tài khoản
               </Text>
             </View>
-            {membership?.tier && (
-              <TouchableOpacity
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: "rgba(255,255,255,0.2)",
-                  borderRadius: 20,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                }}
-                onPress={() => navigation.navigate("Membership")}
-              >
-                <Ionicons
-                  name={getTierIcon(membership.tier)}
-                  size={14}
-                  color="#fff"
-                />
-                <Text
+            
+            {/* Right icons: Notification + Membership badge */}
+            <View className="flex-row items-center gap-2">
+              <NotificationBell
+                onPress={() => navigation.navigate("NotificationList")}
+                color="#fff"
+                size={22}
+              />
+              {membership?.tier && (
+                <TouchableOpacity
                   style={{
-                    color: "#fff",
-                    fontSize: 12,
-                    fontWeight: "700",
-                    marginLeft: 5,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    borderRadius: 20,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
                   }}
+                  onPress={() => navigation.navigate("Membership")}
                 >
-                  {membership.tier.toUpperCase()}
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={12}
-                  color="rgba(255,255,255,0.8)"
-                  style={{ marginLeft: 2 }}
-                />
-              </TouchableOpacity>
-            )}
+                  <Ionicons
+                    name={getTierIcon(membership.tier)}
+                    size={14}
+                    color="#fff"
+                  />
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: "700",
+                      marginLeft: 5,
+                    }}
+                  >
+                    {membership.tier.toUpperCase()}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={12}
+                    color="rgba(255,255,255,0.8)"
+                    style={{ marginLeft: 2 }}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* User Info Card */}

@@ -21,6 +21,7 @@ import {
 import { getCategories } from "../../services/categoryService";
 import { getProfile } from "../../services/authService";
 import { getProductReviews } from "../../services/reviewService";
+import NotificationBell from "../../components/notifications/NotificationBell";
 
 const { width } = Dimensions.get("window");
 
@@ -230,12 +231,21 @@ export default function HomeScreen({ navigation }) {
               {user?.fullName || "Khách hàng"}
             </Text>
           </View>
-          <TouchableOpacity
-            className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center"
-            onPress={() => navigation.navigate("MyAppointments")}
-          >
-            <Ionicons name="calendar-outline" size={22} color="#2E86AB" />
-          </TouchableOpacity>
+          
+          {/* Right icons: Notification + Calendar */}
+          <View className="flex-row items-center gap-2">
+            <NotificationBell
+              onPress={() => navigation.navigate("NotificationList")}
+              color="#1F2937"
+              size={22}
+            />
+            <TouchableOpacity
+              className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center"
+              onPress={() => navigation.navigate("MyAppointments")}
+            >
+              <Ionicons name="calendar-outline" size={22} color="#2E86AB" />
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
 
         {/* Search bar */}

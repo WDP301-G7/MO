@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { getCategories } from "../../services/categoryService";
 import { getProducts } from "../../services/productService";
+import NotificationBell from "../../components/notifications/NotificationBell";
 
 const ALLOWED_CATEGORY_IDS = [
   "00000000-0000-0000-0000-000000000001",
@@ -117,13 +118,22 @@ export default function CategoriesScreen({ navigation }) {
             <Text className="text-white text-xs opacity-80 mb-0.5">Khám phá</Text>
             <Text className="text-white text-2xl font-extrabold">Danh mục</Text>
           </View>
-          <TouchableOpacity
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
-            onPress={() => navigation.navigate("Search")}
-          >
-            <Ionicons name="search" size={20} color="#fff" />
-          </TouchableOpacity>
+          
+          {/* Right icons: Notification + Search */}
+          <View className="flex-row items-center gap-2">
+            <NotificationBell
+              onPress={() => navigation.navigate("NotificationList")}
+              color="#fff"
+              size={22}
+            />
+            <TouchableOpacity
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+              onPress={() => navigation.navigate("Search")}
+            >
+              <Ionicons name="search" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
         {/* Subtitle pill */}
         <View
