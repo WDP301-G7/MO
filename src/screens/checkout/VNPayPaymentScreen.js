@@ -14,6 +14,7 @@ import {
 import { WebView } from "react-native-webview";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { CommonActions } from "@react-navigation/native";
 import {
   createVNPayPayment,
   handleVNPayReturn,
@@ -123,6 +124,61 @@ export default function VNPayPaymentScreen({ navigation, route }) {
     }
   };
 
+  // Helper function to navigate to OrderDetail and reset HomeTab
+  const navigateToOrderDetail = (orderIdToNav) => {
+    if (!orderIdToNav) {
+      // No orderId, just navigate to Orders list
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 1,
+          routes: [
+            {
+              name: "HomeTab",
+              state: {
+                routes: [{ name: "Home" }],
+                index: 0,
+              },
+            },
+            {
+              name: "OrdersTab",
+              state: {
+                routes: [{ name: "Orders" }],
+                index: 0,
+              },
+            },
+          ],
+        })
+      );
+      return;
+    }
+
+    // Reset navigation: HomeTab về Home, OrdersTab hiển thị OrderDetail
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 1,
+        routes: [
+          {
+            name: "HomeTab",
+            state: {
+              routes: [{ name: "Home" }],
+              index: 0,
+            },
+          },
+          {
+            name: "OrdersTab",
+            state: {
+              routes: [
+                { name: "Orders" },
+                { name: "OrderDetail", params: { orderId: orderIdToNav } },
+              ],
+              index: 1,
+            },
+          },
+        ],
+      })
+    );
+  };
+
   const handleWebViewNavigation = async (navState) => {
     const url = navState.url;
 
@@ -140,7 +196,47 @@ export default function VNPayPaymentScreen({ navigation, route }) {
           params[key] = value;
         });
 
-        // Call backend to verify payment
+        // Check VNPay response code BEFORE calling backend
+        // vnp_ResponseCode: "00" = Success, "24" = User cancelled, other = Failed
+        const vnpResponseCode = params.vnp_ResponseCode;
+        
+        // User cancelled payment
+        if (vnpResponseCode === "24") {
+          Alert.alert(
+            "Đã hủy thanh toán",
+            "Bạn đã hủy thanh toán. Đơn hàng vẫn được lưu và bạn có thể thanh toán sau.",
+            [
+              {
+                text: "Xem đơn hàng",
+                onPress: () => {
+                  const currentOrderId = createdOrderId || orderId;
+                  navigateToOrderDetail(currentOrderId);
+                },
+              },
+            ],
+          );
+          return;
+        }
+
+        // Other error codes (not success)
+        if (vnpResponseCode && vnpResponseCode !== "00") {
+          Alert.alert(
+            "Thanh toán thất bại",
+            "Giao dịch không thành công. Vui lòng thử lại hoặc chọn phương thức khác.",
+            [
+              {
+                text: "Xem đơn hàng",
+                onPress: () => {
+                  const currentOrderId = createdOrderId || orderId;
+                  navigateToOrderDetail(currentOrderId);
+                },
+              },
+            ],
+          );
+          return;
+        }
+
+        // Success case - Call backend to verify payment
         const result = await handleVNPayReturn(params);
 
         if (result.success) {
@@ -157,14 +253,17 @@ export default function VNPayPaymentScreen({ navigation, route }) {
             orderType: orderType,
           });
         } else {
-          // Payment failed
+          // Payment verification failed
           Alert.alert(
             "Thanh toán thất bại",
             result.message || "Vui lòng thử lại hoặc chọn phương thức khác",
             [
               {
-                text: "Quay lại",
-                onPress: () => navigation.goBack(),
+                text: "Xem đơn hàng",
+                onPress: () => {
+                  const currentOrderId = createdOrderId || orderId;
+                  navigateToOrderDetail(currentOrderId);
+                },
               },
             ],
           );
@@ -175,8 +274,11 @@ export default function VNPayPaymentScreen({ navigation, route }) {
           "Không thể xác thực thanh toán. Vui lòng kiểm tra lại đơn hàng.",
           [
             {
-              text: "Quay lại đơn hàng",
-              onPress: () => navigation.navigate("Orders"),
+              text: "Xem đơn hàng",
+              onPress: () => {
+                const currentOrderId = createdOrderId || orderId;
+                navigateToOrderDetail(currentOrderId);
+              },
             },
           ],
         );
@@ -236,14 +338,7 @@ export default function VNPayPaymentScreen({ navigation, route }) {
                   text: "Có",
                   onPress: () => {
                     const currentOrderId = createdOrderId || orderId;
-                    if (currentOrderId) {
-                      navigation.navigate("OrdersTab", {
-                        screen: "OrderDetail",
-                        params: { orderId: currentOrderId },
-                      });
-                    } else {
-                      navigation.goBack();
-                    }
+                    navigateToOrderDetail(currentOrderId);
                   },
                   style: "destructive",
                 },
