@@ -37,6 +37,7 @@ import PrescriptionRequestsScreen from "../screens/prescription/PrescriptionRequ
 import MembershipScreen from "../screens/membership/MembershipScreen";
 import MembershipHistoryScreen from "../screens/membership/MembershipHistoryScreen";
 import MyAppointmentsScreen from "../screens/appointments/MyAppointmentsScreen";
+import NotificationListScreen from "../screens/notifications/NotificationListScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -69,6 +70,10 @@ function HomeStack() {
         component={PrescriptionRequestsScreen}
       />
       <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />
+      <Stack.Screen
+        name="NotificationList"
+        component={NotificationListScreen}
+      />
     </Stack.Navigator>
   );
 }
@@ -101,6 +106,10 @@ function CategoriesStack() {
         component={PrescriptionRequestsScreen}
       />
       <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />
+      <Stack.Screen
+        name="NotificationList"
+        component={NotificationListScreen}
+      />
     </Stack.Navigator>
   );
 }
@@ -134,6 +143,10 @@ function OrdersStack() {
       <Stack.Screen
         name="MembershipHistory"
         component={MembershipHistoryScreen}
+      />
+      <Stack.Screen
+        name="NotificationList"
+        component={NotificationListScreen}
       />
     </Stack.Navigator>
   );
@@ -179,6 +192,10 @@ function ProfileStack() {
         component={MembershipHistoryScreen}
       />
       <Stack.Screen name="ReturnRequest" component={ReturnRequestScreen} />
+      <Stack.Screen
+        name="NotificationList"
+        component={NotificationListScreen}
+      />
     </Stack.Navigator>
   );
 }
