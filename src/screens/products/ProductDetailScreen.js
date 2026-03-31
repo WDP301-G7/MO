@@ -131,8 +131,8 @@ export default function ProductDetailScreen({ navigation, route }) {
       }
 
       setAvailableQuantity(
-        quantityResult.success && quantityResult.data?.totalAvailable
-          ? quantityResult.data.totalAvailable
+        quantityResult.success && quantityResult.data?.availableQuantity
+          ? quantityResult.data.availableQuantity
           : 0,
       );
     } catch (error) {
@@ -436,19 +436,33 @@ export default function ProductDetailScreen({ navigation, route }) {
             <Text className="text-base font-bold text-text mb-3">Số lượng</Text>
             <View className="flex-row items-center gap-4">
               <TouchableOpacity
-                className="w-10 h-10 rounded-full border-2 border-border items-center justify-center"
+                className={`w-10 h-10 rounded-full border-2 items-center justify-center ${
+                  quantity <= 1 ? "border-gray-300 opacity-40" : "border-border"
+                }`}
                 onPress={() => quantity > 1 && setQuantity(quantity - 1)}
+                disabled={quantity <= 1}
               >
-                <Ionicons name="remove" size={20} color="#333333" />
+                <Ionicons 
+                  name="remove" 
+                  size={20} 
+                  color={quantity <= 1 ? "#CCCCCC" : "#333333"} 
+                />
               </TouchableOpacity>
               <Text className="text-lg font-bold text-text min-w-[40px] text-center">
                 {quantity}
               </Text>
               <TouchableOpacity
-                className="w-10 h-10 rounded-full border-2 border-border items-center justify-center"
-                onPress={() => setQuantity(quantity + 1)}
+                className={`w-10 h-10 rounded-full border-2 items-center justify-center ${
+                  quantity >= availableQuantity ? "border-gray-300 opacity-40" : "border-border"
+                }`}
+                onPress={() => quantity < availableQuantity && setQuantity(quantity + 1)}
+                disabled={quantity >= availableQuantity}
               >
-                <Ionicons name="add" size={20} color="#333333" />
+                <Ionicons 
+                  name="add" 
+                  size={20} 
+                  color={quantity >= availableQuantity ? "#CCCCCC" : "#333333"} 
+                />
               </TouchableOpacity>
             </View>
           </View>

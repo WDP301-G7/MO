@@ -147,12 +147,6 @@ export default function ProductCatalogScreen({ navigation, route }) {
             <Text className="text-white text-xs font-bold">Đặt trước</Text>
           </View>
         )}
-        <TouchableOpacity
-          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white items-center justify-center shadow-md"
-          onPress={() => alert("Tính năng yêu thích sẽ được cập nhật sau")}
-        >
-          <Ionicons name="heart-outline" size={20} color="#EF4444" />
-        </TouchableOpacity>
 
         <View className="p-3">
           {item.brand && (

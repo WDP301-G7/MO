@@ -15,7 +15,7 @@ export const getProductAvailableQuantity = async (productId) => {
       ),
     );
 
-    // Backend response: { statusCode, message, data: { totalAvailable, ... }, error }
+    // Backend response: { statusCode, message, data: { productId, availableQuantity }, error }
     return {
       success: true,
       data: response.data.data,

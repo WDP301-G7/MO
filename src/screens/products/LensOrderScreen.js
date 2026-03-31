@@ -32,6 +32,10 @@ export default function LensOrderScreen({ navigation, route }) {
     selectedFrame?.id || null,
   );
   const [requireAppointment, setRequireAppointment] = useState(false);
+  
+  // Dropdown states
+  const [lensDropdownOpen, setLensDropdownOpen] = useState(false);
+  const [frameDropdownOpen, setFrameDropdownOpen] = useState(false);
 
   // API data states
   const [lensProducts, setLensProducts] = useState([]);
@@ -265,25 +269,47 @@ export default function LensOrderScreen({ navigation, route }) {
       </Text>
 
       {/* ── TRÒNG KÍNH ── */}
-      <View className="flex-row items-center mb-3 px-1">
-        <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-2">
-          <Ionicons name="ellipse-outline" size={18} color="#2E86AB" />
-        </View>
-        <Text className="text-base font-bold text-primary flex-1">
-          Loại tròng kính
-        </Text>
-        {selectedLensType && (
-          <View className="flex-row items-center bg-blue-50 px-2 py-1 rounded-full">
-            <Ionicons name="checkmark-circle" size={14} color="#2E86AB" />
-            <Text className="text-xs text-primary ml-1 font-semibold">
-              Đã chọn
+      <TouchableOpacity
+        onPress={() => setLensDropdownOpen(!lensDropdownOpen)}
+        className="flex-row items-center justify-between bg-blue-50 rounded-xl px-4 py-3 mb-3"
+      >
+        <View className="flex-row items-center flex-1">
+          <View className="w-8 h-8 rounded-full bg-white items-center justify-center mr-3">
+            <Ionicons name="ellipse-outline" size={18} color="#2E86AB" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-base font-bold text-primary">
+              Loại tròng kính
+            </Text>
+            <Text className="text-xs text-primary mt-0.5">
+              {lensProducts.length} sản phẩm
             </Text>
           </View>
-        )}
-      </View>
+        </View>
+        <Ionicons
+          name={lensDropdownOpen ? "chevron-up" : "chevron-down"}
+          size={24}
+          color="#2E86AB"
+        />
+      </TouchableOpacity>
+
+      {selectedLensType && (
+        <View className="bg-green-50 rounded-xl p-3 mb-3 flex-row items-center">
+          <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+          <View className="flex-1 ml-2">
+            <Text className="text-sm text-green-800">
+              Đã chọn:{" "}
+              <Text className="font-bold">
+                {lensProducts.find((l) => l.id === selectedLensType)?.name ||
+                  "Tròng kính"}
+              </Text>
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Info if coming from ProductDetail */}
-      {selectedLensFromProduct && (
+      {selectedLensFromProduct && lensDropdownOpen && (
         <View className="bg-green-50 rounded-xl p-3 mb-3 flex-row items-center">
           <Ionicons name="checkmark-circle" size={20} color="#10B981" />
           <View className="flex-1 ml-2">
@@ -296,7 +322,7 @@ export default function LensOrderScreen({ navigation, route }) {
         </View>
       )}
 
-      {lensProducts.map((lens) => {
+      {lensDropdownOpen && lensProducts.map((lens) => {
         const available = isProductAvailable(lens);
         const isSelected = selectedLensType === lens.id;
         const lensImageUrl =
@@ -394,24 +420,46 @@ export default function LensOrderScreen({ navigation, route }) {
       })}
 
       {/* ── GỌNG KÍNH ── */}
-      <View className="flex-row items-center mt-4 mb-3 px-1">
-        <View className="w-8 h-8 rounded-full bg-orange-100 items-center justify-center mr-2">
-          <Ionicons name="glasses-outline" size={18} color="#F18F01" />
-        </View>
-        <Text className="text-base font-bold text-accent flex-1">
-          Chọn gọng kính
-        </Text>
-        {selectedFrameId && (
-          <View className="flex-row items-center bg-orange-50 px-2 py-1 rounded-full">
-            <Ionicons name="checkmark-circle" size={14} color="#F18F01" />
-            <Text className="text-xs text-accent ml-1 font-semibold">
-              Đã chọn
+      <TouchableOpacity
+        onPress={() => setFrameDropdownOpen(!frameDropdownOpen)}
+        className="flex-row items-center justify-between bg-orange-50 rounded-xl px-4 py-3 mt-4 mb-3"
+      >
+        <View className="flex-row items-center flex-1">
+          <View className="w-8 h-8 rounded-full bg-white items-center justify-center mr-3">
+            <Ionicons name="glasses-outline" size={18} color="#F18F01" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-base font-bold text-accent">
+              Chọn gọng kính
+            </Text>
+            <Text className="text-xs text-accent mt-0.5">
+              {frameProducts.filter(f => isProductAvailable(f)).length} sản phẩm
             </Text>
           </View>
-        )}
-      </View>
+        </View>
+        <Ionicons
+          name={frameDropdownOpen ? "chevron-up" : "chevron-down"}
+          size={24}
+          color="#F18F01"
+        />
+      </TouchableOpacity>
 
-      {frameProducts.map((frame) => {
+      {selectedFrameId && (
+        <View className="bg-orange-50 rounded-xl p-3 mb-3 flex-row items-center">
+          <Ionicons name="checkmark-circle" size={20} color="#F18F01" />
+          <View className="flex-1 ml-2">
+            <Text className="text-sm text-orange-800">
+              Đã chọn:{" "}
+              <Text className="font-bold">
+                {frameProducts.find((f) => f.id === selectedFrameId)?.name ||
+                  "Gọng kính"}
+              </Text>
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {frameDropdownOpen && frameProducts.map((frame) => {
         const imageUrl =
           frame.images?.[0]?.imageUrl ||
           "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=300&h=200&fit=crop";
