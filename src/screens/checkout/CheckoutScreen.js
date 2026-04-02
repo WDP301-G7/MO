@@ -12,9 +12,11 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { createOrder } from "../../services/orderService";
+import { calculateShippingFee } from "../../services/logisticsService";
 import { getProfile } from "../../services/authService";
 import { getMyMembership } from "../../services/membershipService";
 import { consumePendingAddress } from "../../utils/addressStore";
+import { getStores } from "../../services/prescriptionService";
 
 export default function CheckoutScreen({ navigation, route }) {
   const {
@@ -26,8 +28,18 @@ export default function CheckoutScreen({ navigation, route }) {
     product = null,
   } = route.params || {};
 
-  // deliveryMethod: HOME_DELIVERY for normal frames, PICKUP_AT_STORE for lens/store orders
-  const deliveryMethod = requiresStore ? "PICKUP_AT_STORE" : "HOME_DELIVERY";
+  // deliveryMethod: user-selectable for regular frames; locked to PICKUP_AT_STORE for requiresStore
+  const [deliveryMethod, setDeliveryMethod] = useState(
+    requiresStore ? "PICKUP_AT_STORE" : "HOME_DELIVERY",
+  );
+
+  const handleDeliveryMethodChange = (method) => {
+    setDeliveryMethod(method);
+    if (method === "PICKUP_AT_STORE") {
+      setShippingFee(null);
+      setShippingFeeError(false);
+    }
+  };
 
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState(null);
@@ -36,6 +48,12 @@ export default function CheckoutScreen({ navigation, route }) {
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [note, setNote] = useState("");
   const [membership, setMembership] = useState(null);
+  // Live GHN shipping fee fetched when address is selected
+  const [shippingFee, setShippingFee] = useState(null); // null = not yet fetched
+  const [loadingShippingFee, setLoadingShippingFee] = useState(false);
+  const [shippingFeeError, setShippingFeeError] = useState(false);
+  // Stores list for PICKUP_AT_STORE info
+  const [stores, setStores] = useState([]);
 
   // On every focus: pick up address from store AND re-sync cart from params.
   // This handles the case where the screen re-mounts or state is lost.
@@ -63,10 +81,49 @@ export default function CheckoutScreen({ navigation, route }) {
     }, [route.params]),
   );
 
+  // Auto-fetch GHN shipping fee whenever address changes
+  useEffect(() => {
+    if (
+      deliveryMethod !== "HOME_DELIVERY" ||
+      !selectedAddress?.shippingDistrictId ||
+      !selectedAddress?.shippingWardCode
+    ) {
+      return;
+    }
+    let cancelled = false;
+    const fetchFee = async () => {
+      setLoadingShippingFee(true);
+      setShippingFeeError(false);
+      const result = await calculateShippingFee(
+        selectedAddress.shippingDistrictId,
+        selectedAddress.shippingWardCode,
+      );
+      if (cancelled) return;
+      if (result.success) {
+        setShippingFee(result.fee);
+      } else {
+        setShippingFee(null);
+        setShippingFeeError(true);
+      }
+      setLoadingShippingFee(false);
+    };
+    fetchFee();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    deliveryMethod,
+    selectedAddress?.shippingDistrictId,
+    selectedAddress?.shippingWardCode,
+  ]);
+
   useEffect(() => {
     loadUserData();
     loadCartItems();
     loadMembership();
+    getStores().then((res) => {
+      if (res.success && res.data.length > 0) setStores(res.data);
+    });
   }, []);
 
   const loadMembership = async () => {
@@ -112,14 +169,16 @@ export default function CheckoutScreen({ navigation, route }) {
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-  // Shipping fee: 0 for PICKUP_AT_STORE, calculated by backend for HOME_DELIVERY
-  const shippingFeeDisplay = requiresStore ? "Miễn phí" : "Tính theo địa chỉ";
   // Membership discount is applied server-side; show estimated discount
   const membershipDiscountPercent = membership?.discountPercent || 0;
   const estimatedMembershipDiscount = Math.floor(
     (subtotal * membershipDiscountPercent) / 100,
   );
   const discount = estimatedMembershipDiscount;
+  // Total shown on screen (uses live GHN fee when available)
+  const displayShippingFee =
+    deliveryMethod === "PICKUP_AT_STORE" ? 0 : (shippingFee ?? 0);
+  const displayTotal = subtotal + displayShippingFee - discount;
 
   const handlePlaceOrder = async () => {
     // Validation
@@ -149,7 +208,6 @@ export default function CheckoutScreen({ navigation, route }) {
       };
 
       // For HOME_DELIVERY: include full shipping info with GHN-format IDs
-      // (ProvinceID, DistrictID, WardCode) required by backend for GHN integration.
       if (deliveryMethod === "HOME_DELIVERY" && selectedAddress) {
         orderData.shippingAddress = selectedAddress.shippingAddress;
         orderData.shippingProvinceId = selectedAddress.shippingProvinceId;
@@ -160,14 +218,17 @@ export default function CheckoutScreen({ navigation, route }) {
       const result = await createOrder(orderData);
 
       if (result.success) {
+        // Use backend's confirmed values as source of truth for payment
+        const confirmedShippingFee = result.data.shippingFee
+          ? Number(result.data.shippingFee)
+          : displayShippingFee;
+        const confirmedTotal = result.data.totalAmount
+          ? Number(result.data.totalAmount)
+          : displayTotal;
         navigation.navigate("VNPayPayment", {
           orderId: result.data.id,
-          amount: result.data.totalAmount
-            ? Number(result.data.totalAmount)
-            : subtotal - discount,
-          shippingFee: result.data.shippingFee
-            ? Number(result.data.shippingFee)
-            : 0,
+          amount: confirmedTotal,
+          shippingFee: confirmedShippingFee,
         });
       } else {
         Alert.alert(
@@ -199,6 +260,149 @@ export default function CheckoutScreen({ navigation, route }) {
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Delivery method selector — only for regular frames (not lens/store-required) */}
+        {!requiresStore && (
+          <View className="bg-white p-5 mt-2">
+            <View className="flex-row items-center gap-2 mb-4">
+              <Ionicons name="car-outline" size={20} color="#2E86AB" />
+              <Text className="text-base font-bold text-text">
+                Phương thức nhận hàng
+              </Text>
+            </View>
+
+            {/* Option: Home delivery */}
+            <TouchableOpacity
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                padding: 14,
+                borderRadius: 12,
+                borderWidth: 2,
+                marginBottom: 10,
+                borderColor:
+                  deliveryMethod === "HOME_DELIVERY" ? "#2E86AB" : "#E5E7EB",
+                backgroundColor:
+                  deliveryMethod === "HOME_DELIVERY" ? "#EFF6FF" : "#F9FAFB",
+              }}
+              onPress={() => handleDeliveryMethodChange("HOME_DELIVERY")}
+            >
+              <Ionicons
+                name="bicycle"
+                size={22}
+                color={
+                  deliveryMethod === "HOME_DELIVERY" ? "#2E86AB" : "#9CA3AF"
+                }
+              />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "600",
+                    color:
+                      deliveryMethod === "HOME_DELIVERY"
+                        ? "#2E86AB"
+                        : "#1F2937",
+                  }}
+                >
+                  Giao hàng tận nhà
+                </Text>
+                <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+                  Ship qua GHN · Phí tính theo địa chỉ
+                </Text>
+              </View>
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  borderWidth: 2,
+                  borderColor:
+                    deliveryMethod === "HOME_DELIVERY" ? "#2E86AB" : "#D1D5DB",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {deliveryMethod === "HOME_DELIVERY" && (
+                  <View
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: "#2E86AB",
+                    }}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+
+            {/* Option: Pick up at store */}
+            <TouchableOpacity
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                padding: 14,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor:
+                  deliveryMethod === "PICKUP_AT_STORE" ? "#2E86AB" : "#E5E7EB",
+                backgroundColor:
+                  deliveryMethod === "PICKUP_AT_STORE" ? "#EFF6FF" : "#F9FAFB",
+              }}
+              onPress={() => handleDeliveryMethodChange("PICKUP_AT_STORE")}
+            >
+              <Ionicons
+                name="storefront-outline"
+                size={22}
+                color={
+                  deliveryMethod === "PICKUP_AT_STORE" ? "#2E86AB" : "#9CA3AF"
+                }
+              />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "600",
+                    color:
+                      deliveryMethod === "PICKUP_AT_STORE"
+                        ? "#2E86AB"
+                        : "#1F2937",
+                  }}
+                >
+                  Nhận tại cửa hàng
+                </Text>
+                <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+                  Miễn phí · Shop sẽ liên hệ hẹn lịch
+                </Text>
+              </View>
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  borderWidth: 2,
+                  borderColor:
+                    deliveryMethod === "PICKUP_AT_STORE"
+                      ? "#2E86AB"
+                      : "#D1D5DB",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {deliveryMethod === "PICKUP_AT_STORE" && (
+                  <View
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: "#2E86AB",
+                    }}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Delivery Address - Only show for HOME_DELIVERY (gọng kính lẻ) */}
         {deliveryMethod === "HOME_DELIVERY" && (
           <View className="bg-white p-5 mt-2">
@@ -261,10 +465,47 @@ export default function CheckoutScreen({ navigation, route }) {
                 </Text>
               </View>
             </View>
-            {storeName || storeAddress ? (
-              <View className="bg-background rounded-xl p-4 mb-4">
+            {stores.length > 0 ? (
+              <View>
+                {stores.map((store) => (
+                  <View
+                    key={store.id}
+                    className="bg-background rounded-xl p-4 mb-2"
+                  >
+                    <Text className="text-[15px] font-semibold text-text mb-1">
+                      {store.name}
+                    </Text>
+                    {store.address && (
+                      <View className="flex-row items-start">
+                        <Ionicons
+                          name="location-outline"
+                          size={14}
+                          color="#9CA3AF"
+                        />
+                        <Text className="text-[13px] text-textGray ml-1 flex-1">
+                          {store.address}
+                        </Text>
+                      </View>
+                    )}
+                    {store.phone && (
+                      <View className="flex-row items-center mt-1">
+                        <Ionicons
+                          name="call-outline"
+                          size={14}
+                          color="#9CA3AF"
+                        />
+                        <Text className="text-[13px] text-textGray ml-1">
+                          {store.phone}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : storeName || storeAddress ? (
+              <View className="bg-background rounded-xl p-4 mb-2">
                 {storeName && (
-                  <Text className="text-[15px] font-semibold text-text mb-2">
+                  <Text className="text-[15px] font-semibold text-text mb-1">
                     {storeName}
                   </Text>
                 )}
@@ -272,10 +513,10 @@ export default function CheckoutScreen({ navigation, route }) {
                   <View className="flex-row items-start">
                     <Ionicons
                       name="location-outline"
-                      size={16}
-                      color="#666666"
+                      size={14}
+                      color="#9CA3AF"
                     />
-                    <Text className="text-[13px] text-textGray ml-2 flex-1">
+                    <Text className="text-[13px] text-textGray ml-1 flex-1">
                       {storeAddress}
                     </Text>
                   </View>
@@ -371,9 +612,30 @@ export default function CheckoutScreen({ navigation, route }) {
           </View>
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-sm text-textGray">Phí vận chuyển</Text>
-            <Text className="text-sm font-semibold text-textGray italic">
-              {shippingFeeDisplay}
-            </Text>
+            {deliveryMethod === "PICKUP_AT_STORE" ? (
+              <Text className="text-sm font-semibold text-green-500">
+                Miễn phí
+              </Text>
+            ) : loadingShippingFee ? (
+              <View className="flex-row items-center gap-1">
+                <ActivityIndicator size={12} color="#2E86AB" />
+                <Text className="text-sm text-textGray italic ml-1">
+                  Đang tính...
+                </Text>
+              </View>
+            ) : shippingFeeError ? (
+              <Text className="text-sm text-red-400 italic">
+                Không thể tính
+              </Text>
+            ) : shippingFee !== null ? (
+              <Text className="text-sm font-semibold text-text">
+                {`${shippingFee.toLocaleString("vi-VN")}đ`}
+              </Text>
+            ) : (
+              <Text className="text-sm text-textGray italic">
+                Chọn địa chỉ để tính
+              </Text>
+            )}
           </View>
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-sm text-textGray">
@@ -389,9 +651,13 @@ export default function CheckoutScreen({ navigation, route }) {
 
           <View className="flex-row justify-between items-center">
             <Text className="text-base font-bold text-text">Tổng cộng</Text>
-            <Text className="text-xl font-bold text-primary">
-              {`${(subtotal - discount).toLocaleString("vi-VN")}đ`}
-            </Text>
+            {loadingShippingFee ? (
+              <ActivityIndicator size="small" color="#2E86AB" />
+            ) : (
+              <Text className="text-xl font-bold text-primary">
+                {`${displayTotal.toLocaleString("vi-VN")}đ`}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -402,9 +668,13 @@ export default function CheckoutScreen({ navigation, route }) {
       <View className="bg-white p-4 shadow-lg">
         <View className="flex-row justify-between items-center mb-3">
           <Text className="text-sm text-textGray">Tổng tạm tính</Text>
-          <Text className="text-xl font-bold text-primary">
-            {`${(subtotal - discount).toLocaleString("vi-VN")}đ`}
-          </Text>
+          {loadingShippingFee ? (
+            <ActivityIndicator size="small" color="#2E86AB" />
+          ) : (
+            <Text className="text-xl font-bold text-primary">
+              {`${displayTotal.toLocaleString("vi-VN")}đ`}
+            </Text>
+          )}
         </View>
         <TouchableOpacity
           className="bg-primary rounded-xl py-4 items-center"

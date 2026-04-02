@@ -164,9 +164,6 @@ export default function ProductCatalogScreen({ navigation, route }) {
                 {price.toLocaleString("vi-VN")}đ
               </Text>
             </View>
-            <TouchableOpacity className="w-8 h-8 rounded-full bg-primary items-center justify-center">
-              <Ionicons name="cart" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
           </View>
           <View className="flex-row items-center">
             <Text className="text-[11px] text-textGray">

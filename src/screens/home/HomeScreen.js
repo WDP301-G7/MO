@@ -231,7 +231,7 @@ export default function HomeScreen({ navigation }) {
               {user?.fullName || "Khách hàng"}
             </Text>
           </View>
-          
+
           {/* Right icons: Notification + Calendar */}
           <View className="flex-row items-center gap-2">
             <NotificationBell
@@ -411,7 +411,7 @@ export default function HomeScreen({ navigation }) {
 
             <TouchableOpacity
               className="flex-1 rounded-2xl overflow-hidden"
-              onPress={() => navigation.navigate("VirtualTryOn")}
+              onPress={() => navigation.navigate("VirtualTryOnSelect")}
               activeOpacity={0.88}
             >
               <LinearGradient

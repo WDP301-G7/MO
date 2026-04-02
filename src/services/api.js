@@ -1,6 +1,8 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert } from "react-native";
 import { API_URL, API_ENDPOINTS } from "../constants/api";
+import { navigationRef } from "../utils/navigationService";
 
 // Import forceLogout to handle token expiration
 let forceLogout;
@@ -24,6 +26,7 @@ const api = axios.create({
 
 let isRefreshing = false;
 let failedQueue = [];
+let isBannedLogoutInProgress = false;
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
@@ -58,6 +61,45 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+
+    // Check for banned account on ANY 401 — before refresh logic, before _retry check
+    if (error.response?.status === 401 && !isBannedLogoutInProgress) {
+      const responseMessage = error.response?.data?.message ?? "";
+
+      const isBanned =
+        responseMessage.includes("bị khóa") ||
+        responseMessage.includes("bị cấm") ||
+        responseMessage.toLowerCase().includes("banned");
+
+      if (isBanned) {
+        isBannedLogoutInProgress = true;
+        await AsyncStorage.multiRemove([
+          "userToken",
+          "refreshToken",
+          "userData",
+        ]);
+        Alert.alert(
+          "Tài khoản bị khóa",
+          "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ để được giải quyết.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                isBannedLogoutInProgress = false;
+                if (navigationRef.current) {
+                  navigationRef.current.reset({
+                    index: 0,
+                    routes: [{ name: "Login" }],
+                  });
+                }
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+        return Promise.reject(error);
+      }
+    }
 
     // Don't retry on certain endpoints or if we've already tried
     const skipRefresh =

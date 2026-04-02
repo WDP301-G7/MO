@@ -266,12 +266,33 @@ export default function ProductDetailScreen({ navigation, route }) {
       return;
     }
 
-    // Kiểm tra nếu là tròng kính thì phải đến cửa hàng
-    const isLens = product.type === "LENS";
+    // Tròng kính không được mua lẻ — chuyển sang màn hình combo gọng + kính
+    if (product.type === "LENS") {
+      Alert.alert(
+        "Mua combo Gọng + Tròng",
+        "Tròng kính cần được lắp cùng gọng tại cửa hàng. Bạn có muốn chọn combo gọng + tròng không?",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Chọn combo",
+            onPress: () =>
+              navigation.navigate("LensOrder", {
+                selectedLensFromProduct: {
+                  id: product.id,
+                  name: product.name,
+                  price: formatPrice(product.price),
+                  image: images[0],
+                },
+              }),
+          },
+        ],
+      );
+      return;
+    }
 
     navigation.navigate("Checkout", {
-      productType: isLens ? "lens_only" : "normal",
-      requiresStore: isLens, // Tròng kính phải lắp tại cửa hàng
+      productType: "normal",
+      requiresStore: false,
       fromProduct: true,
       product: {
         id: product.id,
@@ -317,13 +338,7 @@ export default function ProductDetailScreen({ navigation, route }) {
         >
           <Ionicons name="arrow-back" size={24} color="#333333" />
         </TouchableOpacity>
-        <TouchableOpacity
-          className="w-10 h-10 rounded-full bg-white items-center justify-center shadow-lg"
-          onPress={() => navigation.navigate("Cart")}
-        >
-          <Ionicons name="cart-outline" size={24} color="#333333" />
-          {/* TODO: Cart count badge - need cart API */}
-        </TouchableOpacity>
+        <View className="w-10" />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -442,10 +457,10 @@ export default function ProductDetailScreen({ navigation, route }) {
                 onPress={() => quantity > 1 && setQuantity(quantity - 1)}
                 disabled={quantity <= 1}
               >
-                <Ionicons 
-                  name="remove" 
-                  size={20} 
-                  color={quantity <= 1 ? "#CCCCCC" : "#333333"} 
+                <Ionicons
+                  name="remove"
+                  size={20}
+                  color={quantity <= 1 ? "#CCCCCC" : "#333333"}
                 />
               </TouchableOpacity>
               <Text className="text-lg font-bold text-text min-w-[40px] text-center">
@@ -453,15 +468,19 @@ export default function ProductDetailScreen({ navigation, route }) {
               </Text>
               <TouchableOpacity
                 className={`w-10 h-10 rounded-full border-2 items-center justify-center ${
-                  quantity >= availableQuantity ? "border-gray-300 opacity-40" : "border-border"
+                  quantity >= availableQuantity
+                    ? "border-gray-300 opacity-40"
+                    : "border-border"
                 }`}
-                onPress={() => quantity < availableQuantity && setQuantity(quantity + 1)}
+                onPress={() =>
+                  quantity < availableQuantity && setQuantity(quantity + 1)
+                }
                 disabled={quantity >= availableQuantity}
               >
-                <Ionicons 
-                  name="add" 
-                  size={20} 
-                  color={quantity >= availableQuantity ? "#CCCCCC" : "#333333"} 
+                <Ionicons
+                  name="add"
+                  size={20}
+                  color={quantity >= availableQuantity ? "#CCCCCC" : "#333333"}
                 />
               </TouchableOpacity>
             </View>
