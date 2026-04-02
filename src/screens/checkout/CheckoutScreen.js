@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { createOrder } from "../../services/orderService";
+import { getProductAvailableQuantity } from "../../services/inventoryService";
 import { calculateShippingFee } from "../../services/logisticsService";
 import { getProfile } from "../../services/authService";
 import { getMyMembership } from "../../services/membershipService";
@@ -194,6 +195,23 @@ export default function CheckoutScreen({ navigation, route }) {
 
     try {
       setLoading(true);
+
+      // Kiểm tra tồn kho trước khi đặt hàng
+      const stockChecks = await Promise.all(
+        cartItems.map((item) => getProductAvailableQuantity(item.id)),
+      );
+      const outOfStockItem = cartItems.find((item, i) => {
+        const r = stockChecks[i];
+        return r.success && r.data?.availableQuantity === 0;
+      });
+      if (outOfStockItem) {
+        Alert.alert(
+          "Hết hàng",
+          `"${outOfStockItem.name}" hiện đã hết hàng. Vui lòng quay lại và chọn sản phẩm khác.`,
+        );
+        setLoading(false);
+        return;
+      }
 
       const orderData = {
         items: cartItems.map((item) => ({
