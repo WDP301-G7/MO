@@ -1,0 +1,19 @@
+{
+    "js/ts.tsdk.path": "node_modules/typescript/lib",
+    "js/ts.validate.enabled": true,
+    "js/ts.tsserver.maxMemory": 4096,
+    "js/ts.tsserver.watchOptions": {
+        "excludeDirectories": [
+            "**/node_modules/**",
+            "node_modules"
+        ]
+    },
+    "js/ts.preferences.importModuleSpecifier": "shortest",
+    "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
+    "files.exclude": {
+        "**/node_modules": true
+    },
+    "search.exclude": {
+        "**/node_modules": true
+    }
+}

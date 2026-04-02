@@ -1,9 +1,11 @@
 {
   "expo": {
-    "name": "my-react-native-app",
-    "slug": "my-react-native-app",
+    "name": "MO Eyewear",
+    "slug": "mo-eyewear-app",
+    "owner": "tomishere0712",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "mo-eyewear-app",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -13,17 +15,35 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.moeyewear.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ứng dụng cần quyền truy cập camera để sử dụng tính năng thử kính ảo.",
+        "NSPhotoLibraryAddUsageDescription": "Ứng dụng cần quyền lưu ảnh thử kính vào thư viện của bạn.",
+        "NSPhotoLibraryUsageDescription": "Ứng dụng cần quyền truy cập thư viện ảnh để lưu và chia sẻ ảnh thử kính.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.moeyewear.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2082ba29-d375-48fa-866a-96ceb03e3240"
+      }
     }
   }
 }
