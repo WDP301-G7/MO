@@ -1018,13 +1018,13 @@ export default function OrderDetailScreen({ navigation, route }) {
                     </Text>
                   </View>
 
-                  {/* Phí vận chuyển */}
-                  <View className="flex-row items-center justify-between mb-3">
-                    <Text className="text-sm text-textGray">
-                      Phí vận chuyển
-                    </Text>
-                    {isHomeDelivery ? (
-                      shippingFee > 0 ? (
+                  {/* Phí vận chuyển — chỉ hiện khi giao tận nơi */}
+                  {isHomeDelivery && (
+                    <View className="flex-row items-center justify-between mb-3">
+                      <Text className="text-sm text-textGray">
+                        Phí vận chuyển
+                      </Text>
+                      {shippingFee > 0 ? (
                         <Text className="text-sm font-semibold text-text">
                           {`${shippingFee.toLocaleString("vi-VN")}đ`}
                         </Text>
@@ -1032,13 +1032,9 @@ export default function OrderDetailScreen({ navigation, route }) {
                         <Text className="text-sm text-textGray italic">
                           Miễn phí
                         </Text>
-                      )
-                    ) : (
-                      <Text className="text-sm text-textGray italic">
-                        Miễn phí
-                      </Text>
-                    )}
-                  </View>
+                      )}
+                    </View>
+                  )}
 
                   {/* Discount row — only show when there's a discount */}
                   {discountAmount > 0 && (

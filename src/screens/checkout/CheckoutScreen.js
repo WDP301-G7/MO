@@ -610,33 +610,32 @@ export default function CheckoutScreen({ navigation, route }) {
               {`${subtotal.toLocaleString("vi-VN")}đ`}
             </Text>
           </View>
-          <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-sm text-textGray">Phí vận chuyển</Text>
-            {deliveryMethod === "PICKUP_AT_STORE" ? (
-              <Text className="text-sm font-semibold text-green-500">
-                Miễn phí
-              </Text>
-            ) : loadingShippingFee ? (
-              <View className="flex-row items-center gap-1">
-                <ActivityIndicator size={12} color="#2E86AB" />
-                <Text className="text-sm text-textGray italic ml-1">
-                  Đang tính...
+          {/* Phí vận chuyển — chỉ hiện khi giao tận nơi */}
+          {deliveryMethod === "HOME_DELIVERY" && (
+            <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-sm text-textGray">Phí vận chuyển</Text>
+              {loadingShippingFee ? (
+                <View className="flex-row items-center gap-1">
+                  <ActivityIndicator size={12} color="#2E86AB" />
+                  <Text className="text-sm text-textGray italic ml-1">
+                    Đang tính...
+                  </Text>
+                </View>
+              ) : shippingFeeError ? (
+                <Text className="text-sm text-red-400 italic">
+                  Không thể tính
                 </Text>
-              </View>
-            ) : shippingFeeError ? (
-              <Text className="text-sm text-red-400 italic">
-                Không thể tính
-              </Text>
-            ) : shippingFee !== null ? (
-              <Text className="text-sm font-semibold text-text">
-                {`${shippingFee.toLocaleString("vi-VN")}đ`}
-              </Text>
-            ) : (
-              <Text className="text-sm text-textGray italic">
-                Chọn địa chỉ để tính
-              </Text>
-            )}
-          </View>
+              ) : shippingFee !== null ? (
+                <Text className="text-sm font-semibold text-text">
+                  {`${shippingFee.toLocaleString("vi-VN")}đ`}
+                </Text>
+              ) : (
+                <Text className="text-sm text-textGray italic">
+                  Chọn địa chỉ để tính
+                </Text>
+              )}
+            </View>
+          )}
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-sm text-textGray">
               {membershipDiscountPercent > 0
