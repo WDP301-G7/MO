@@ -239,10 +239,7 @@ export default function OrdersScreen({ navigation, route }) {
         return [{ label: "Xem chi tiết", color: "#2E86AB", action: "detail" }];
       case "PROCESSING":
       case "READY":
-        return [
-          { label: "Xem chi tiết", color: "#2E86AB", action: "detail" },
-          { label: "Liên hệ", color: "#999999", action: "contact" },
-        ];
+        return [{ label: "Xem chi tiết", color: "#2E86AB", action: "detail" }];
       case "COMPLETED":
         return [
           { label: "Mua lại", color: "#2E86AB", action: "reorder" },

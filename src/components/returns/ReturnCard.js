@@ -100,28 +100,62 @@ export default function ReturnCard({ returnItem, onPress }) {
           <Text style={styles.date}>{formatDate(returnItem.createdAt)}</Text>
         </View>
 
-        {/* Chỉ hiển thị tiền hoàn lại cho loại "Trả hàng hoàn tiền" */}
-        {returnItem.type === "RETURN" && returnItem.refundAmount && (
-          <Text style={styles.amount}>
-            {formatCurrency(returnItem.refundAmount)}
-          </Text>
-        )}
-
+        {/* Trả hàng hoàn tiền */}
         {returnItem.type === "RETURN" &&
-          returnItem.priceDifference !== null &&
-          returnItem.priceDifference !== undefined && (
-            <Text
-              style={[
-                styles.amount,
-                returnItem.priceDifference > 0
-                  ? styles.amountPositive
-                  : styles.amountNegative,
-              ]}
-            >
-              {returnItem.priceDifference > 0 ? "+" : ""}
-              {formatCurrency(returnItem.priceDifference)}
-            </Text>
-          )}
+          (() => {
+            const amt =
+              returnItem.finalAmount !== null &&
+              returnItem.finalAmount !== undefined
+                ? returnItem.finalAmount
+                : returnItem.refundAmount;
+            if (!amt) return null;
+            const isCompleted = returnItem.status === "COMPLETED";
+            return (
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={[styles.amountLabel]}>
+                  {isCompleted ? "Đã hoàn:" : "Dự kiến hoàn:"}
+                </Text>
+                <Text style={[styles.amount, styles.amountNegative]}>
+                  {formatCurrency(amt)}
+                </Text>
+              </View>
+            );
+          })()}
+
+        {/* Đổi sản phẩm */}
+        {returnItem.type === "EXCHANGE" &&
+          (() => {
+            const diff =
+              returnItem.finalAmount !== null &&
+              returnItem.finalAmount !== undefined
+                ? returnItem.finalAmount
+                : returnItem.priceDifference;
+            if (diff === null || diff === undefined) return null;
+            const isCompleted = returnItem.status === "COMPLETED";
+            const num = Number(diff);
+            if (num === 0) return null;
+            return (
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={styles.amountLabel}>
+                  {isCompleted
+                    ? num > 0
+                      ? "Đã thanh toán thêm:"
+                      : "Đã hoàn:"
+                    : num > 0
+                      ? "Cần thanh toán thêm:"
+                      : "Được hoàn:"}
+                </Text>
+                <Text
+                  style={[
+                    styles.amount,
+                    num > 0 ? styles.amountPositive : styles.amountNegative,
+                  ]}
+                >
+                  {formatCurrency(Math.abs(num))}
+                </Text>
+              </View>
+            );
+          })()}
       </View>
 
       {/* Arrow icon */}
@@ -239,6 +273,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#F18F01",
+  },
+  amountLabel: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginBottom: 1,
   },
   amountPositive: {
     color: "#F44336",

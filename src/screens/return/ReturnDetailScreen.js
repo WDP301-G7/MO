@@ -498,74 +498,102 @@ export default function ReturnDetailScreen({ navigation, route }) {
         {currentReturn.status === "APPROVED" && (
           <View className="bg-white px-5 py-4 mb-2">
             <View className="bg-blue-50 rounded-lg p-4">
-              <View className="flex-row items-center mb-2">
+              <View className="flex-row items-center mb-3">
                 <Ionicons name="checkmark-circle" size={24} color="#2196F3" />
                 <Text className="text-base font-bold text-blue-700 ml-2">
                   Yêu cầu đã được phê duyệt
                 </Text>
               </View>
 
-              {currentReturn.type === "RETURN" &&
-                currentReturn.refundAmount && (
-                  <>
-                    <Text className="text-sm text-blue-600 mb-1">
-                      Số tiền hoàn: {formatCurrency(currentReturn.refundAmount)}
-                    </Text>
-                    {currentReturn.refundMethod && (
-                      <Text className="text-sm text-blue-600">
-                        Phương thức:{" "}
-                        {REFUND_METHOD_LABELS[currentReturn.refundMethod] ||
-                          currentReturn.refundMethod}
+              {currentReturn.type === "RETURN" && (
+                <>
+                  {currentReturn.refundAmount ? (
+                    <View className="bg-white rounded-lg px-4 py-3 mb-3">
+                      <Text className="text-xs text-textGray mb-1">
+                        Số tiền dự kiến được hoàn
                       </Text>
-                    )}
-                    <Text
-                      className="text-sm text-blue-600 mt-2"
-                      style={{ flexWrap: "wrap" }}
-                    >
-                      📦 Vui lòng mang sản phẩm tới cửa hàng để nhận hoàn tiền
-                    </Text>
-                  </>
-                )}
+                      <Text className="text-lg font-bold text-green-600">
+                        {formatCurrency(currentReturn.refundAmount)}
+                      </Text>
+                      {currentReturn.refundMethod && (
+                        <Text className="text-xs text-textGray mt-1">
+                          Phương thức:{" "}
+                          {REFUND_METHOD_LABELS[currentReturn.refundMethod] ||
+                            currentReturn.refundMethod}
+                        </Text>
+                      )}
+                    </View>
+                  ) : null}
+                  <Text
+                    className="text-sm text-blue-600"
+                    style={{ flexWrap: "wrap" }}
+                  >
+                    📦 Vui lòng mang sản phẩm tới cửa hàng để nhận hoàn tiền
+                  </Text>
+                </>
+              )}
 
-              {currentReturn.type === "EXCHANGE" &&
-                currentReturn.priceDifference !== null &&
-                currentReturn.priceDifference !== 0 && (
-                  <>
-                    {currentReturn.priceDifference > 0 ? (
-                      <Text className="text-sm text-red-600 font-semibold">
-                        Bạn cần thanh toán thêm:{" "}
-                        {formatCurrency(currentReturn.priceDifference)}
+              {currentReturn.type === "EXCHANGE" && (
+                <>
+                  {currentReturn.priceDifference !== null &&
+                  currentReturn.priceDifference !== undefined ? (
+                    <View className="bg-white rounded-lg px-4 py-3 mb-3">
+                      {currentReturn.priceDifference === 0 ? (
+                        <>
+                          <Text className="text-xs text-textGray mb-1">
+                            Chênh lệch giá dự kiến
+                          </Text>
+                          <Text className="text-base font-bold text-green-600">
+                            Không có chênh lệch
+                          </Text>
+                        </>
+                      ) : currentReturn.priceDifference > 0 ? (
+                        <>
+                          <Text className="text-xs text-textGray mb-1">
+                            Dự kiến bạn cần thanh toán thêm
+                          </Text>
+                          <Text className="text-lg font-bold text-red-600">
+                            {formatCurrency(currentReturn.priceDifference)}
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text className="text-xs text-textGray mb-1">
+                            Dự kiến bạn sẽ được hoàn
+                          </Text>
+                          <Text className="text-lg font-bold text-green-600">
+                            {formatCurrency(
+                              Math.abs(currentReturn.priceDifference),
+                            )}
+                          </Text>
+                        </>
+                      )}
+                      <Text className="text-xs text-textGray mt-1">
+                        Số tiền thực tế có thể thay đổi khi hoàn tất
                       </Text>
-                    ) : (
-                      <Text className="text-sm text-green-600 font-semibold">
-                        Bạn sẽ được hoàn:{" "}
-                        {formatCurrency(
-                          Math.abs(currentReturn.priceDifference),
-                        )}
-                      </Text>
-                    )}
-                    <Text
-                      className="text-sm text-blue-600 mt-2"
-                      style={{ flexWrap: "wrap" }}
-                    >
-                      📦 Vui lòng gửi sản phẩm cũ về cửa hàng để nhận sản phẩm
-                      mới
-                    </Text>
-                  </>
-                )}
+                    </View>
+                  ) : null}
+                  <Text
+                    className="text-sm text-blue-600"
+                    style={{ flexWrap: "wrap" }}
+                  >
+                    📦 Vui lòng gửi sản phẩm cũ về cửa hàng để nhận sản phẩm mới
+                  </Text>
+                </>
+              )}
 
               {currentReturn.type === "WARRANTY" && (
                 <Text
-                  className="text-sm text-blue-600 mt-2"
+                  className="text-sm text-blue-600 mt-1"
                   style={{ flexWrap: "wrap" }}
                 >
                   🛡️ Vui lòng gửi sản phẩm về để được sửa chữa/thay thế. Thời
-                  gian dự kiến: 3-5 ngày làm việc
+                  gian dự kiến: 3–5 ngày làm việc
                 </Text>
               )}
 
               {currentReturn.approvedAt && (
-                <Text className="text-xs text-textGray mt-2">
+                <Text className="text-xs text-textGray mt-3">
                   Phê duyệt lúc: {formatDate(currentReturn.approvedAt)}
                 </Text>
               )}
@@ -601,7 +629,7 @@ export default function ReturnDetailScreen({ navigation, route }) {
         {currentReturn.status === "COMPLETED" && (
           <View className="bg-white px-5 py-4 mb-2">
             <View className="bg-green-50 rounded-lg p-4">
-              <View className="flex-row items-center mb-2">
+              <View className="flex-row items-center mb-3">
                 <Ionicons
                   name="checkmark-done-circle"
                   size={24}
@@ -612,20 +640,73 @@ export default function ReturnDetailScreen({ navigation, route }) {
                 </Text>
               </View>
 
-              {currentReturn.refundedAt && (
-                <Text className="text-sm text-green-600 mb-1">
-                  Hoàn tiền lúc: {formatDate(currentReturn.refundedAt)}
-                </Text>
-              )}
-
-              {currentReturn.refundAmount && (
-                <Text className="text-sm text-green-600 font-semibold mb-1">
-                  Số tiền đã hoàn: {formatCurrency(currentReturn.refundAmount)}
-                </Text>
-              )}
+              {/* finalAmount — giá trị thực tế nhân viên nhập khi hoàn tất */}
+              {(() => {
+                const final =
+                  currentReturn.finalAmount !== null &&
+                  currentReturn.finalAmount !== undefined
+                    ? currentReturn.finalAmount
+                    : currentReturn.refundAmount;
+                if (final === null || final === undefined) return null;
+                if (currentReturn.type === "RETURN") {
+                  return (
+                    <View className="bg-white rounded-lg px-4 py-3 mb-3">
+                      <Text className="text-xs text-textGray mb-1">
+                        Số tiền thực tế đã hoàn
+                      </Text>
+                      <Text className="text-xl font-bold text-green-600">
+                        {formatCurrency(final)}
+                      </Text>
+                      {currentReturn.refundMethod && (
+                        <Text className="text-xs text-textGray mt-1">
+                          Phương thức:{" "}
+                          {REFUND_METHOD_LABELS[currentReturn.refundMethod] ||
+                            currentReturn.refundMethod}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                }
+                if (currentReturn.type === "EXCHANGE") {
+                  const amt = Number(final);
+                  return (
+                    <View className="bg-white rounded-lg px-4 py-3 mb-3">
+                      {amt === 0 ? (
+                        <>
+                          <Text className="text-xs text-textGray mb-1">
+                            Chênh lệch giá thực tế
+                          </Text>
+                          <Text className="text-base font-bold text-green-600">
+                            Không có chênh lệch
+                          </Text>
+                        </>
+                      ) : amt > 0 ? (
+                        <>
+                          <Text className="text-xs text-textGray mb-1">
+                            Đã thanh toán thêm
+                          </Text>
+                          <Text className="text-xl font-bold text-red-600">
+                            {formatCurrency(amt)}
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text className="text-xs text-textGray mb-1">
+                            Đã được hoàn lại
+                          </Text>
+                          <Text className="text-xl font-bold text-green-600">
+                            {formatCurrency(Math.abs(amt))}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  );
+                }
+                return null;
+              })()}
 
               {currentReturn.completionNote && (
-                <Text className="text-sm text-green-600 mt-2">
+                <Text className="text-sm text-green-600 mt-1">
                   Ghi chú: {currentReturn.completionNote}
                 </Text>
               )}
@@ -704,7 +785,7 @@ export default function ReturnDetailScreen({ navigation, route }) {
             onPress={handleCancelReturn}
           >
             <Text className="text-red-500 font-bold text-base">
-              Hủy yêu cầu đổi/trả/bảo hành 
+              Hủy yêu cầu đổi/trả/bảo hành
             </Text>
           </TouchableOpacity>
         </View>
