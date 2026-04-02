@@ -352,6 +352,9 @@ export default function OrderDetailScreen({ navigation, route }) {
       };
     }
 
+    // Combo orders (LENS_WITH_FRAME): return & warranty allowed, but NOT exchange
+    const isComboOrder = isLensWithFrameOrder;
+
     // Non-prescription orders — check each deadline separately
     if (daysDiff > exchangeDeadline) {
       // Both return and exchange expired, only warranty remains
@@ -364,6 +367,16 @@ export default function OrderDetailScreen({ navigation, route }) {
     }
 
     if (daysDiff > returnDeadline) {
+      // Return expired but exchange still valid (only for FRAME-only orders)
+      if (isComboOrder) {
+        // Combo: return expired, no exchange allowed, only warranty
+        return {
+          canReturn: true,
+          reason: "",
+          message: `Đơn hàng đã quá hạn trả hàng (${returnDeadline} ngày), chỉ có thể yêu cầu bảo hành`,
+          warrantyOnly: true,
+        };
+      }
       // Return expired but exchange still valid
       return {
         canReturn: true,
@@ -371,6 +384,17 @@ export default function OrderDetailScreen({ navigation, route }) {
         message: `Đơn hàng đã quá hạn trả hàng (${returnDeadline} ngày) nhưng vẫn còn hạn đổi hàng và bảo hành`,
         returnExpired: true,
         daysLeftExchange: exchangeDeadline - daysDiff,
+      };
+    }
+
+    // Within all deadlines
+    if (isComboOrder) {
+      // Combo: can return & warranty, but NOT exchange
+      return {
+        canReturn: true,
+        reason: "",
+        noExchange: true,
+        daysLeft: returnDeadline - daysDiff,
       };
     }
 
@@ -466,9 +490,6 @@ export default function OrderDetailScreen({ navigation, route }) {
                 <Text className="text-xs text-textGray mt-0.5">{order.id}</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate("Support")}>
-              <Ionicons name="help-circle-outline" size={26} color="#2E86AB" />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -1294,6 +1315,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                             orderId: order.id,
                             warrantyOnly: eligibility.warrantyOnly || false,
                             returnOnly: eligibility.returnExpired || false,
+                            noExchange: eligibility.noExchange || false,
                             isPrescription: eligibility.isPrescription || false,
                           }),
                       },
@@ -1303,6 +1325,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                       orderId: order.id,
                       warrantyOnly: eligibility.warrantyOnly || false,
                       returnOnly: eligibility.returnExpired || false,
+                      noExchange: eligibility.noExchange || false,
                       isPrescription: eligibility.isPrescription || false,
                     });
                   }
@@ -1316,9 +1339,11 @@ export default function OrderDetailScreen({ navigation, route }) {
                 <Text className="text-white font-bold text-base ml-2">
                   {canReturnExchange().warrantyOnly
                     ? "Bảo hành"
-                    : canReturnExchange().returnExpired
-                      ? "Đổi hàng / Bảo hành"
-                      : "Đổi/Trả/Bảo hành"}
+                    : canReturnExchange().noExchange
+                      ? "Trả hàng / Bảo hành"
+                      : canReturnExchange().returnExpired
+                        ? "Đổi hàng / Bảo hành"
+                        : "Đổi/Trả/Bảo hành"}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1364,14 +1389,6 @@ export default function OrderDetailScreen({ navigation, route }) {
             {order.paymentStatus === "UNPAID" && (
               <View className="flex-row gap-3">
                 <TouchableOpacity
-                  className="flex-1 border-2 border-border bg-white rounded-xl py-3 items-center"
-                  onPress={() => navigation.navigate("Support")}
-                >
-                  <Text className="text-text font-bold text-sm">
-                    Liên hệ hỗ trợ
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   className="flex-1 border-2 border-red-500 bg-white rounded-xl py-3 items-center"
                   onPress={handleCancelOrder}
                   disabled={cancelling}
@@ -1386,16 +1403,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                 </TouchableOpacity>
               </View>
             )}
-            {order.paymentStatus !== "UNPAID" && (
-              <TouchableOpacity
-                className="border-2 border-border bg-white rounded-xl py-3 items-center"
-                onPress={() => navigation.navigate("Support")}
-              >
-                <Text className="text-text font-bold text-sm">
-                  Liên hệ hỗ trợ
-                </Text>
-              </TouchableOpacity>
-            )}
+            {order.paymentStatus !== "UNPAID" && <View />}
           </View>
         </ScrollView>
       </View>

@@ -466,34 +466,16 @@ export const RETURN_REASONS = [
     applicable: ["RETURN", "EXCHANGE"],
   },
   {
-    id: 3,
-    value: "Sản phẩm không vừa với khuôn mặt",
-    icon: "resize-outline",
-    applicable: ["RETURN", "EXCHANGE"],
-  },
-  {
     id: 4,
     value: "Không đúng mô tả/hình ảnh",
     icon: "image-outline",
     applicable: ["RETURN", "EXCHANGE"],
   },
   {
-    id: 5,
-    value: "Đổi ý, không muốn mua nữa",
-    icon: "close-circle-outline",
-    applicable: ["RETURN"],
-  },
-  {
     id: 6,
     value: "Muốn đổi mẫu khác",
     icon: "shuffle-outline",
     applicable: ["EXCHANGE"],
-  },
-  {
-    id: 7,
-    value: "Sản phẩm giả, kém chất lượng",
-    icon: "warning-outline",
-    applicable: ["RETURN"],
   },
   {
     id: 8,

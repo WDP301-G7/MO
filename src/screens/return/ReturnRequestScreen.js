@@ -25,6 +25,7 @@ export default function ReturnRequestScreen({ navigation, route }) {
     orderId,
     warrantyOnly = false,
     returnOnly = false,
+    noExchange = false,
     isPrescription = false,
   } = route.params || {};
   const { createReturn } = useReturns();
@@ -416,6 +417,27 @@ export default function ReturnRequestScreen({ navigation, route }) {
                 value={returnType}
                 onChange={setReturnType}
                 disabledTypes={["RETURN"]}
+              />
+            </View>
+          ) : noExchange ? (
+            <View>
+              <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-1">
+                <View className="flex-row items-start">
+                  <Ionicons
+                    name="information-circle"
+                    size={20}
+                    color="#F59E0B"
+                  />
+                  <Text className="text-amber-700 text-xs ml-2 flex-1">
+                    Đơn combo gọng + tròng không được phép đổi hàng, chỉ có thể
+                    trả hàng hoặc bảo hành.
+                  </Text>
+                </View>
+              </View>
+              <ReturnTypeSelector
+                value={returnType}
+                onChange={setReturnType}
+                disabledTypes={["EXCHANGE"]}
               />
             </View>
           ) : (

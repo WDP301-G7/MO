@@ -31,7 +31,6 @@ import OrderDetailScreen from "./src/screens/orders/OrderDetailScreen";
 import OrderSuccessScreen from "./src/screens/orders/OrderSuccessScreen";
 import OrderSuccessScreenVNPay from "./src/screens/orders/OrderSuccessScreenVNPay";
 import SearchScreen from "./src/screens/search/SearchScreen";
-import SupportScreen from "./src/screens/support/SupportScreen";
 import CategoriesScreen from "./src/screens/categories/CategoriesScreen";
 import PrescriptionOrderScreen from "./src/screens/prescription/PrescriptionOrderScreen";
 import VirtualTryOnScreen from "./src/screens/virtual-tryon/VirtualTryOnScreen";
@@ -144,7 +143,6 @@ export default function App() {
                   component={OrderSuccessScreenVNPay}
                 />
                 <Stack.Screen name="Search" component={SearchScreen} />
-                <Stack.Screen name="Support" component={SupportScreen} />
                 <Stack.Screen name="Categories" component={CategoriesScreen} />
                 <Stack.Screen
                   name="PrescriptionOrder"

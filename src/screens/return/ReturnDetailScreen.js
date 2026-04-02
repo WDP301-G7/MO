@@ -287,7 +287,7 @@ export default function ReturnDetailScreen({ navigation, route }) {
             </TouchableOpacity>
             <View className="flex-1">
               <Text className="text-xl font-bold text-text">
-                Chi tiết đổi/trả
+                Chi tiết đổi/trả/bảo hành
               </Text>
               <Text className="text-xs text-textGray">
                 #{currentReturn.id.slice(0, 8)}...
@@ -336,7 +336,7 @@ export default function ReturnDetailScreen({ navigation, route }) {
         {/* Products */}
         <View className="bg-white px-5 py-4 mb-2">
           <Text className="text-base font-bold text-text mb-3">
-            Sản phẩm đổi/trả
+            Sản phẩm đổi/trả/bảo hành
           </Text>
           {(currentReturn.returnItems || currentReturn.items)?.map(
             (item, index) => (
@@ -704,7 +704,7 @@ export default function ReturnDetailScreen({ navigation, route }) {
             onPress={handleCancelReturn}
           >
             <Text className="text-red-500 font-bold text-base">
-              Hủy yêu cầu đổi/trả
+              Hủy yêu cầu đổi/trả/bảo hành 
             </Text>
           </TouchableOpacity>
         </View>

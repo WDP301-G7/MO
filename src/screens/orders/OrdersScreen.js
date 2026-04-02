@@ -285,9 +285,6 @@ export default function OrdersScreen({ navigation, route }) {
       case "review":
         navigation.navigate("ProfileTab", { screen: "MyReviews" });
         break;
-      case "contact":
-        navigation.navigate("Support");
-        break;
     }
   };
 
@@ -687,7 +684,7 @@ export default function OrdersScreen({ navigation, route }) {
             </Text>
           </View>
 
-          {/* Right icons: Notification + Support */}
+          {/* Right icons: Notification */}
           <View className="flex-row items-center gap-2">
             <NotificationBell
               style={{
@@ -702,19 +699,6 @@ export default function OrdersScreen({ navigation, route }) {
               color="#fff"
               size={22}
             />
-            <TouchableOpacity
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: "rgba(255,255,255,0.2)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onPress={() => navigation.navigate("Support")}
-            >
-              <Ionicons name="help-circle" size={22} color="#fff" />
-            </TouchableOpacity>
           </View>
         </View>
 

@@ -75,7 +75,6 @@ MO/
 │   │   ├── prescription/         # PrescriptionOrderScreen
 │   │   ├── notifications/        # NotificationListScreen
 │   │   ├── search/               # SearchScreen
-│   │   ├── support/              # SupportScreen
 │   │   ├── settings/             # TermsAndPolicies
 │   │   └── virtual-tryon/        # VirtualTryOnScreen, VirtualTryOnSelectScreen
 │   ├── services/
