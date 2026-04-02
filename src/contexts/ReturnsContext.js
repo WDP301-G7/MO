@@ -71,7 +71,7 @@ export function ReturnsProvider({ children }) {
           return { success: false, message: result.message };
         }
       } catch (err) {
-        const errorMessage = err.message || "Không thể tải danh sách đổi/trả";
+        const errorMessage = err.message || "Không thể tải danh sách đổi/trả/bảo hành";
         setError(errorMessage);
         return { success: false, message: errorMessage };
       } finally {
@@ -97,7 +97,7 @@ export function ReturnsProvider({ children }) {
         return { success: false, message: result.message };
       }
     } catch (err) {
-      const errorMessage = err.message || "Không thể tải thông tin đổi/trả";
+      const errorMessage = err.message || "Không thể tải thông tin đổi/trả/bảo hành";
       setError(errorMessage);
       return { success: false, message: errorMessage };
     } finally {
@@ -122,7 +122,7 @@ export function ReturnsProvider({ children }) {
         return { success: false, message: result.message };
       }
     } catch (err) {
-      const errorMessage = err.message || "Không thể tạo yêu cầu đổi/trả";
+      const errorMessage = err.message || "Không thể tạo yêu cầu đổi/trả/bảo hành";
       setError(errorMessage);
       return { success: false, message: errorMessage };
     } finally {

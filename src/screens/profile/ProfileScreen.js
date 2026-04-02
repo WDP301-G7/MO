@@ -296,14 +296,6 @@ export default function ProfileScreen({ navigation }) {
       color: "#6B7280",
     },
     {
-      id: 10,
-      title: "Hỗ trợ khách hàng",
-      subtitle: "Liên hệ với chúng tôi",
-      icon: "help-circle-outline",
-      screen: "Support",
-      color: "#2E86AB",
-    },
-    {
       id: 11,
       title: "Điều khoản & Chính sách",
       subtitle: "Quy định sử dụng",

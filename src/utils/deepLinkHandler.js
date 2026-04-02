@@ -70,7 +70,6 @@ export const linking = {
       Search: "search",
       Notifications: "notifications",
       Vouchers: "vouchers",
-      Support: "support",
       Categories: "categories",
       Reviews: "reviews",
       MyReviews: "my-reviews",

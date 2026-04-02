@@ -317,5 +317,4 @@ export const PRESCRIPTION_STATUS = {
 // Consultation type options
 export const CONSULTATION_TYPES = {
   PHONE: { label: "Tư vấn qua điện thoại", icon: "call-outline" },
-  IN_STORE: { label: "Tư vấn tại cửa hàng", icon: "storefront-outline" },
 };

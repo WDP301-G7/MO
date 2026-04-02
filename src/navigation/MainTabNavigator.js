@@ -29,7 +29,6 @@ import VNPayPaymentScreen from "../screens/checkout/VNPayPaymentScreen";
 import OrderSuccessScreenVNPay from "../screens/orders/OrderSuccessScreenVNPay";
 import ReturnRequestScreen from "../screens/return/ReturnRequestScreen";
 import ReturnHistoryScreen from "../screens/return/ReturnHistoryScreen";
-import SupportScreen from "../screens/support/SupportScreen";
 import EditProfileScreen from "../screens/profile/EditProfileScreen";
 import ChangePasswordScreen from "../screens/profile/ChangePasswordScreen";
 import TermsAndPoliciesScreen from "../screens/settings/TermsAndPoliciesScreen";
@@ -139,7 +138,6 @@ function OrdersStack() {
         component={PrescriptionOrderScreen}
       />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
-      <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="AddressPicker" component={AddressPickerScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
@@ -171,7 +169,6 @@ function ProfileStack() {
       <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
       <Stack.Screen name="ReturnHistory" component={ReturnHistoryScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-      <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="Terms" component={TermsAndPoliciesScreen} />
       <Stack.Screen name="Orders" component={OrdersScreen} />
       <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
