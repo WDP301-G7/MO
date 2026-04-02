@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -44,6 +44,8 @@ export default function LensOrderScreen({ navigation, route }) {
   const [membership, setMembership] = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [stockMap, setStockMap] = useState({});
+  const fetchedStockIds = useRef(new Set());
 
   useEffect(() => {
     loadProducts();
@@ -52,6 +54,68 @@ export default function LensOrderScreen({ navigation, route }) {
       if (r.success) setMembership(r.data);
     });
   }, []);
+
+  // Fetch tồn kho tẻẳng tính khi mở dropdown tòng kính
+  useEffect(() => {
+    if (!lensDropdownOpen || lensProducts.length === 0) return;
+    const unfetched = lensProducts.filter(
+      (p) => !p.isPreorder && !fetchedStockIds.current.has(p.id),
+    );
+    if (unfetched.length === 0) return;
+    unfetched.forEach((p) => fetchedStockIds.current.add(p.id));
+    let cancelled = false;
+    Promise.all(
+      unfetched.map((p) =>
+        getProductAvailableQuantity(p.id).then((r) => ({
+          id: p.id,
+          qty: r.success ? (r.data?.availableQuantity ?? 0) : Infinity,
+        })),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      setStockMap((prev) => {
+        const next = { ...prev };
+        results.forEach(({ id, qty }) => {
+          next[id] = qty;
+        });
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lensDropdownOpen, lensProducts]);
+
+  // Fetch tồn kho khi mở dropdown gọ ng kính
+  useEffect(() => {
+    if (!frameDropdownOpen || frameProducts.length === 0) return;
+    const unfetched = frameProducts.filter(
+      (p) => !p.isPreorder && !fetchedStockIds.current.has(p.id),
+    );
+    if (unfetched.length === 0) return;
+    unfetched.forEach((p) => fetchedStockIds.current.add(p.id));
+    let cancelled = false;
+    Promise.all(
+      unfetched.map((p) =>
+        getProductAvailableQuantity(p.id).then((r) => ({
+          id: p.id,
+          qty: r.success ? (r.data?.availableQuantity ?? 0) : Infinity,
+        })),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      setStockMap((prev) => {
+        const next = { ...prev };
+        results.forEach(({ id, qty }) => {
+          next[id] = qty;
+        });
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [frameDropdownOpen, frameProducts]);
 
   const loadProducts = async () => {
     try {
@@ -140,20 +204,10 @@ export default function LensOrderScreen({ navigation, route }) {
 
   const isProductAvailable = (product) => {
     if (!product) return false;
-
-    // Product is available if:
-    // 1. It's a preorder item (isPreorder = true) - can always be ordered
-    // 2. For non-preorder items - allow selection (will check inventory on "Next" button)
-    // Note: API /products doesn't return stock info, need to call /inventory/product/:id separately
-
-    // Preorder items are always available
-    if (product.isPreorder === true) {
-      return true;
-    }
-
-    // For non-preorder items, assume available (will check with inventory API later)
-    // This prevents blocking UI when stock data is not loaded yet
-    return true;
+    if (product.isPreorder === true) return true;
+    // Use stockMap if loaded, otherwise assume available (loads lazily when dropdown opens)
+    if (stockMap[product.id] === undefined) return true;
+    return stockMap[product.id] > 0;
   };
 
   const getTotalAmount = () => {
@@ -186,7 +240,10 @@ export default function LensOrderScreen({ navigation, route }) {
       // Check inventory for non-preorder items
       if (!lens.isPreorder) {
         const lensInventory = await getProductAvailableQuantity(lens.id);
-        if (!lensInventory.success || lensInventory.data?.totalAvailable <= 0) {
+        if (
+          !lensInventory.success ||
+          !(lensInventory.data?.availableQuantity > 0)
+        ) {
           Alert.alert(
             "Thông báo",
             "Tròng kính đã chọn hiện đang hết hàng. Vui lòng chọn sản phẩm khác.",
@@ -199,7 +256,7 @@ export default function LensOrderScreen({ navigation, route }) {
         const frameInventory = await getProductAvailableQuantity(frame.id);
         if (
           !frameInventory.success ||
-          frameInventory.data?.totalAvailable <= 0
+          !(frameInventory.data?.availableQuantity > 0)
         ) {
           Alert.alert(
             "Thông báo",

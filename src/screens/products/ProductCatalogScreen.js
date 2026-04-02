@@ -24,6 +24,7 @@ export default function ProductCatalogScreen({ navigation, route }) {
   const [selectedSort, setSelectedSort] = useState("popular");
   const [pagination, setPagination] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [stockMap, setStockMap] = useState({});
 
   const categoryId = route.params?.categoryId;
   const categoryName = route.params?.categoryName || "Tất cả sản phẩm";
@@ -31,6 +32,35 @@ export default function ProductCatalogScreen({ navigation, route }) {
   useEffect(() => {
     loadProducts();
   }, [categoryId, selectedFilter, selectedSort]);
+
+  // Fetch tồn kho cho các sản phẩm trong danh sách (background, không block UI)
+  useEffect(() => {
+    const unfetched = products.filter(
+      (p) => !p.isPreorder && !(p.id in stockMap),
+    );
+    if (unfetched.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      unfetched.map((p) =>
+        getProductAvailableQuantity(p.id).then((r) => ({
+          id: p.id,
+          qty: r.success ? (r.data?.availableQuantity ?? 0) : Infinity,
+        })),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      setStockMap((prev) => {
+        const next = { ...prev };
+        results.forEach(({ id, qty }) => {
+          next[id] = qty;
+        });
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [products]);
 
   const ALLOWED_CATEGORY_IDS = [
     "00000000-0000-0000-0000-000000000001",
@@ -134,6 +164,9 @@ export default function ProductCatalogScreen({ navigation, route }) {
     return (
       <TouchableOpacity
         className="flex-1 m-2 bg-white rounded-xl overflow-hidden shadow-md"
+        style={
+          !item.isPreorder && stockMap[item.id] === 0 ? { opacity: 0.6 } : {}
+        }
         onPress={() =>
           navigation.navigate("ProductDetail", { productId: item.id })
         }
@@ -142,11 +175,15 @@ export default function ProductCatalogScreen({ navigation, route }) {
           source={{ uri: getProductImage(item) }}
           className="w-full h-40 bg-background"
         />
-        {item.isPreorder && (
+        {item.isPreorder ? (
           <View className="absolute top-2 left-2 bg-accent px-2 py-1 rounded-md">
-            <Text className="text-white text-xs font-bold">Đặt trước</Text>
+            <Text className="text-white text-xs font-bold">\u0110ặt trước</Text>
           </View>
-        )}
+        ) : stockMap[item.id] === 0 ? (
+          <View className="absolute top-2 left-2 bg-red-500 px-2 py-1 rounded-md">
+            <Text className="text-white text-xs font-bold">Hết hàng</Text>
+          </View>
+        ) : null}
 
         <View className="p-3">
           {item.brand && (
