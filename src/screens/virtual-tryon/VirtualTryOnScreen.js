@@ -376,37 +376,125 @@ function generate3DModelHtml(modelUrl, productName) {
   const safeName = productName
     ? productName.replace(/</g, "&lt;").replace(/>/g, "&gt;")
     : "Kính mắt";
+  const JS_MODEL_URL = JSON.stringify(modelUrl || "");
+  const SC = "</" + "script>";
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>${safeName}</title>
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#0d0d1a; width:100vw; height:100vh; overflow:hidden; }
-    model-viewer { width:100%; height:100%; --poster-color:transparent; }
-    #progress-bar {
-      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-      width:60%; height:6px; background:rgba(255,255,255,.2); border-radius:3px;
-    }
-    #progress-fill { height:100%; width:0%; background:#2E86AB; border-radius:3px; transition:width .3s; }
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;overflow:hidden;background:#F2F4F7;display:flex;flex-direction:column}
+    #c3d{flex:1;width:100%;display:block;touch-action:none}
+    #hint{padding:10px 16px;background:#E5E7EB;color:rgba(0,0,0,0.45);font-family:-apple-system,sans-serif;font-size:12px;text-align:center}
+    #msg{display:none;position:fixed;bottom:60px;left:16px;right:16px;background:rgba(0,0,0,.7);color:#fff;padding:10px 14px;border-radius:10px;font:13px -apple-system,sans-serif;text-align:center;z-index:99}
   </style>
 </head>
 <body>
-  <model-viewer id="viewer" src="${modelUrl}"
-    ar ar-modes="webxr scene-viewer quick-look"
-    camera-controls auto-rotate rotation-per-second="25deg"
-    shadow-intensity="1" exposure="1" environment-image="neutral"
-    alt="${safeName}" touch-action="pan-y">
-    <div id="progress-bar" slot="progress-bar"><div id="progress-fill"></div></div>
-  </model-viewer>
-  <script>
-    const v=document.getElementById('viewer'),f=document.getElementById('progress-fill'),b=document.getElementById('progress-bar');
-    v.addEventListener('progress',e=>{f.style.width=(e.detail.totalProgress*100)+'%';if(e.detail.totalProgress===1)b.style.display='none';});
-    v.addEventListener('error',()=>{document.body.innerHTML='<p style="color:#fff;text-align:center;padding-top:45vh;font-family:sans-serif;font-size:16px">Không thể tải mô hình 3D</p>';});
-  </script>
+  <canvas id="c3d"></canvas>
+  <div id="hint">Kéo để xoay · Chụm / Giãn để zoom</div>
+  <div id="msg"></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.140.0/build/three.min.js">${SC}
+<script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/loaders/GLTFLoader.js">${SC}
+<script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/environments/RoomEnvironment.js">${SC}
+<script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/controls/OrbitControls.js">${SC}
+<script>
+(function(){
+  var MODEL_URL=${JS_MODEL_URL};
+  var canvas=document.getElementById('c3d');
+  var msgEl=document.getElementById('msg');
+  var say=function(t){msgEl.textContent=t;msgEl.style.display='block';};
+
+  if(typeof THREE==='undefined'){say('Không tải được thư viện 3D');return;}
+
+  // Renderer — same settings as AR view
+  var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:false});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,3));
+  renderer.setClearColor(0xF2F4F7,1);
+  try{renderer.physicallyCorrectLights=true;}catch(e){}
+  try{renderer.outputEncoding=THREE.sRGBEncoding;}catch(e){}
+  try{renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;}catch(e){}
+
+  var scene=new THREE.Scene();
+  var w=canvas.clientWidth||window.innerWidth;
+  var h=canvas.clientHeight||(window.innerHeight-44);
+  var camera=new THREE.PerspectiveCamera(45,w/h,0.001,100);
+  camera.position.set(0,0,2.5);
+
+  function resize(){
+    var W=window.innerWidth,H=window.innerHeight-44;
+    renderer.setSize(W,H,false);
+    camera.aspect=W/H;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  window.addEventListener('resize',resize);
+
+  // Lighting — identical to AR view
+  scene.add(new THREE.AmbientLight(0xffffff,0.8));
+  var hemi=new THREE.HemisphereLight(0xfff4e0,0x2a3a55,1.8);
+  scene.add(hemi);
+  var key=new THREE.DirectionalLight(0xfff5e6,3.8);
+  key.position.set(0.8,1.5,1.5);scene.add(key);
+  var fill=new THREE.DirectionalLight(0xe8f0ff,1.4);
+  fill.position.set(-1.5,-0.5,1.0);scene.add(fill);
+  var rim=new THREE.DirectionalLight(0xffffff,0.9);
+  rim.position.set(0,-1.5,-2.0);scene.add(rim);
+
+  // IBL — RoomEnvironment, same as AR view
+  try{
+    if(typeof THREE.RoomEnvironment!=='undefined'){
+      var pmrem=new THREE.PMREMGenerator(renderer);
+      pmrem.compileEquirectangularShader();
+      scene.environment=pmrem.fromScene(new THREE.RoomEnvironment(),0.04).texture;
+      pmrem.dispose();
+    }
+  }catch(e){}
+
+  // OrbitControls
+  var controls=null;
+  if(typeof THREE.OrbitControls!=='undefined'){
+    controls=new THREE.OrbitControls(camera,canvas);
+    controls.enablePan=false;
+    controls.enableDamping=true;
+    controls.dampingFactor=0.08;
+    controls.minDistance=0.3;
+    controls.maxDistance=8;
+    controls.autoRotate=true;
+    controls.autoRotateSpeed=1.2;
+  }
+
+  // Load GLB
+  new THREE.GLTFLoader().load(MODEL_URL,function(gltf){
+    var obj=gltf.scene;
+    var box=new THREE.Box3().setFromObject(obj);
+    var center=box.getCenter(new THREE.Vector3());
+    var size=box.getSize(new THREE.Vector3());
+    var maxDim=Math.max(size.x,size.y,size.z)||1;
+    var scale=1.5/maxDim;
+    obj.scale.setScalar(scale);
+    obj.position.sub(center.multiplyScalar(scale));
+    scene.add(obj);
+    // Disable auto-rotate on user interaction
+    if(controls){
+      canvas.addEventListener('pointerdown',function(){controls.autoRotate=false;},{once:true});
+    }
+    msgEl.style.display='none';
+  },undefined,function(err){
+    say('Không thể tải mô hình 3D');
+  });
+
+  // Render loop
+  function animate(){
+    requestAnimationFrame(animate);
+    if(controls)controls.update();
+    renderer.render(scene,camera);
+  }
+  animate();
+})();
+${SC}
 </body>
 </html>`;
 }

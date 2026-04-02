@@ -32,6 +32,7 @@ export default function ProfileScreen({ navigation }) {
   const [membership, setMembership] = useState(null);
   const [orderStats, setOrderStats] = useState({
     new: 0,
+    pendingPayment: 0,
     confirmed: 0,
     waitingCustomer: 0,
     waitingProduct: 0,
@@ -108,6 +109,8 @@ export default function ProfileScreen({ navigation }) {
         // Đếm số lượng đơn hàng theo từng status riêng biệt
         const stats = {
           new: orders.filter((o) => o.status === "NEW").length,
+          pendingPayment: orders.filter((o) => o.status === "PENDING_PAYMENT")
+            .length,
           confirmed: orders.filter((o) => o.status === "CONFIRMED").length,
           waitingCustomer: orders.filter((o) => o.status === "WAITING_CUSTOMER")
             .length,
@@ -162,8 +165,8 @@ export default function ProfileScreen({ navigation }) {
     {
       id: 1,
       label: "Chờ thanh toán",
-      count: orderStats.new,
-      icon: "document-text-outline",
+      count: orderStats.new + orderStats.pendingPayment,
+      icon: "time-outline",
       color: "#3B82F6",
       screen: "Orders",
       filter: 1,
@@ -179,7 +182,7 @@ export default function ProfileScreen({ navigation }) {
     },
     {
       id: 3,
-      label: "Chờ khách",
+      label: "Đang chuẩn bị",
       count: orderStats.waitingCustomer,
       icon: "person-outline",
       color: "#EC4899",
@@ -405,7 +408,7 @@ export default function ProfileScreen({ navigation }) {
                 Tài khoản
               </Text>
             </View>
-            
+
             {/* Right icons: Notification + Membership badge */}
             <View className="flex-row items-center gap-2">
               <NotificationBell

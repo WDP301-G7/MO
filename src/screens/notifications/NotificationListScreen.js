@@ -38,32 +38,34 @@ export default function NotificationListScreen() {
   const handleNotificationPress = (notification) => {
     const { type, data } = notification;
 
-    // Navigate to appropriate tab with screen to maintain bottom tab
+    // Navigate through "MainApp" so the action works whether this screen
+    // is rendered inside a tab stack OR at the root stack level (e.g. from
+    // a push notification deeplink).
     if (type.includes("ORDER_") || type.includes("PAYMENT_")) {
-      // Navigate to Orders tab → OrderDetail screen
-      // Both ORDER and PAYMENT notifications have orderId
-      navigation.navigate("OrdersTab", {
-        screen: "OrderDetail",
-        params: { orderId: data?.orderId },
+      navigation.navigate("MainApp", {
+        screen: "OrdersTab",
+        params: {
+          screen: "OrderDetail",
+          params: { orderId: data?.orderId },
+        },
       });
     } else if (type.includes("PRESCRIPTION_")) {
-      // Navigate to Orders tab → Appointments screen
-      navigation.navigate("OrdersTab", {
-        screen: "Appointments",
+      navigation.navigate("MainApp", {
+        screen: "OrdersTab",
+        params: { screen: "Appointments" },
       });
     } else if (type.includes("RETURN_")) {
-      // Navigate to Orders tab → ReturnHistory screen
-      navigation.navigate("OrdersTab", {
-        screen: "ReturnHistory",
+      navigation.navigate("MainApp", {
+        screen: "OrdersTab",
+        params: { screen: "ReturnHistory" },
       });
     } else if (type.includes("MEMBERSHIP_")) {
-      // Navigate to Orders tab → Membership screen
-      navigation.navigate("OrdersTab", {
-        screen: "Membership",
+      navigation.navigate("MainApp", {
+        screen: "OrdersTab",
+        params: { screen: "Membership" },
       });
     } else if (type.includes("PROFILE_") || type.includes("PASSWORD_")) {
-      // Navigate to Profile tab
-      navigation.navigate("ProfileTab");
+      navigation.navigate("MainApp", { screen: "ProfileTab" });
     }
   };
 
@@ -170,7 +172,10 @@ export default function NotificationListScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={loading && notifications.length > 0} onRefresh={refresh} />
+          <RefreshControl
+            refreshing={loading && notifications.length > 0}
+            onRefresh={refresh}
+          />
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}

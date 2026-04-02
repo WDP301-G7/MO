@@ -8,7 +8,6 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
-  TextInput,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,7 +20,10 @@ import {
   formatPrice,
 } from "../../services/orderService";
 import { getProductImages } from "../../services/productService";
-import { getOrderPrescription } from "../../services/prescriptionService";
+import {
+  getOrderPrescription,
+  getStores,
+} from "../../services/prescriptionService";
 import { createVNPayPayment } from "../../services/paymentService";
 import { getMyReturns } from "../../services/returnService";
 import {
@@ -36,13 +38,12 @@ export default function OrderDetailScreen({ navigation, route }) {
   const [prescription, setPrescription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [existingReturns, setExistingReturns] = useState([]);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState("");
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [membership, setMembership] = useState(null);
   const [productImages, setProductImages] = useState({});
+  const [storeInfo, setStoreInfo] = useState(null);
 
   useEffect(() => {
     if (orderId) {
@@ -59,6 +60,28 @@ export default function OrderDetailScreen({ navigation, route }) {
       }
     } catch (error) {
       // Silent error
+    }
+  };
+
+  const loadStoreInfo = async (order) => {
+    if (order?.deliveryMethod !== "PICKUP_AT_STORE") return;
+    // If the order already has full store info, use it
+    if (order.store?.address) {
+      setStoreInfo(order.store);
+      return;
+    }
+    // Otherwise fetch from the stores list
+    try {
+      const res = await getStores();
+      if (res.success && res.data.length > 0) {
+        // Try to match by storeId, fall back to first store
+        const matched = order.storeId
+          ? res.data.find((s) => s.id === order.storeId)
+          : null;
+        setStoreInfo(matched || res.data[0]);
+      }
+    } catch (_e) {
+      // Silent
     }
   };
 
@@ -143,8 +166,7 @@ export default function OrderDetailScreen({ navigation, route }) {
         }
 
         setOrder(orderData);
-
-        // Fetch images for all products in this order
+        loadStoreInfo(orderData);
         const items = orderData.orderItems || [];
         const uniqueIds = [
           ...new Set(items.map((i) => i.productId).filter(Boolean)),
@@ -220,35 +242,51 @@ export default function OrderDetailScreen({ navigation, route }) {
 
   // Mock data removed - using API data only
 
-  const handleCancelOrder = async () => {
-    if (!cancelReason.trim()) {
-      Alert.alert("Thông báo", "Vui lòng nhập lý do hủy đơn");
-      return;
-    }
-
-    try {
-      setCancelling(true);
-      const result = await cancelOrder(orderId, cancelReason.trim());
-
-      if (result.success) {
-        Alert.alert("Thành công", result.message || "Hủy đơn hàng thành công", [
-          {
-            text: "OK",
-            onPress: () => {
-              setShowCancelModal(false);
-              navigation.goBack();
-            },
+  const handleCancelOrder = () => {
+    Alert.alert(
+      "Xác nhận hủy đơn",
+      "Bạn có chắc chắn muốn hủy đơn hàng này không? Hành động này không thể hoàn tác.",
+      [
+        { text: "Không", style: "cancel" },
+        {
+          text: "Hủy đơn",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setCancelling(true);
+              const result = await cancelOrder(orderId, "Khách hủy đơn");
+              if (result.success) {
+                Alert.alert(
+                  "Đã hủy",
+                  result.message || "Hủy đơn hàng thành công",
+                  [{ text: "OK", onPress: () => navigation.goBack() }],
+                );
+              } else {
+                Alert.alert("Lỗi", result.message || "Hủy đơn thất bại");
+              }
+            } catch (_err) {
+              Alert.alert("Lỗi", "Đã xảy ra lỗi khi hủy đơn hàng");
+            } finally {
+              setCancelling(false);
+            }
           },
-        ]);
-      } else {
-        Alert.alert("Lỗi", result.message || "Hủy đơn thất bại");
-      }
-    } catch (error) {
-      Alert.alert("Lỗi", "Đã xảy ra lỗi khi hủy đơn hàng");
-    } finally {
-      setCancelling(false);
-    }
+        },
+      ],
+    );
   };
+
+  // Detect if the order actually contains both a lens and a frame regardless of orderType.
+  // Backend may return IN_STOCK/PRE_ORDER for mixed orders; fall back to item-level inspection.
+  const isLensWithFrameOrder =
+    order?.orderType === "LENS_WITH_FRAME" ||
+    (() => {
+      const items = order?.orderItems || [];
+      const hasLens = items.some((i) => i.product?.type === "LENS");
+      const hasFrame = items.some(
+        (i) => i.product?.type === "FRAME" || i.product?.type === "EYEWEAR",
+      );
+      return hasLens && hasFrame;
+    })();
 
   // Check if order is eligible for return/exchange/warranty
   const canReturnExchange = () => {
@@ -496,16 +534,14 @@ export default function OrderDetailScreen({ navigation, route }) {
           </View>
 
           {/* Order Type Badge */}
-          {order.orderType !== "normal" && (
+          {order.orderType && order.orderType !== "normal" && (
             <View
               className="mx-5 mt-4 p-4 rounded-2xl"
               style={{
                 backgroundColor:
                   order.orderType === "PRESCRIPTION"
                     ? "#A23B7220"
-                    : order.orderType === "LENS_WITH_FRAME" ||
-                        order.orderType === "IN_STOCK" ||
-                        order.orderType === "PRE_ORDER"
+                    : isLensWithFrameOrder
                       ? "#F18F0120"
                       : "#2E86AB20",
               }}
@@ -515,19 +551,15 @@ export default function OrderDetailScreen({ navigation, route }) {
                   name={
                     order.orderType === "PRESCRIPTION"
                       ? "medical"
-                      : order.orderType === "LENS_WITH_FRAME" ||
-                          order.orderType === "IN_STOCK" ||
-                          order.orderType === "PRE_ORDER"
+                      : isLensWithFrameOrder
                         ? "eye"
-                        : "disc"
+                        : "cart-outline"
                   }
                   size={20}
                   color={
                     order.orderType === "PRESCRIPTION"
                       ? "#A23B72"
-                      : order.orderType === "LENS_WITH_FRAME" ||
-                          order.orderType === "IN_STOCK" ||
-                          order.orderType === "PRE_ORDER"
+                      : isLensWithFrameOrder
                         ? "#F18F01"
                         : "#2E86AB"
                   }
@@ -538,7 +570,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                     color:
                       order.orderType === "PRESCRIPTION"
                         ? "#A23B72"
-                        : order.orderType === "LENS_WITH_FRAME"
+                        : isLensWithFrameOrder
                           ? "#F18F01"
                           : "#2E86AB",
                   }}
@@ -547,11 +579,13 @@ export default function OrderDetailScreen({ navigation, route }) {
                     ? order.prescriptionType === "lens_only"
                       ? "Đơn thuốc - Chỉ tròng"
                       : "Đơn thuốc - Gọng + Tròng"
-                    : order.orderType === "LENS_WITH_FRAME" ||
-                        order.orderType === "IN_STOCK" ||
-                        order.orderType === "PRE_ORDER"
+                    : isLensWithFrameOrder
                       ? "Gọng + Tròng (Lắp tại cửa hàng)"
-                      : "Đơn hàng thường"}
+                      : order.orderType === "PRE_ORDER"
+                        ? "Gọng kính (Đặt trước)"
+                        : order.orderType === "IN_STOCK"
+                          ? "Gọng kính"
+                          : "Đơn hàng thường"}
                 </Text>
               </View>
 
@@ -601,20 +635,94 @@ export default function OrderDetailScreen({ navigation, route }) {
                 <Text className="text-sm font-semibold text-amber-900 mb-2">
                   📍 Nhận tại cửa hàng
                 </Text>
-                <Text className="text-sm text-amber-800">
-                  {order.store?.name ||
+                <Text className="text-sm font-semibold text-amber-800">
+                  {storeInfo?.name ||
+                    order.store?.name ||
                     order.storeName ||
                     "Chi nhánh Eyewear Store"}
                 </Text>
-                {(order.store?.address || order.storeAddress) && (
-                  <Text className="text-xs text-amber-700 mt-1">
-                    {order.store?.address || order.storeAddress}
-                  </Text>
+                {(storeInfo?.address ||
+                  order.store?.address ||
+                  order.storeAddress) && (
+                  <View className="flex-row items-start mt-2">
+                    <Ionicons
+                      name="location-outline"
+                      size={14}
+                      color="#92400E"
+                      style={{ marginTop: 2 }}
+                    />
+                    <Text className="text-xs text-amber-700 ml-1 flex-1">
+                      {storeInfo?.address ||
+                        order.store?.address ||
+                        order.storeAddress}
+                    </Text>
+                  </View>
+                )}
+                {storeInfo?.phone && (
+                  <View className="flex-row items-center mt-1">
+                    <Ionicons name="call-outline" size={14} color="#92400E" />
+                    <Text className="text-xs text-amber-700 ml-1">
+                      {storeInfo.phone}
+                    </Text>
+                  </View>
                 )}
               </View>
               <Text className="text-sm text-textGray">
                 Vui lòng mang theo CMND/CCCD khi đến nhận hàng
               </Text>
+            </View>
+          )}
+
+          {/* Shipping Address - HOME_DELIVERY orders */}
+          {order.deliveryMethod === "HOME_DELIVERY" && (
+            <View className="bg-white mx-5 mt-4 p-4 rounded-2xl">
+              <View className="flex-row items-center mb-3">
+                <Ionicons name="bicycle-outline" size={20} color="#2E86AB" />
+                <Text className="text-base font-bold text-text ml-2">
+                  Địa chỉ giao hàng
+                </Text>
+              </View>
+              {order.shippingAddress ? (
+                <View className="bg-blue-50 rounded-xl p-3">
+                  <View className="flex-row items-start">
+                    <Ionicons
+                      name="location"
+                      size={16}
+                      color="#2E86AB"
+                      style={{ marginTop: 2 }}
+                    />
+                    <Text className="text-sm text-text ml-2 flex-1 leading-5">
+                      {order.shippingAddress}
+                    </Text>
+                  </View>
+                  {order.trackingNumber && (
+                    <View className="mt-3 pt-3 border-t border-blue-100 flex-row items-center justify-between">
+                      <View>
+                        <Text className="text-xs text-textGray mb-0.5">
+                          Mã vận đơn (GHN)
+                        </Text>
+                        <Text className="text-sm font-bold text-text">
+                          {order.trackingNumber}
+                        </Text>
+                      </View>
+                      <TouchableOpacity className="flex-row items-center">
+                        <Text className="text-sm font-semibold text-primary mr-1">
+                          Sao chép
+                        </Text>
+                        <Ionicons
+                          name="copy-outline"
+                          size={15}
+                          color="#2E86AB"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Text className="text-sm text-textGray italic">
+                  Chưa có thông tin địa chỉ
+                </Text>
+              )}
             </View>
           )}
 
@@ -771,9 +879,9 @@ export default function OrderDetailScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* Expiry Countdown - For unpaid NEW and WAITING_CUSTOMER orders */}
+          {/* Expiry Countdown - For unpaid NEW and PENDING_PAYMENT orders */}
           {order.paymentStatus === "UNPAID" &&
-            (order.status === "NEW" || order.status === "WAITING_CUSTOMER") && (
+            (order.status === "NEW" || order.status === "PENDING_PAYMENT") && (
               <View
                 className={`mx-5 mt-4 p-4 rounded-2xl border ${
                   timeRemaining === "Đã hết hạn"
@@ -1097,9 +1205,8 @@ export default function OrderDetailScreen({ navigation, route }) {
 
           {/* Action Buttons */}
           <View className="px-5 mb-8 gap-4">
-            {/* Payment Button for Prescription Orders (WAITING_CUSTOMER) */}
-            {order.paymentStatus === "UNPAID" &&
-              order.status === "WAITING_CUSTOMER" &&
+            {/* Payment Button for Prescription Orders (PENDING_PAYMENT) */}
+            {order.status === "PENDING_PAYMENT" &&
               (() => {
                 const isExpired = timeRemaining === "Đã hết hạn";
                 return (
@@ -1253,7 +1360,8 @@ export default function OrderDetailScreen({ navigation, route }) {
                 </View>
               </View>
             )}
-            {order.status === "NEW" || order.status === "CONFIRMED" ? (
+            {/* Cancel Button - show for all order types when UNPAID */}
+            {order.paymentStatus === "UNPAID" && (
               <View className="flex-row gap-3">
                 <TouchableOpacity
                   className="flex-1 border-2 border-border bg-white rounded-xl py-3 items-center"
@@ -1265,14 +1373,20 @@ export default function OrderDetailScreen({ navigation, route }) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="flex-1 border-2 border-red-500 bg-white rounded-xl py-3 items-center"
-                  onPress={() => setShowCancelModal(true)}
+                  onPress={handleCancelOrder}
+                  disabled={cancelling}
                 >
-                  <Text className="text-red-500 font-bold text-sm">
-                    Hủy đơn hàng
-                  </Text>
+                  {cancelling ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <Text className="text-red-500 font-bold text-sm">
+                      Hủy đơn hàng
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
-            ) : (
+            )}
+            {order.paymentStatus !== "UNPAID" && (
               <TouchableOpacity
                 className="border-2 border-border bg-white rounded-xl py-3 items-center"
                 onPress={() => navigation.navigate("Support")}
@@ -1284,72 +1398,6 @@ export default function OrderDetailScreen({ navigation, route }) {
             )}
           </View>
         </ScrollView>
-
-        {/* Cancel Confirmation Modal */}
-        <Modal
-          visible={showCancelModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => !cancelling && setShowCancelModal(false)}
-        >
-          <View className="flex-1 bg-black/50 items-center justify-center px-8">
-            <View className="bg-white rounded-3xl p-6 w-full">
-              <View className="items-center mb-4">
-                <View className="w-16 h-16 rounded-full bg-red-100 items-center justify-center mb-3">
-                  <Ionicons
-                    name="alert-circle-outline"
-                    size={40}
-                    color="#EF4444"
-                  />
-                </View>
-                <Text className="text-xl font-bold text-text text-center">
-                  Xác nhận hủy đơn
-                </Text>
-                <Text className="text-sm text-textGray text-center mt-2">
-                  Vui lòng cho biết lý do hủy đơn hàng
-                </Text>
-              </View>
-
-              {/* Reason Input */}
-              <View className="mb-4">
-                <TextInput
-                  className="bg-background rounded-xl px-4 py-3 text-sm text-text min-h-24"
-                  placeholder="Nhập lý do hủy đơn..."
-                  placeholderTextColor="#999999"
-                  multiline
-                  textAlignVertical="top"
-                  value={cancelReason}
-                  onChangeText={setCancelReason}
-                  editable={!cancelling}
-                />
-              </View>
-
-              <View className="flex-row gap-3 mt-4">
-                <TouchableOpacity
-                  className="flex-1 bg-background rounded-xl py-3 items-center"
-                  onPress={() => {
-                    setShowCancelModal(false);
-                    setCancelReason("");
-                  }}
-                  disabled={cancelling}
-                >
-                  <Text className="text-text font-semibold">Không</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="flex-1 bg-red-500 rounded-xl py-3 items-center"
-                  onPress={handleCancelOrder}
-                  disabled={cancelling}
-                >
-                  {cancelling ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text className="text-white font-semibold">Hủy đơn</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </View>
     );
   } catch (error) {

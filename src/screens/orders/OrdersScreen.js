@@ -143,8 +143,8 @@ export default function OrdersScreen({ navigation, route }) {
     {
       id: 1,
       label: "Chờ thanh toán",
-      icon: "document-text-outline",
-      statuses: ["NEW"],
+      icon: "time-outline",
+      statuses: ["NEW", "PENDING_PAYMENT"],
     },
     {
       id: 2,
@@ -154,7 +154,7 @@ export default function OrdersScreen({ navigation, route }) {
     },
     {
       id: 3,
-      label: "Chờ khách",
+      label: "Đang chuẩn bị",
       icon: "person-outline",
       statuses: ["WAITING_CUSTOMER"],
     },
@@ -233,6 +233,7 @@ export default function OrdersScreen({ navigation, route }) {
 
   const getStatusActions = (status) => {
     switch (status) {
+      case "PENDING_PAYMENT":
       case "NEW":
       case "CONFIRMED":
         return [{ label: "Xem chi tiết", color: "#2E86AB", action: "detail" }];
@@ -685,7 +686,7 @@ export default function OrdersScreen({ navigation, route }) {
               Đơn hàng của tôi
             </Text>
           </View>
-          
+
           {/* Right icons: Notification + Support */}
           <View className="flex-row items-center gap-2">
             <NotificationBell

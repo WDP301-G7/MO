@@ -201,12 +201,36 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
         <View className="w-full gap-3">
           <TouchableOpacity
             className="w-full bg-primary py-4 rounded-xl items-center"
-            onPress={() =>
-              (navigation.getParent() || navigation).navigate("OrdersTab", {
-                screen: "OrderDetail",
-                params: { orderId: orderId },
-              })
-            }
+            onPress={() => {
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: "MainApp",
+                      state: {
+                        index: 2,
+                        routes: [
+                          { name: "HomeTab" },
+                          { name: "CategoriesTab" },
+                          {
+                            name: "OrdersTab",
+                            state: {
+                              index: 1,
+                              routes: [
+                                { name: "Orders" },
+                                { name: "OrderDetail", params: { orderId } },
+                              ],
+                            },
+                          },
+                          { name: "ProfileTab" },
+                        ],
+                      },
+                    },
+                  ],
+                }),
+              );
+            }}
           >
             <Text className="text-white font-bold text-base">Xem đơn hàng</Text>
           </TouchableOpacity>
@@ -214,27 +238,28 @@ export default function OrderSuccessScreenVNPay({ navigation, route }) {
           <TouchableOpacity
             className="w-full bg-background border-2 border-primary py-4 rounded-xl items-center"
             onPress={() => {
-              // Reset HomeStack to just Home (removes VNPay screens from stack)
-              // then switch to HomeTab via the Tab navigator
-              const tabNav = navigation.getParent();
-              if (tabNav) {
-                tabNav.dispatch(
-                  CommonActions.reset({
-                    index: 0,
-                    routes: [
-                      {
-                        name: "HomeTab",
-                        state: {
-                          routes: [{ name: "Home" }],
-                          index: 0,
-                        },
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: "MainApp",
+                      state: {
+                        index: 0,
+                        routes: [
+                          {
+                            name: "HomeTab",
+                            state: { index: 0, routes: [{ name: "Home" }] },
+                          },
+                          { name: "CategoriesTab" },
+                          { name: "OrdersTab" },
+                          { name: "ProfileTab" },
+                        ],
                       },
-                    ],
-                  }),
-                );
-              } else {
-                navigation.navigate("Home");
-              }
+                    },
+                  ],
+                }),
+              );
             }}
           >
             <Text className="text-primary font-bold text-base">

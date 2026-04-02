@@ -152,7 +152,7 @@ export const createOrder = async (orderData) => {
 export const cancelOrder = async (orderId, reason) => {
   try {
     const endpoint = API_ENDPOINTS.ORDERS.CANCEL.replace(":id", orderId);
-    const response = await api.post(endpoint, { reason });
+    const response = await api.post(endpoint, { reason, cancelReason: reason });
 
     return {
       success: true,
@@ -195,8 +195,9 @@ export const cancelOrder = async (orderId, reason) => {
 export const formatOrderStatus = (status) => {
   const statusMap = {
     NEW: "Chờ thanh toán",
+    PENDING_PAYMENT: "Chờ thanh toán",
     CONFIRMED: "Đã xác nhận",
-    WAITING_CUSTOMER: "Chờ khách",
+    WAITING_CUSTOMER: "Đang chuẩn bị",
     WAITING_PRODUCT: "Chờ hàng",
     PROCESSING: "Đang xử lý",
     READY: "Sẵn sàng giao / nhận",
@@ -214,8 +215,9 @@ export const formatOrderStatus = (status) => {
 export const getOrderStatusColor = (status) => {
   const colorMap = {
     NEW: "#3B82F6", // blue - Chờ thanh toán
+    PENDING_PAYMENT: "#F97316", // orange - Chờ thanh toán (prescription)
     CONFIRMED: "#8B5CF6", // purple - Đã xác nhận
-    WAITING_CUSTOMER: "#EC4899", // pink - Chờ khách
+    WAITING_CUSTOMER: "#EC4899", // pink - Đang chuẩn bị
     WAITING_PRODUCT: "#F59E0B", // amber - Chờ hàng
     PROCESSING: "#F97316", // orange - Đang xử lý
     READY: "#10B981", // green - Sẵn sàng
@@ -233,6 +235,7 @@ export const getOrderStatusColor = (status) => {
 export const getOrderStatusIcon = (status) => {
   const iconMap = {
     NEW: "document-text-outline",
+    PENDING_PAYMENT: "time-outline",
     CONFIRMED: "checkmark-circle-outline",
     WAITING_CUSTOMER: "person-outline",
     WAITING_PRODUCT: "cube-outline",

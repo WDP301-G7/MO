@@ -38,6 +38,7 @@ import MembershipScreen from "../screens/membership/MembershipScreen";
 import MembershipHistoryScreen from "../screens/membership/MembershipHistoryScreen";
 import MyAppointmentsScreen from "../screens/appointments/MyAppointmentsScreen";
 import NotificationListScreen from "../screens/notifications/NotificationListScreen";
+import VirtualTryOnSelectScreen from "../screens/virtual-tryon/VirtualTryOnSelectScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -56,6 +57,10 @@ function HomeStack() {
         component={PrescriptionOrderScreen}
       />
       <Stack.Screen name="VirtualTryOn" component={VirtualTryOnScreen} />
+      <Stack.Screen
+        name="VirtualTryOnSelect"
+        component={VirtualTryOnSelectScreen}
+      />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="AddressPicker" component={AddressPickerScreen} />
@@ -93,6 +98,10 @@ function CategoriesStack() {
       <Stack.Screen name="Search" component={SearchScreen} />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="VirtualTryOn" component={VirtualTryOnScreen} />
+      <Stack.Screen
+        name="VirtualTryOnSelect"
+        component={VirtualTryOnSelectScreen}
+      />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="AddressPicker" component={AddressPickerScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />

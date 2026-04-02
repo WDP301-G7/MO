@@ -14,6 +14,7 @@ import {
 import { WebView } from "react-native-webview";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+
 import { CommonActions } from "@react-navigation/native";
 import {
   createVNPayPayment,
@@ -127,57 +128,35 @@ export default function VNPayPaymentScreen({ navigation, route }) {
     }
   };
 
-  // Helper function to navigate to OrderDetail and reset HomeTab
+  // Helper function to navigate to OrderDetail after payment.
+  // Dispatch to navigation directly (not getParent) so the action bubbles
+  // up through any nested stack → Tab → Root Stack, where "MainApp" lives.
+  // The Root Stack resets to MainApp and the nested state seeds the Tab/Orders stack.
   const navigateToOrderDetail = (orderIdToNav) => {
-    // getParent() goes up from HomeStack → Tab Navigator
-    const tabNav = navigation.getParent();
-
-    if (!orderIdToNav) {
-      // No orderId, just navigate to Orders list
-      (tabNav || navigation).dispatch(
-        CommonActions.reset({
+    const ordersState = orderIdToNav
+      ? {
           index: 1,
           routes: [
-            {
-              name: "HomeTab",
-              state: {
-                routes: [{ name: "Home" }],
-                index: 0,
-              },
-            },
-            {
-              name: "OrdersTab",
-              state: {
-                routes: [{ name: "Orders" }],
-                index: 0,
-              },
-            },
+            { name: "Orders" },
+            { name: "OrderDetail", params: { orderId: orderIdToNav } },
           ],
-        }),
-      );
-      return;
-    }
+        }
+      : { index: 0, routes: [{ name: "Orders" }] };
 
-    // Reset navigation: HomeTab về Home, OrdersTab hiển thị OrderDetail
-    (tabNav || navigation).dispatch(
+    navigation.dispatch(
       CommonActions.reset({
-        index: 1,
+        index: 0,
         routes: [
           {
-            name: "HomeTab",
+            name: "MainApp",
             state: {
-              routes: [{ name: "Home" }],
-              index: 0,
-            },
-          },
-          {
-            name: "OrdersTab",
-            state: {
+              index: 2,
               routes: [
-                { name: "Orders" },
-                { name: "OrderDetail", params: { orderId: orderIdToNav } },
+                { name: "HomeTab" },
+                { name: "CategoriesTab" },
+                { name: "OrdersTab", state: ordersState },
+                { name: "ProfileTab" },
               ],
-              index: 1,
             },
           },
         ],
